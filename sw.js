@@ -2,14 +2,15 @@
    Zweck: Die App startet auch ohne Netz. Die Daten selbst liegen nicht hier,
    sondern im lokalen Speicher der App – hier liegt nur die Hülle.
    Bei jeder neuen Fassung die Versionsnummer erhöhen. */
-const VERSION = 'kc-v1.0.1';
+const VERSION = 'kc-v1.1.0';
 const HUELLE = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png',
-  './apple-touch-icon.png'
+  './apple-touch-icon.png',
+  './icon-maskable-512.png'
 ];
 
 self.addEventListener('install', e => {
