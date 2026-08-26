@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>KC Knüppeldick</title>
 <meta name="description" content="Strafen, Statuten und Auswertungen des KC Knüppeldick">
 <meta name="theme-color" content="#0E0C10">
@@ -45,6 +45,9 @@
 }
 :root{ --radius:14px; --shell:460px; font-family:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif; }
 *{box-sizing:border-box}
+/* Kein versehentliches Zoomen: weder mit zwei Fingern noch per Doppeltipp. */
+html{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%}
+button,a,summary,input,.row,.calcrow{touch-action:manipulation}
 body{margin:0;background:var(--ink);color:var(--text);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
 .shell{max-width:var(--shell);margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--ink);padding-top:env(safe-area-inset-top)}
 .demo-bar{background:#ECA8C1;color:#2A0F1C;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;text-align:center;padding:7px 14px}
@@ -103,12 +106,22 @@ h2.sec{font-family:'Archivo Black',sans-serif;font-size:15px;margin:4px 0 -6px;l
 .rank{display:flex;align-items:center;gap:12px;background:var(--surface);padding:12px 15px}
 .rank .pos{font-family:'Archivo Black',sans-serif;font-size:15px;color:var(--muted);width:22px;flex:none;font-variant-numeric:tabular-nums}
 .rank.first .pos{color:var(--accent)}
-.rank .name{flex:1;font-weight:600;font-size:14.5px}
+.rank .name{flex:1;min-width:0;font-weight:600;font-size:14.5px}
+.rank .rsub{font-weight:500;color:var(--muted);font-size:12px;margin-top:2px}
 .rank .val{font-family:'Archivo Black',sans-serif;font-variant-numeric:tabular-nums;font-size:15px;white-space:nowrap}
 .bar{height:4px;border-radius:99px;background:var(--line);margin-top:6px;overflow:hidden}
 .bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
 .note{font-size:12.5px;color:var(--muted);line-height:1.6}
 .iban{font-family:'Archivo Black',monospace;font-size:14px;letter-spacing:.05em;word-spacing:.15em;margin-top:6px}
+.zahl{display:flex;align-items:center;gap:12px;background:var(--surface);border-bottom:1px solid var(--line);padding:12px 15px;width:100%;border:none;border-bottom:1px solid var(--line);text-align:left;font-family:inherit;color:inherit;cursor:pointer}
+.zahl:last-of-type{border-bottom:none}
+.zahl .tx{flex:1;min-width:0}
+.zahl .tx b{display:block;font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.zahl .tx span{display:block;font-size:15px;font-weight:600;margin-top:3px;word-break:break-word}
+.zahl .tx span.mono{font-family:'Archivo Black',monospace;letter-spacing:.04em;font-size:14.5px}
+.zahl .cp{font-size:11.5px;font-weight:700;color:var(--accent);flex:none;letter-spacing:.04em;text-transform:uppercase}
+.zahl.ok .cp{color:var(--ok)}
+.zahl:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 
 .seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:4px}
 .seg button{background:none;border:none;color:var(--muted);font-family:inherit;font-weight:700;font-size:13.5px;padding:9px 6px;border-radius:10px;cursor:pointer}
@@ -232,7 +245,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
 .vault.open .big{font-size:26px;color:var(--accent)}
 .countdown{font-family:'Archivo Black',sans-serif;font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted);letter-spacing:.04em}
 
-.mystats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mystats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
 .mystats .stat b{font-size:19px;line-height:1.2}
 .mystats .stat .sub{margin-top:3px}
 
@@ -323,7 +336,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
           <p class="note" style="margin-top:16px">Wer welches Amt hat und was dazugehört.
             Zum Aufklappen antippen – der Erstgenannte hat das Amt, die anderen vertreten.</p>
           <p class="note ordenlegende"><svg class="orden big" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.4 3.2 10.7 9M15.6 3.2 13.3 9"/><circle cx="12" cy="15.2" r="5.9"/><circle cx="12" cy="15.2" r="2.1"/></svg>
-            <span>trägt einen Orden nach §6. Wer ihn nicht trägt, zahlt 5,00 €.</span></p>
+            <span>trägt einen Orden (§6) oder eine Medaille (§8). Wer sie nicht trägt, zahlt 5,00 €.</span></p>
           <div class="list" id="warteList" style="margin-top:14px"></div>
         </div>
         <div id="modeLeute" class="hidden">
@@ -340,6 +353,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
         <div class="chips" id="amtChips">
           <button data-view="dash" aria-pressed="true">Übersicht</button>
           <button data-view="vollen" aria-pressed="false">5 in die Vollen</button>
+          <button data-view="alle9" aria-pressed="false">alle 9</button>
           <button data-view="pumpen" aria-pressed="false">Pumpen</button>
           <button data-view="anwesenheit" aria-pressed="false">Anwesenheit</button>
           <button data-view="sonder" aria-pressed="false">Sonderwürfe</button>
@@ -444,7 +458,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 
 const LOGOS = {
   standard: {
@@ -481,6 +495,49 @@ const speicher = {
 };
 
 let D = null;          // aktuelle Daten vom Backend
+let PREISE = {};       // Strafart -> Einzelpreis, fuer die Anzahl-Rueckrechnung
+
+/* Gaeste ("Gast 1", "Gast 2") gehoeren nirgends in die App – sie haben keinen
+   Zugang, kein Amt und keine Saisonwertung. */
+const istGast = n => /^gast\b/i.test(String(n == null ? '' : n).trim());
+
+function ohneGaeste(d){
+  if (!d) return d;
+  const raus = x => x && istGast(x.n || x.name || x);
+  if (Array.isArray(d.mitglieder)) d.mitglieder = d.mitglieder.filter(m => !raus(m) && m.typ !== 'Gast');
+  if (Array.isArray(d.auswertung)) d.auswertung = d.auswertung.filter(r => !raus(r));
+  if (Array.isArray(d.codes))      d.codes      = d.codes.filter(c => !raus(c));
+  if (Array.isArray(d.aemter))     d.aemter.forEach(a => { if (Array.isArray(a.wer)) a.wer = a.wer.filter(w => !istGast(w)); });
+  const la = d.letzterAbend;
+  if (la){
+    if (la.teuerster && istGast(la.teuerster.n)) la.teuerster = null;
+    if (la.bester    && istGast(la.bester.n))    la.bester = null;
+    if (Array.isArray(la.sonder)) la.sonder = la.sonder.filter(s => !istGast(s.n));
+    if (Array.isArray(la.pumpen)) la.pumpen = la.pumpen.filter(p => !istGast(p.n));
+  }
+  return d;
+}
+
+const normStrafe = s => String(s == null ? '' : s).toLowerCase().replace(/\s+/g,' ').trim();
+function preiseMerken(){
+  PREISE = {};
+  (D && D.preise || []).forEach(p => {
+    const k = normStrafe(p.t), v = num(p.b);
+    if (k && v > 0 && !PREISE[k]) PREISE[k] = v;
+  });
+}
+
+/* Die Rohdaten fuehren pro Abend, Kegelbruder und Strafart nur EINE Zeile mit der
+   Summe – die Anzahl steckt im Betrag. Ueber den Einzelpreis holen wir sie zurueck.
+   Geht die Rechnung nicht glatt auf (z. B. "Ausgleich Abwesenheit"), bleibt es bei 1×. */
+function anzahlUndPreis(strafart, summe){
+  const p = PREISE[normStrafe(strafart)] || 0;
+  if (p > 0){
+    const genau = summe / p, ganz = Math.round(genau);
+    if (ganz >= 1 && Math.abs(genau - ganz) < 0.005) return { n: ganz, einzel: p };
+  }
+  return { n: 1, einzel: summe };
+}
 let token = speicher.lies('kc-token') || '';
 let online = true;
 
@@ -496,7 +553,8 @@ async function api(aktion, extra){
 }
 
 function datenMerken(d){
-  D = d;
+  D = ohneGaeste(d);
+  preiseMerken();
   speicher.schreib('kc-daten', JSON.stringify(d));
   speicher.schreib('kc-stand', new Date().toISOString());
 }
@@ -631,7 +689,7 @@ async function start(){
 
   const zwischen = speicher.lies('kc-daten');
   if (zwischen){
-    try { D = JSON.parse(zwischen); zeigeApp(); } catch(e){}
+    try { D = ohneGaeste(JSON.parse(zwischen)); preiseMerken(); zeigeApp(); } catch(e){}
   } else {
     zeigeAnsicht('view-laden');
   }
@@ -712,21 +770,59 @@ function zeichneStart(){
   }
 
   h += `<h2 class="sec" style="margin-top:24px">So zahlst du</h2>
-    <div class="card" style="margin-top:14px">
+    <p class="note">Überweisung von Hand – ein direkter Sprung in die Banking-App gibt es
+      leider nicht, dafür fehlt ein einheitlicher Standard. Tippe stattdessen ein Feld an,
+      dann liegt der Wert in der Zwischenablage und du fügst ihn drüben ein.</p>
+    <div class="list" style="margin-top:14px">${zahlfelder()}</div>
+    <div class="card" style="margin-top:12px">
       <div class="eyebrow">Kegelkasse${D.kasse.kontostand ? ' · Stand ' + esc(D.kasse.kontostand) : ''}</div>
-      <div class="iban">${esc(D.kasse.iban || 'IBAN nicht hinterlegt')}</div>
-      ${D.kasse.iban ? `<button class="btn ghost small" id="copyIban" style="margin-top:12px">IBAN kopieren</button>` : ''}
-      <p class="note" style="margin:14px 0 0">Strafen müssen bis zum nächsten Kegeln auf dem Konto
+      <p class="note" style="margin:8px 0 0">Strafen müssen bis zum nächsten Kegeln auf dem Konto
         sein (§4). Danach greift der Verspätungszuschlag nach §20.</p>
     </div>`;
 
   $('tab-start').innerHTML = h;
-  const k = $('copyIban');
-  if (k) k.addEventListener('click', e => {
-    navigator.clipboard && navigator.clipboard.writeText(String(D.kasse.iban).replace(/\s/g,''));
-    e.target.textContent = 'Kopiert';
-    setTimeout(() => e.target.textContent = 'IBAN kopieren', 1800);
+  const zf = $('zahlfelder');
+  if (zf) zf.addEventListener('click', e => {
+    const b = e.target.closest('button[data-kopie]'); if (!b) return;
+    kopiere(b.dataset.kopie, b);
   });
+}
+
+/* Empfaenger, IBAN, Betrag, Verwendungszweck – jedes Feld einzeln antippbar. */
+function zahlfelder(){
+  const felder = [];
+  const zweck = 'Strafen ' + D.ich.name;
+  if (D.kasse.iban) felder.push({ k:'Empfänger', v: D.kasse.inhaber || 'KC Knüppeldick', mono:false });
+  felder.push({ k:'IBAN', v: D.kasse.iban ? String(D.kasse.iban).replace(/\s/g,'').replace(/(.{4})/g,'$1 ').trim() : '',
+                kopie: String(D.kasse.iban || '').replace(/\s/g,''), mono:true });
+  felder.push({ k:'Betrag', v: eur(D.offen), kopie: (Number(D.offen)||0).toFixed(2).replace('.',','), mono:true });
+  felder.push({ k:'Verwendungszweck', v: zweck, mono:false });
+  const gueltig = felder.filter(f => f.v);
+  if (!gueltig.length) return `<div class="row"><div class="n">IBAN nicht hinterlegt.</div></div>`;
+  return `<div id="zahlfelder">${gueltig.map(f => `<button class="zahl" type="button" data-kopie="${esc(f.kopie != null ? f.kopie : f.v)}">
+    <div class="tx"><b>${esc(f.k)}</b><span class="${f.mono ? 'mono' : ''}">${esc(f.v)}</span></div>
+    <span class="cp">Kopieren</span></button>`).join('')}
+    <button class="zahl" type="button" data-kopie="${esc([D.kasse.inhaber || 'KC Knüppeldick', String(D.kasse.iban||'').replace(/\s/g,''), (Number(D.offen)||0).toFixed(2).replace('.',',') + ' EUR', zweck].join('\n'))}">
+      <div class="tx"><b>Alles zusammen</b><span>Empfänger, IBAN, Betrag und Zweck als Block</span></div>
+      <span class="cp">Kopieren</span></button></div>`;
+}
+
+function kopiere(text, knopf){
+  const fertig = () => {
+    const s = knopf.querySelector('.cp'); if (!s) return;
+    knopf.classList.add('ok'); s.textContent = 'Kopiert';
+    setTimeout(() => { knopf.classList.remove('ok'); s.textContent = 'Kopieren'; }, 1800);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(fertig, () => notfallKopie(text, fertig));
+  } else notfallKopie(text, fertig);
+}
+function notfallKopie(text, fertig){
+  const f = document.createElement('textarea');
+  f.value = text; f.setAttribute('readonly',''); f.style.position='fixed'; f.style.opacity='0';
+  document.body.appendChild(f); f.select();
+  try { document.execCommand('copy'); fertig(); } catch(e){}
+  document.body.removeChild(f);
 }
 
 function uhrMinus(hhmm){
@@ -741,12 +837,29 @@ function hl(ic, titel, text, wert){
     ${wert ? `<div class="vl">${wert}</div>` : ''}</div>`;
 }
 
+/* Pumpenkegel des Abends: wer an diesem Abend die meisten Pumpen hatte.
+   Das Backend liefert dafuer la.pumpen = [{n, v}, …]; fehlt das Feld, faellt die
+   Zeile ersatzlos weg statt einen Fehler zu werfen. */
+function pumpenkegelZeile(la){
+  const p = (la.pumpen || []).filter(x => Number(x.v) > 0);
+  if (!p.length) return '';
+  const max = Math.max.apply(null, p.map(x => Number(x.v)));
+  const wer = p.filter(x => Number(x.v) === max).map(x => x.n);
+  return hl('P', wer.length > 1 ? 'Pumpenkegel geteilt' : 'Pumpenkegel',
+    wer.join(' · ') + (wer.length > 1 ? ' – gleichauf' : ' hatte die meisten Pumpen'),
+    max + '×');
+}
+
 function rueckblick(la){
   const kopf = `<div class="group-head"><span>${esc(la.art)} ${dat(la.datum)}</span>
     <span>${la.anwesend ? la.anwesend + ' anwesend' : 'Anwesenheit nicht erfasst'}</span></div>`;
+  const schnitt = hl('Ø','Durchschnittsstrafe des Abends',
+    la.anwesend ? 'je Anwesender' : 'je Kegelbruder', eur(la.schnitt));
   if (D.ich.schriftfuehrer){
     return kopf +
       (la.teuerster ? hl('€','Teuerster Abend', la.teuerster.n + ' hat am meisten gesammelt', eur(la.teuerster.v)) : '') +
+      schnitt +
+      pumpenkegelZeile(la) +
       (la.haeufigste ? hl('×','Häufigste Strafe', la.haeufigste.t, la.haeufigste.n + '×') : '') +
       (la.bester ? hl('9','Bester Wurf', la.bester.n + ' bei 5 in die Vollen', la.bester.v + ' Holz') : '') +
       (la.sonder && la.sonder.length ? hl('!','Sonderwürfe', la.sonder.map(s=>s.n+' – '+s.t).join(' · '), '') : '') +
@@ -758,9 +871,10 @@ function rueckblick(la){
   const eintraege = fasseZusammen(la.eigeneEintraege || []);
   return kopf +
     hl('€','Dein Abend', eintraege.length ? '' : 'Keine Strafe kassiert', eur(la.eigeneSumme)) +
-    eintraege.map(x => hl(x.n + '×', x.t, '', eur(x.summe))).join('') +
+    eintraege.map(x => hl(x.n + '×', x.t, x.n > 1 ? 'je ' + eur(x.summe / x.n) : '', eur(x.summe))).join('') +
     (la.eigenerSonderwurf ? hl('!','Dein Sonderwurf', la.eigenerSonderwurf + ' – die anderen zahlen', '') : '') +
-    hl('Ø','Zum Vergleich','Schnitt aller Anwesenden an diesem Abend', eur(la.schnitt)) +
+    pumpenkegelZeile(la) +
+    schnitt +
     `<div class="row"><div><div class="n">Nur dein eigener Abend</div>
       <div class="m">Wer sonst was gezahlt hat, sieht nur der Schriftführer</div></div></div>`;
 }
@@ -769,7 +883,8 @@ function fasseZusammen(eintraege){
   const m = {};
   (eintraege||[]).forEach(e => {
     if (!m[e.t]) m[e.t] = { t: e.t, n: 0, summe: 0 };
-    m[e.t].n += 1; m[e.t].summe += e.e;
+    m[e.t].n += anzahlUndPreis(e.t, e.e).n;
+    m[e.t].summe += e.e;
   });
   return Object.keys(m).map(k => m[k]).sort((a,b) => b.summe - a.summe);
 }
@@ -899,7 +1014,7 @@ function zeichneRechner(rows){
   $('calcList').innerHTML = rows.map(s => {
     const key = s.p + '|' + s.t;
     return `<div class="calcrow"><div><div class="cn">${esc(s.t)}</div>
-      <div class="cp">${esc(s.p)} · ${esc(s.b)}</div></div>
+      <div class="cp">${esc(s.p)} · ${esc(preisText(s.b))}</div></div>
       <div class="stepper" data-key="${esc(key)}">
         <button type="button" data-d="-1" aria-label="weniger">–</button>
         <b class="${korb[key]?'on':''}">${korb[key]||0}</b>
@@ -954,15 +1069,32 @@ function ordenListe(){
   if (m){
     const gefunden = {};
     m[1].split(',').forEach(teil => {
-      const e = teil.match(/^\s*(\d+)\s*\.\s*([^(]+)/);
+      const e = teil.match(/^\s*(?:(\d+)\s*\.\s*)?([^(]+)/);
       if (!e) return;
       let k = amtSchluessel(e[2]);
+      if (!k) return;
       k = ORDEN_GLEICH[k] || k;
-      (gefunden[k] = gefunden[k] || []).push(Number(e[1]) - 1);
+      (gefunden[k] = gefunden[k] || []).push(e[1] ? Number(e[1]) - 1 : 0);
     });
+    ergaenzeMedaillen(gefunden);
     if (Object.keys(gefunden).length) return gefunden;
   }
-  return ORDEN_NOTNAGEL;
+  const notnagel = Object.assign({}, ORDEN_NOTNAGEL);
+  ergaenzeMedaillen(notnagel);
+  return notnagel;
+}
+
+/* Manche Ämter tragen keinen Orden nach §6, sondern eine Medaille nach ihrem eigenen
+   Paragraphen – z. B. der ADAC-Fahrradengel (§8). Erkannt wird das daran, dass der
+   Paragraph genauso heißt wie das Amt und das Tragen vorschreibt. */
+function ergaenzeMedaillen(ziel){
+  const aemter = {};
+  (D.aemter||[]).forEach(a => aemter[amtSchluessel(a.amt)] = true);
+  (D.statuten||[]).forEach(s => {
+    const k = amtSchluessel(s.t);
+    if (!k || !aemter[k] || ziel[k]) return;
+    if (/(medaille|orden)[^.]{0,80}trag/i.test(String(s.d||''))) ziel[k] = [0];
+  });
 }
 
 function zeichneWarte(){
@@ -975,11 +1107,11 @@ function zeichneWarte(){
       <summary>
         <div><span class="ttl">${esc(a.amt)}</span>
           <span class="wh">${wer.length ? esc(wer[0]) + (wer.length > 1 ? ' · +' + (wer.length-1) + ' Vertretung' : '') : 'nicht besetzt'}</span></div>
-        ${hatOrden ? `<span title="Trägt einen Orden nach §6">${ORDEN_SVG}</span>` : ''}
+        ${hatOrden ? `<span title="Trägt einen Orden oder eine Medaille">${ORDEN_SVG}</span>` : ''}
       </summary>
       <div class="body">
         <div class="who">${wer.length
-          ? wer.map((w,i) => `<span class="${i===0?'first':''}"${traegt(a.amt,i) ? ' title="Trägt einen Orden nach §6"' : ''}>${traegt(a.amt,i) ? ORDEN_SVG : ''}${esc(w)}</span>`).join('')
+          ? wer.map((w,i) => `<span class="${i===0?'first':''}"${traegt(a.amt,i) ? ' title="Trägt einen Orden oder eine Medaille"' : ''}>${traegt(a.amt,i) ? ORDEN_SVG : ''}${esc(w)}</span>`).join('')
           : '<span>nicht besetzt</span>'}</div>
         ${a.d ? `<p>${esc(a.d)}</p>` : ''}
       </div></details>`;
@@ -987,9 +1119,13 @@ function zeichneWarte(){
 }
 function zeichneMitglieder(){
   $('memberList').innerHTML = D.mitglieder.map(m => {
-    const ae = D.aemter.filter(a => a.wer[0] === m.name).map(a => a.amt);
+    const ae = [];
+    D.aemter.forEach(a => (a.wer || []).forEach((w, i) => {
+      if (w === m.name) ae.push({ pos: i + 1, amt: a.amt });
+    }));
+    ae.sort((x, y) => x.pos - y.pos);
     return `<div class="row"><div><div class="n">${esc(m.name)}</div>
-      <div class="m">${ae.length ? esc(ae.join(' · ')) : 'Kegelbruder'}</div></div></div>`;
+      <div class="m">${ae.length ? ae.map(x => esc(x.pos + '. ' + x.amt)).join(' · ') : 'Kegelbruder'}</div></div></div>`;
   }).join('');
 }
 function zeichneTermine(){
@@ -1021,11 +1157,14 @@ function bwBlock(titel, key, mehrIstBesser, fmt, fuss){
     </div>${fuss ? `<small>${esc(fuss)}</small>` : ''}</div>`;
 }
 
-function rangliste(list, key, fmt){
+/* Balken-Rangliste wie bei "5 in die Vollen"; sub() liefert optional eine
+   erklaerende Zeile unter dem Namen. */
+function rangliste(list, key, fmt, sub){
   const max = Math.max.apply(null, list.map(key)) || 1;
   return `<div class="list">${list.map((r,i) => `<div class="rank ${i===0?'first':''}">
     <div class="pos">${i+1}</div>
-    <div class="name">${esc(r.n)}<div class="bar"><i style="width:${Math.round(key(r)/max*100)}%"></i></div></div>
+    <div class="name">${esc(r.n)}${sub && sub(r) ? `<div class="rsub">${esc(sub(r))}</div>` : ''}
+      <div class="bar"><i style="width:${Math.round(Math.max(0,key(r))/max*100)}%"></i></div></div>
     <div class="val">${fmt(r)}</div></div>`).join('')}</div>`;
 }
 
@@ -1042,6 +1181,7 @@ const SICHTEN = {
       ${bwBlock('Strafen (Betrag)', r=>r.betrag, false, r=>eur(r.betrag))}
       ${bwBlock('Strafen (Anzahl)', r=>r.anzahl, false, r=>r.anzahl+'×')}
       ${bwBlock('Spenden', r=>r.spenden, true, r=>eur(r.spenden))}
+      ${bwBlock('alle 9', r=>r.alle9, true, r=>r.alle9+'×')}
       ${bwBlock('Sonderwürfe', gesamtSonder, true, r=>gesamtSonder(r)+'×')}
     </div>
     <div class="tworow" style="margin-top:16px">
@@ -1062,14 +1202,21 @@ const SICHTEN = {
     return `<p class="note" style="margin-top:16px">Punktesumme der Saison. Wer hier oben steht, ist Kegelkönig.</p>`
       + rangliste(l, r=>r.vollen, r=>r.vollen+' Holz');
   },
+  alle9(){
+    const l = (D.auswertung||[]).slice().sort((a,b)=>b.alle9-a.alle9);
+    if (!l.length) return `<p class="note" style="margin-top:16px">Noch keine Daten.</p>`;
+    return `<p class="note" style="margin-top:16px">Wer die meisten alle 9 geworfen hat.
+      Jeder Wurf kostet alle anderen 0,75 € – der Werfer selbst zahlt nichts.</p>`
+      + rangliste(l, r=>r.alle9, r=>r.alle9+'×',
+          r=>r.alle9 ? 'kostete die anderen ' + eur(r.alle9 * 0.75) + ' je Kegelbruder' : 'noch keiner');
+  },
   pumpen(){
     const l = (D.auswertung||[]).slice().sort((a,b)=>gesamtPumpen(b)-gesamtPumpen(a));
+    if (!l.length) return `<p class="note" style="margin-top:16px">Noch keine Daten.</p>`;
     return `<p class="note" style="margin-top:16px">Pumpenkönig ist, wer die meisten hat – hier ganz oben.
-      Abwesende bekommen den Abendschnitt zugeschrieben.</p>
-      <div class="list"><div class="group-head"><span>Kegelbruder</span><span>selbst · Ø · gesamt</span></div>
-      ${l.map((r,i)=>`<div class="row"><div><div class="n">${i+1}. ${esc(r.n)}</div>
-        <div class="m">${r.pumpenS} selbst · ${r.pumpenZ.toLocaleString('de-DE')} zugeschrieben</div></div>
-        <div class="v">${gesamtPumpen(r).toLocaleString('de-DE')}</div></div>`).join('')}</div>`;
+      Abwesende bekommen den Abendschnitt zugeschrieben.</p>`
+      + rangliste(l, gesamtPumpen, r=>gesamtPumpen(r).toLocaleString('de-DE')+'×',
+          r=>r.pumpenS + ' selbst · ' + r.pumpenZ.toLocaleString('de-DE') + ' zugeschrieben');
   },
   anwesenheit(){
     const l = (D.auswertung||[]).slice().sort((a,b)=>b.da-a.da);
@@ -1088,10 +1235,10 @@ const SICHTEN = {
   },
   strafen(){
     const l = (D.auswertung||[]).slice().sort((a,b)=>b.betrag-a.betrag);
-    return `<p class="note" style="margin-top:16px">Summe der Saison je Kegelbruder.</p>
-      <div class="list">${l.map((r,i)=>`<div class="row"><div><div class="n">${i+1}. ${esc(r.n)}</div>
-        <div class="m">${r.anzahl} Strafen${r.anzahl?' · Ø '+eur(r.betrag/r.anzahl):''}</div></div>
-        <div class="v">${eur(r.betrag)}</div></div>`).join('')}</div>`;
+    if (!l.length) return `<p class="note" style="margin-top:16px">Noch keine Daten.</p>`;
+    return `<p class="note" style="margin-top:16px">Summe der Saison je Kegelbruder.</p>`
+      + rangliste(l, r=>r.betrag, r=>eur(r.betrag),
+          r=>r.anzahl ? r.anzahl + ' Strafen · Ø ' + eur(r.betrag/r.anzahl) : 'keine Strafe');
   },
   spenden(){
     const l = (D.auswertung||[]).filter(r=>r.spenden>0).sort((a,b)=>b.spenden-a.spenden);
