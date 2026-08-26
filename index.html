@@ -458,7 +458,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 
 const LOGOS = {
   standard: {
@@ -853,8 +853,12 @@ function pumpenkegelZeile(la){
 function rueckblick(la){
   const kopf = `<div class="group-head"><span>${esc(la.art)} ${dat(la.datum)}</span>
     <span>${la.anwesend ? la.anwesend + ' anwesend' : 'Anwesenheit nicht erfasst'}</span></div>`;
-  const schnitt = hl('Ø','Durchschnittsstrafe des Abends',
-    la.anwesend ? 'je Anwesender' : 'je Kegelbruder', eur(la.schnitt));
+  // Backend 1.2 liefert den Abendschnitt nur an Kegelbrüder, nicht an den
+  // Schriftführer. Fehlt er, bleibt die Zeile weg statt "0,00 €" zu behaupten.
+  const schnitt = typeof la.schnitt === 'number' && la.schnitt > 0
+    ? hl('Ø','Durchschnittsstrafe des Abends',
+        la.anwesend ? 'je Anwesender' : 'je Kegelbruder', eur(la.schnitt))
+    : '';
   if (D.ich.schriftfuehrer){
     return kopf +
       (la.teuerster ? hl('€','Teuerster Abend', la.teuerster.n + ' hat am meisten gesammelt', eur(la.teuerster.v)) : '') +
