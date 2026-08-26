@@ -427,7 +427,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 
 const LOGOS = {
   standard: {
@@ -447,6 +447,7 @@ const num = s => { const n = parseFloat(String(s).replace(/[^\d,.-]/g,'').replac
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const dat = iso => { const t=String(iso||'').split('-'); return t.length===3 ? t[2]+'.'+t[1]+'.'+t[0] : String(iso||''); };
 const datKurz = iso => { const t=String(iso||'').split('-'); return t.length===3 ? t[2]+'.'+t[1]+'.' : ''; };
+const plural = (n, eins, viele) => n === 1 ? '1 ' + eins : n + ' ' + viele;
 const WOCHENTAG = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
 const wochentag = iso => { const d=new Date(iso+'T12:00:00'); return isNaN(d)?'':WOCHENTAG[d.getDay()]; };
 
@@ -650,7 +651,7 @@ function zeichneStart(){
   let h = `<div class="card">
       <div class="eyebrow">Deine offenen Strafen</div>
       <div class="amount ${D.offen > 0 ? '' : 'zero'}">${eur(D.offen)}</div>
-      <div class="sub">${D.meineTermine.filter(x=>!x.bezahlt).length} Termine offen · ${esc(standText())}</div>
+      <div class="sub">${plural(D.meineTermine.filter(x=>!x.bezahlt).length,'Termin offen','Termine offen')} · ${esc(standText())}</div>
     </div>
 
     <div class="tworow" style="margin-top:20px">
@@ -717,7 +718,7 @@ function hl(ic, titel, text, wert){
 
 function rueckblick(la){
   const kopf = `<div class="group-head"><span>${esc(la.art)} ${dat(la.datum)}</span>
-    <span>${la.anwesend} da</span></div>`;
+    <span>${la.anwesend ? la.anwesend + ' anwesend' : 'Anwesenheit nicht erfasst'}</span></div>`;
   if (D.ich.schriftfuehrer){
     return kopf +
       (la.teuerster ? hl('€','Teuerster Abend', la.teuerster.n + ' hat am meisten gesammelt', eur(la.teuerster.v)) : '') +
@@ -812,7 +813,7 @@ function zeichneStrafen(){
       <div class="stat"><div class="eyebrow">Saison gesamt</div><b>${eur(gesamt)}</b>
         <div class="sub">davon ${eur(bezahlt)} bezahlt</div></div>
       <div class="stat"><div class="eyebrow">Termine</div><b>${alle.length}</b>
-        <div class="sub">${offen.length} noch offen</div></div>
+        <div class="sub">${offen.length === 1 ? '1 noch offen' : offen.length + ' noch offen'}</div></div>
     </div>`;
 
   if (nachArt.length){
