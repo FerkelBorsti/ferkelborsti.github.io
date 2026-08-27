@@ -471,7 +471,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.6.1';
 
 const LOGOS = {
   standard: {
@@ -500,6 +500,24 @@ const datKurz = iso => { const t=String(iso||'').split('-'); return t.length===3
 const plural = (n, eins, viele) => n === 1 ? '1 ' + eins : n + ' ' + viele;
 // Zahlen immer deutsch: 19,5 statt 19.5
 const zahlText = n => (Number(n)||0).toLocaleString('de-DE',{maximumFractionDigits:2});
+
+/* Datumszellen aus der Tabelle kommen als roher JavaScript-Text an, wenn das
+   Backend sie nicht formatiert: "Thu Aug 27 2026 11:15:47 GMT+0200 (…)".
+   Das wird hier in dieselbe Form gebracht wie der Stand der offenen Strafen,
+   damit beide Karten gleich aussehen – auch mit einem älteren Backend. */
+function standAusTabelle(wert){
+  const t = String(wert == null ? '' : wert).trim();
+  if (!t) return '';
+  const MON = { Jan:'01', Feb:'02', Mar:'03', Apr:'04', May:'05', Jun:'06',
+                Jul:'07', Aug:'08', Sep:'09', Oct:'10', Nov:'11', Dec:'12' };
+  // "Thu Aug 27 2026 11:15:47 GMT+0200 (…)" – Bestandteile direkt auslesen statt
+  // über new Date() zu gehen. Sonst rechnet das Gerät die Zeitzone um und aus
+  // Mitternacht in Berlin wird auf einem Gerät weiter westlich der Vortag.
+  const m = t.match(/^\w{3}\s+(\w{3})\s+(\d{1,2})\s+(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
+  if (!m || !MON[m[1]]) return t;
+  const datum = ('0' + m[2]).slice(-2) + '.' + MON[m[1]] + '.' + m[3];
+  return (m[4] && (m[4] !== '00' || m[5] !== '00')) ? datum + ', ' + m[4] + ':' + m[5] + ' Uhr' : datum;
+}
 const WOCHENTAG = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
 const wochentag = iso => { const d=new Date(iso+'T12:00:00'); return isNaN(d)?'':WOCHENTAG[d.getDay()]; };
 
@@ -860,7 +878,7 @@ function zeichneStart(){
     <div class="card" style="margin-top:12px">
       <div class="eyebrow">Kegelkasse</div>
       <div class="kassenstand">${esc(preisText(D.kasse.kontostand) || 'kein Stand hinterlegt')}</div>
-      ${D.kasse.stand ? `<div class="sub">Stand ${esc(D.kasse.stand)}</div>` : ''}
+      ${D.kasse.stand ? `<div class="sub">Stand ${esc(standAusTabelle(D.kasse.stand))}</div>` : ''}
       <p class="note" style="margin:12px 0 0">Strafen müssen bis zum nächsten Kegeln auf dem Konto
         sein (§4). Danach greift der Verspätungszuschlag nach §20.</p>
     </div>`;
