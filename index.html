@@ -356,7 +356,9 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
           <div class="list" id="memberList" style="margin-top:16px"></div>
         </div>
         <div id="modeTermine" class="hidden">
+          <button class="btn ghost small hidden" id="terminNeu" style="margin-top:16px">Termin anlegen</button>
           <div class="list" id="terminList" style="margin-top:16px"></div>
+          <p class="note hidden" id="terminHinweis" style="margin-top:10px">Termine legt der Kegelvater an – das Strafenblatt dazu bleibt Sache des Schriftführers.</p>
         </div>
       </section>
 
@@ -400,6 +402,58 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
         <svg viewBox="0 0 24 24"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"/></svg>Amt
       </button>
     </nav>
+  </div>
+
+  <!-- TERMIN ANLEGEN / ÄNDERN -->
+  <div class="sheet hidden" id="terminSheet" role="dialog" aria-label="Termin">
+    <div class="sheet-in">
+      <div class="sheet-head">
+        <h2 id="terminTitel">Termin anlegen</h2>
+        <button class="iconbtn" id="terminSchliessen" aria-label="Schließen">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <div>
+        <div class="eyebrow" style="margin-bottom:10px">Art</div>
+        <div class="seg" id="terminArt">
+          <button data-art="Kegelabend" aria-pressed="true">Kegelabend</button>
+          <button data-art="Veranstaltung" aria-pressed="false">Veranstaltung</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="eyebrow" style="margin-bottom:10px">Datum</div>
+        <input class="search" type="date" id="terminDatum" aria-label="Datum">
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div class="eyebrow" style="margin-bottom:10px">Beginn</div>
+          <input class="search" type="time" id="terminBeginn" aria-label="Beginn">
+        </div>
+        <div>
+          <div class="eyebrow" style="margin-bottom:10px">Ende</div>
+          <input class="search" type="time" id="terminEnde" aria-label="Ende">
+        </div>
+      </div>
+
+      <div>
+        <div class="eyebrow" style="margin-bottom:10px">Bezeichnung</div>
+        <input class="search" id="terminBez" placeholder="z. B. Frühschoppen" maxlength="80" aria-label="Bezeichnung">
+        <p class="note" style="margin-top:8px" id="terminBezNote">Bei einem Kegelabend darf das Feld leer bleiben.</p>
+      </div>
+
+      <div>
+        <div class="eyebrow" style="margin-bottom:10px">Ort</div>
+        <input class="search" id="terminOrt" placeholder="z. B. Gaststätte Warburg" maxlength="80" aria-label="Ort">
+      </div>
+
+      <p class="note hidden" id="terminFehler" style="color:var(--accent);font-weight:600"></p>
+
+      <button class="btn" id="terminSpeichern">Speichern</button>
+      <button class="btn ghost hidden" id="terminLoeschen">Termin löschen</button>
+    </div>
   </div>
 
   <!-- EINSTELLUNGEN -->
@@ -471,7 +525,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.6.1';
+const APP_VERSION = '1.7.0';
 
 const LOGOS = {
   standard: {
@@ -1280,17 +1334,156 @@ function zeichneMitglieder(){
       <div class="m">${ae.length ? ae.map(x => esc(x.pos + '. ' + x.amt)).join(' · ') : 'Kegelbruder'}</div></div></div>`;
   }).join('');
 }
+/* Wer Termine pflegen darf, entscheidet allein das Backend (1. und 2. Kegelvater
+   sowie der Schriftführer). Die Regel wird hier bewusst NICHT nachgebaut – sonst
+   gäbe es zwei Stellen, die auseinanderlaufen können.
+   Der Rückfall auf "schriftfuehrer" greift nur, solange noch ein Backend älter
+   als 1.9 antwortet, das das Feld gar nicht mitschickt. */
+function darfTerminePflegen(){
+  if (!D.ich) return false;
+  return D.ich.darfTermine === undefined ? !!D.ich.schriftfuehrer : !!D.ich.darfTermine;
+}
+
 function zeichneTermine(){
   const heute = D.heute;
+  const darf = darfTerminePflegen();
+  $('terminNeu').classList.toggle('hidden', !darf);
+  $('terminHinweis').classList.toggle('hidden', !darf);
   $('terminList').innerHTML = D.termine.map(t => {
     const vorbei = t.datum < heute;
+    const naechster = !vorbei && t.datum === (D.naechsterTermin||{}).datum;
+    const rechts = (naechster ? '<span class="pill open">als Nächstes</span>' : '')
+      + (darf && !vorbei ? `<button class="btn ghost small" data-termin="${esc(t.datum)}" data-art="${esc(t.art)}">Ändern</button>` : '');
     return `<div class="row" style="${vorbei ? 'opacity:.55' : ''}">
       <div><div class="n">${esc(t.bezeichnung || t.art)}</div>
         <div class="m">${esc(wochentag(t.datum))}, ${dat(t.datum)}${t.beginn ? ' · ' + esc(t.beginn) : ''}${t.ort ? ' · ' + esc(t.ort) : ''}</div></div>
-      ${!vorbei && t.datum === (D.naechsterTermin||{}).datum ? '<span class="pill open">als Nächstes</span>' : ''}
+      ${rechts ? '<div style="display:flex;align-items:center;gap:8px;flex:none">' + rechts + '</div>' : ''}
     </div>`;
   }).join('');
 }
+
+/* ------------------------------------------------------ Termin anlegen */
+/* terminAlt === null  -> neuer Termin
+   terminAlt === {datum, art} -> bestehender Termin, so wie er im Blatt steht.
+   Datum + Art sind der Schlüssel, das Blatt "Termine" hat keine ID-Spalte. */
+let terminAlt = null;
+
+function terminArtAktiv(){
+  const b = document.querySelector('#terminArt button[aria-pressed="true"]');
+  return b ? b.dataset.art : 'Kegelabend';
+}
+
+function terminArtSetzen(art){
+  document.querySelectorAll('#terminArt button').forEach(b =>
+    b.setAttribute('aria-pressed', b.dataset.art === art));
+  $('terminBezNote').textContent = art === 'Kegelabend'
+    ? 'Bei einem Kegelabend darf das Feld leer bleiben.'
+    : 'Eine Veranstaltung braucht eine Bezeichnung.';
+}
+
+function terminFehler(text){
+  const e = $('terminFehler');
+  e.textContent = text || '';
+  e.classList.toggle('hidden', !text);
+}
+
+function terminSheetOeffnen(alt){
+  terminAlt = alt || null;
+  const t = alt ? (D.termine.filter(x => x.datum === alt.datum && x.art === alt.art)[0] || {}) : {};
+  $('terminTitel').textContent = alt ? 'Termin ändern' : 'Termin anlegen';
+  terminArtSetzen(t.art || 'Kegelabend');
+  $('terminDatum').value  = t.datum || '';
+  $('terminBeginn').value = t.beginn || '';
+  $('terminEnde').value   = t.ende || '';
+  $('terminBez').value    = t.bezeichnung || '';
+  $('terminOrt').value    = t.ort || '';
+  const l = $('terminLoeschen');
+  l.classList.toggle('hidden', !alt);
+  l.textContent = 'Termin löschen';
+  l.dataset.sicher = '';
+  terminFehler('');
+  $('terminSheet').classList.remove('hidden');
+  window.scrollTo({top:0});
+}
+
+function terminSheetSchliessen(){
+  $('terminSheet').classList.add('hidden');
+  terminAlt = null;
+}
+
+/* Der Server schickt die vollständige Terminliste zurück. Der nächste Termin
+   wird hier nach derselben Regel bestimmt wie im Backend: der erste, der nicht
+   in der Vergangenheit liegt. */
+function termineUebernehmen(liste){
+  D.termine = liste;
+  D.naechsterTermin = liste.filter(t => t.datum >= D.heute)[0] || null;
+  speicher.schreib('kc-daten', JSON.stringify(D));
+  zeichneTermine();
+  zeichneStart();
+}
+
+async function terminSenden(aktion, nutzlast, knopf, beschriftung){
+  knopf.disabled = true;
+  knopf.textContent = 'Moment …';
+  try {
+    const r = await api(aktion, Object.assign({ token: token }, nutzlast), API_VERSUCHE);
+    if (r.fehler){ terminFehler(r.fehler); return false; }
+    termineUebernehmen(r.termine || D.termine);
+    terminSheetSchliessen();
+    return true;
+  } catch (e){
+    terminFehler('Keine Verbindung – der Termin wurde nicht gespeichert.');
+    return false;
+  } finally {
+    knopf.disabled = false;
+    knopf.textContent = beschriftung;
+  }
+}
+
+$('terminNeu').addEventListener('click', () => terminSheetOeffnen(null));
+$('terminSchliessen').addEventListener('click', terminSheetSchliessen);
+$('terminArt').addEventListener('click', e => {
+  const b = e.target.closest('button[data-art]'); if (!b) return;
+  terminArtSetzen(b.dataset.art);
+});
+$('terminList').addEventListener('click', e => {
+  const b = e.target.closest('button[data-termin]'); if (!b) return;
+  terminSheetOeffnen({ datum: b.dataset.termin, art: b.dataset.art });
+});
+
+$('terminSpeichern').addEventListener('click', async () => {
+  const daten = {
+    datum: $('terminDatum').value,
+    beginn: $('terminBeginn').value,
+    ende: $('terminEnde').value,
+    art: terminArtAktiv(),
+    bezeichnung: $('terminBez').value.trim(),
+    ort: $('terminOrt').value.trim()
+  };
+  if (!daten.datum){ terminFehler('Bitte ein Datum wählen.'); return; }
+  if (daten.art === 'Veranstaltung' && !daten.bezeichnung){
+    terminFehler('Eine Veranstaltung braucht eine Bezeichnung.'); return;
+  }
+  const ok = await terminSenden(
+    terminAlt ? 'terminAendern' : 'terminAnlegen',
+    { termin: daten, alt: terminAlt },
+    $('terminSpeichern'), 'Speichern');
+  if (ok) hinweisleiste(terminAlt ? 'Termin geändert.' : 'Termin angelegt.');
+});
+
+/* Zwei Stufen statt eines Browser-Dialogs: der erste Druck fragt nach,
+   der zweite löscht. */
+$('terminLoeschen').addEventListener('click', async () => {
+  const l = $('terminLoeschen');
+  if (l.dataset.sicher !== 'ja'){
+    l.dataset.sicher = 'ja';
+    l.textContent = 'Wirklich löschen?';
+    return;
+  }
+  if (!terminAlt) return;
+  const ok = await terminSenden('terminLoeschen', { alt: terminAlt }, l, 'Termin löschen');
+  if (ok) hinweisleiste('Termin gelöscht.');
+});
 
 /* ---------------------------------------------------------- Auswertung */
 let aktuelleAmtSicht = 'dash';
