@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="KC Knüppeldick">
 <link rel="manifest" href="manifest.webmanifest">
+<script src="./kc-push-konfig.js"></script>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -54,6 +55,21 @@
 @media (prefers-color-scheme: light){
   :root[data-app-theme="auto"]{ color-scheme: light; }
 }
+
+/* Meldung in der App (wenn eine Benachrichtigung kommt, während die App offen ist) */
+.meldung{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));
+  max-width:calc(var(--shell) - 24px);margin:0 auto;z-index:15;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px 15px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.meldung .n{font-weight:700;font-size:15px}
+.meldung .m{color:var(--muted);font-size:13px;margin-top:4px;line-height:1.5}
+.meldungKnoepfe{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+
+/* Betragsfelder mit €-Zeichen am rechten Rand */
+.euro{position:relative}
+.euro input{padding-right:40px}
+.euro span{position:absolute;right:15px;top:50%;transform:translateY(-50%);
+  color:var(--muted);font-size:15px;pointer-events:none}
 
 /* Kasse */
 details.kasse{background:var(--surface);border-bottom:1px solid var(--line)}
@@ -185,7 +201,12 @@ details.para summary:focus-visible{outline:2px solid var(--accent);outline-offse
 .para .par{font-family:'Archivo Black',sans-serif;font-size:11px;color:var(--accent);letter-spacing:.06em;display:block;margin-bottom:3px}
 .para .ttl{font-weight:600;font-size:14.5px}
 .para .price{font-family:'Archivo Black',sans-serif;font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap;color:var(--text)}
-.para .price.zeichen{font-size:17px;line-height:1}
+.para .price.zeichen{font-size:17px;line-height:1;display:inline-flex;align-items:center}
+/* Bewusst nicht auf .price beschränkt: Das Zeichen taucht auch in der
+   aufgeklappten Unterliste von §4 auf, dort ohne .price-Umgebung – ohne diese
+   Regel bliebe es dort unsichtbar (im Test am 27.08.2026 genau so passiert). */
+svg.dm{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2.6;
+  stroke-linecap:round;display:inline-block;vertical-align:-5px}
 .para .body{padding:0 15px 15px;color:var(--muted);font-size:13.5px;line-height:1.65}
 .para[open] summary .ttl{color:var(--accent)}
 .para .items{margin:12px 0 0;border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:7px}
@@ -241,7 +262,13 @@ svg.orden.big{width:19px;height:19px}
 .bw small{display:block;color:var(--muted);font-size:11.5px;margin-top:8px}
 
 /* Einstellungen */
-.sheet{position:fixed;inset:0;background:var(--ink);z-index:20;overflow-y:auto;display:flex;justify-content:center}
+/* overscroll-behavior verhindert, dass die Wischgeste am Ende der Liste an die
+   Seite dahinter durchgereicht wird – auf dem iPhone bleibt das Scrollen sonst
+   hängen (Rückmeldung vom 27.08.2026). Die Sperre am body kommt zusätzlich aus
+   dem JavaScript, weil Safari die Seite dahinter sonst trotzdem mitbewegt. */
+.sheet{position:fixed;inset:0;background:var(--ink);z-index:20;overflow-y:auto;
+  -webkit-overflow-scrolling:touch;overscroll-behavior:contain;display:flex;justify-content:center}
+body.gesperrt{position:fixed;left:0;right:0;width:100%;overflow:hidden}
 .sheet-in{width:100%;max-width:var(--shell);padding:calc(22px + env(safe-area-inset-top)) 18px 60px;display:flex;flex-direction:column;gap:22px}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .sheet-head h2{font-family:'Archivo Black',sans-serif;font-size:20px;margin:0}
@@ -404,13 +431,13 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 
       <section id="tab-kasse" class="hidden">
         <h2 class="sec">Kasse</h2>
-        <p class="note" id="kasseKopf">Zahlungen, Kontostand, Ausgaben und Umlage-Reste. Alles, was du hier einträgst, gilt sofort.</p>
+        <p class="note" id="kasseKopf">Zahlungen, Kontostand, Ausgaben und sonstige Einnahmen. Alles, was du hier einträgst, gilt sofort.</p>
         <div class="chips" id="kasseChips">
           <button data-kasse="uebersicht" aria-pressed="true">Übersicht</button>
           <button data-kasse="offen" aria-pressed="false">Offene Beträge</button>
           <button data-kasse="konto" aria-pressed="false">Kontostand</button>
           <button data-kasse="ausgaben" aria-pressed="false">Ausgaben</button>
-          <button data-kasse="umlage" aria-pressed="false">Umlage</button>
+          <button data-kasse="umlage" aria-pressed="false">Einnahmen</button>
         </div>
         <div id="kasseBody"></div>
       </section>
@@ -458,6 +485,16 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
         <svg viewBox="0 0 24 24"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"/></svg>Amt
       </button>
     </nav>
+  </div>
+
+  <!-- MELDUNG, WENN DIE APP OFFEN IST -->
+  <div class="meldung hidden" id="meldung" role="status" aria-live="polite">
+    <div class="n" id="meldungTitel"></div>
+    <div class="m" id="meldungText"></div>
+    <div class="meldungKnoepfe">
+      <button class="btn ghost small" id="meldungSpaeter">Später</button>
+      <button class="btn small" id="meldungZeigen">Zeig mir</button>
+    </div>
   </div>
 
   <!-- TERMIN ANLEGEN / ÄNDERN -->
@@ -522,11 +559,24 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
         </button>
       </div>
 
+      <div id="pushBlock" class="hidden">
+        <div class="eyebrow" style="margin-bottom:10px">Benachrichtigungen</div>
+        <div class="list">
+          <div class="setrow">
+            <div><div class="lbl">Push auf dieses Gerät</div>
+              <div class="dsc" id="pushInfo"></div></div>
+            <button class="switch" id="pushSwitch" role="switch" aria-checked="false"
+                    aria-label="Push auf dieses Gerät"></button>
+          </div>
+        </div>
+        <p class="note hidden" id="pushHinweis" style="margin-top:10px"></p>
+      </div>
+
       <div id="freigabenBlock" class="hidden">
         <div class="eyebrow" style="margin-bottom:10px">Freigaben</div>
         <div class="list" id="freigabenListe"></div>
-        <p class="note" style="margin-top:10px">Eine Einsicht gibt ausschließlich Leserechte –
-          geändert werden kann damit nichts.</p>
+        <p class="note" style="margin-top:10px" id="freigabenHinweis">Eine Einsicht gibt ausschließlich
+          Leserechte – geändert werden kann damit nichts.</p>
       </div>
 
       <div>
@@ -588,7 +638,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.10.1';
+const APP_VERSION = '1.12.0';
 
 const LOGOS = {
   standard: {
@@ -765,12 +815,22 @@ function standText(){
          d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) + ' Uhr';
 }
 
+/* Meldungen ohne "art" sind Bestätigungen ("Freigegeben.", "Termin angelegt.")
+   – die blenden sich nach ein paar Sekunden selbst aus. Warnungen bleiben
+   stehen, bis sie durch etwas anderes ersetzt werden: "Offline" oder "Daten
+   nicht geladen" wären sonst nach vier Sekunden weg, obwohl der Zustand bleibt. */
+let leistenUhr = null;
+const LEISTE_DAUER = 4000;
+
 function hinweisleiste(text, art){
   const b = $('topbar');
+  clearTimeout(leistenUhr);
   if (!text){ b.classList.add('hidden'); return; }
   b.className = 'topbar ' + (art || '');
   b.textContent = text;
+  b.onclick = null;
   b.classList.remove('hidden');
+  if (!art) leistenUhr = setTimeout(() => b.classList.add('hidden'), LEISTE_DAUER);
 }
 
 /* ---------------------------------------------------------- Darstellung */
@@ -954,6 +1014,9 @@ function zeigeApp(){
     zeichneAmt(aktuelleAmtSicht);
   }
   zeichneFreigaben();
+  zeichnePush();
+  pushEmpfangVorbereiten();
+  offenesZielNachholen();
 }
 
 /* -------------------------------------------------------------- Start */
@@ -1251,6 +1314,16 @@ function zeichneStrafen(){
 /* ----------------------------------------------------------- Statuten */
 /* Das Backend liefert Betraege als blanke Zahl. Hier wird daraus "5,00 €" –
    steht schon ein € oder ein Freitext drin, bleibt der Wert unveraendert. */
+/* U+2300 „⌀" fehlt in Archivo Black. Der Browser holt sich dann irgendeine
+   Ersatzschrift – dünn und zu klein, siehe Rückmeldung vom 27.08.2026. Deshalb
+   wird das Zeichen nicht gesetzt, sondern gezeichnet: gleiche Optik auf jedem
+   Gerät, skaliert mit und ist so kräftig wie der Rest der Preisspalte. */
+const DURCHMESSER_ZEICHEN = ['⌀', 'Ø', '∅'];
+const DURCHMESSER_SVG =
+  '<svg class="dm" viewBox="0 0 24 24" role="img" aria-label="Durchschnitt">' +
+  '<circle cx="12" cy="12" r="8"/><path d="M5.5 18.5 18.5 5.5"/></svg>';
+const istDurchmesser = b => DURCHMESSER_ZEICHEN.indexOf(String(b == null ? '' : b).trim()) >= 0;
+
 function preisText(b){
   const s = String(b == null ? '' : b).trim();
   if (!s || s.indexOf('€') >= 0) return s;
@@ -1266,10 +1339,12 @@ function zeichneStatuten(rows){
   if (!rows.length){ box.innerHTML = `<div class="row"><div class="n">Nichts gefunden.</div></div>`; return; }
   box.innerHTML = rows.map(s => `<details class="para">
     <summary><div><span class="par">${esc(s.p)}</span><span class="ttl">${esc(s.t)}</span></div>
-      ${s.b ? `<span class="price${/^[^\d]{1,2}$/.test(String(s.b).trim()) ? ' zeichen' : ''}">${esc(preisText(s.b))}</span>` : ''}</summary>
+      ${s.b ? (istDurchmesser(s.b)
+        ? `<span class="price zeichen">${DURCHMESSER_SVG}</span>`
+        : `<span class="price${/^[^\d]{1,2}$/.test(String(s.b).trim()) ? ' zeichen' : ''}">${esc(preisText(s.b))}</span>`) : ''}</summary>
     <div class="body">${esc(s.d)}
       ${s.items && s.items.length ? `<div class="items">${s.items.map(i =>
-        `<div>${esc(i.t)}<span>${esc(preisText(i.b))}</span></div>`).join('')}</div>` : ''}
+        `<div>${esc(i.t)}<span>${istDurchmesser(i.b) ? DURCHMESSER_SVG : esc(preisText(i.b))}</span></div>`).join('')}</div>` : ''}
     </div></details>`).join('');
 }
 $('statutSearch').addEventListener('input', e => {
@@ -1482,12 +1557,12 @@ function terminSheetOeffnen(alt){
   l.textContent = 'Termin löschen';
   l.dataset.sicher = '';
   terminFehler('');
-  $('terminSheet').classList.remove('hidden');
-  window.scrollTo({top:0});
+  ebene('terminSheet', true);
+  $('terminSheet').scrollTop = 0;
 }
 
 function terminSheetSchliessen(){
-  $('terminSheet').classList.add('hidden');
+  ebene('terminSheet', false);
   terminAlt = null;
 }
 
@@ -1631,8 +1706,7 @@ const SICHTEN = {
       <div class="stat"><div class="eyebrow">Strafen gesamt</div>
         <b>${eur(A.reduce((a,r)=>a+r.betrag,0))}</b><div class="sub">alle Kegelbrüder</div></div>
     </div>
-    <p class="note" style="margin-top:16px">Freigaben – auch die für Kegelkönig und Pumpenkönig –
-      liegen im Zahnrad oben rechts unter „Freigaben".</p>`;
+    `;
   },
   vollen(){
     const A = (D.auswertung||[]).slice();
@@ -1755,15 +1829,41 @@ $('tabs').addEventListener('click', e => {
   window.scrollTo({top:0});
 });
 
-$('openSettings').addEventListener('click', () => { $('standText').textContent = standText(); $('settings').classList.remove('hidden'); });
-$('closeSettings').addEventListener('click', () => $('settings').classList.add('hidden'));
-$('reloadBtn').addEventListener('click', () => { $('settings').classList.add('hidden'); hinweisleiste('Wird geladen …'); aktualisieren(true); });
-$('badge-small').addEventListener('click', () => $('lightbox').classList.remove('hidden'));
-$('showLogo').addEventListener('click', () => { $('settings').classList.add('hidden'); $('lightbox').classList.remove('hidden'); });
-$('lightbox').addEventListener('click', () => $('lightbox').classList.add('hidden'));
+/* Solange eine der Vollbild-Ebenen offen ist, wird die Seite dahinter
+   festgehalten. Ohne das scrollt Safari beim Wischen die Seite mit, das Sheet
+   bleibt hängen und man landet nach dem Schließen an einer anderen Stelle. */
+let gemerkteHoehe = 0;
+function ebenenOffen(){
+  return ['settings', 'terminSheet', 'lightbox']
+    .some(id => $(id) && !$(id).classList.contains('hidden'));
+}
+function hintergrundPruefen(){
+  const offen = ebenenOffen();
+  const gesperrt = document.body.classList.contains('gesperrt');
+  if (offen && !gesperrt){
+    gemerkteHoehe = window.scrollY || 0;
+    document.body.style.top = (-gemerkteHoehe) + 'px';
+    document.body.classList.add('gesperrt');
+  } else if (!offen && gesperrt){
+    document.body.classList.remove('gesperrt');
+    document.body.style.top = '';
+    window.scrollTo(0, gemerkteHoehe);
+  }
+}
+function ebene(id, zeigen){
+  $(id).classList.toggle('hidden', !zeigen);
+  hintergrundPruefen();
+}
+
+$('openSettings').addEventListener('click', () => { $('standText').textContent = standText(); ebene('settings', true); });
+$('closeSettings').addEventListener('click', () => ebene('settings', false));
+$('reloadBtn').addEventListener('click', () => { ebene('settings', false); hinweisleiste('Wird geladen …'); aktualisieren(true); });
+$('badge-small').addEventListener('click', () => ebene('lightbox', true));
+$('showLogo').addEventListener('click', () => { ebene('settings', false); ebene('lightbox', true); });
+$('lightbox').addEventListener('click', () => ebene('lightbox', false));
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  $('lightbox').classList.add('hidden'); $('settings').classList.add('hidden');
+  ebene('lightbox', false); ebene('settings', false);
 });
 window.addEventListener('online', () => { hinweisleiste(''); aktualisieren(); });
 window.addEventListener('offline', () => hinweisleiste('Offline – ' + standText(), 'warn'));
@@ -1894,13 +1994,13 @@ const KASSE_SICHTEN = {
         ${zeile('Eingegangen', 'bezahlte Strafen dieser Saison', eur(b.bezahlt))}
         ${zeile('Zahlungsquote', 'von ' + eur(b.gefordert) + ' gefordert', b.quote + ' %')}
         ${zeile('Spenden', 'auf Strafen aufgerundet', eur(b.spenden))}
-        ${zeile('Umlage-Reste', 'nach Feiern übrig geblieben', eur(b.umlage))}
+        ${zeile('Sonstige Einnahmen', 'Umlage-Reste und Ähnliches', eur(b.umlage))}
         ${zeile('Verspätungszuschläge', 'in den offenen Posten enthalten', eur(b.zuschlaege))}
       </div>
 
       <div class="list" style="margin-top:14px">
         ${zeile('Ausgaben', plural(b.ausgabenAnzahl, 'Eintrag', 'Einträge'), eur(b.ausgaben))}
-        ${zeile('Bewegung der Saison', 'Eingegangen + Spenden + Umlage − Ausgaben',
+        ${zeile('Bewegung der Saison', 'Eingegangen + Spenden + Einnahmen − Ausgaben',
                 (b.bewegung >= 0 ? '+ ' : '− ') + eur(Math.abs(b.bewegung)))}
       </div>
 
@@ -1977,8 +2077,8 @@ const KASSE_SICHTEN = {
     return `
       <div class="kassefeld">
         <div class="eyebrow">Kontostand</div>
-        <input class="search" id="kontoBetrag" inputmode="decimal" placeholder="z. B. 1234,56"
-               value="${esc(betragFuerFeld(betragAusText(k.kontostand)))}" aria-label="Kontostand">
+        <div class="euro"><input class="search" id="kontoBetrag" inputmode="decimal" placeholder="z. B. 1234,56"
+               value="${esc(betragFuerFeld(betragAusText(k.kontostand)))}" aria-label="Kontostand"><span>€</span></div>
       </div>
       <div class="kassefeld">
         <div class="eyebrow">Stand vom</div>
@@ -2003,7 +2103,7 @@ const KASSE_SICHTEN = {
       </div>
       <div class="kassefeld">
         <div class="eyebrow">Betrag</div>
-        <input class="search" id="ausgabeBetrag" inputmode="decimal" placeholder="z. B. 49,90" aria-label="Betrag">
+        <div class="euro"><input class="search" id="ausgabeBetrag" inputmode="decimal" placeholder="z. B. 49,90" aria-label="Betrag"><span>€</span></div>
       </div>
       <div class="kassefeld">
         <div class="eyebrow">Kategorie</div>
@@ -2032,27 +2132,28 @@ const KASSE_SICHTEN = {
     const liste = kasseD().umlage;
     const summe = Math.round(liste.reduce((s, u) => s + u.betrag, 0) * 100) / 100;
     return `
-      <p class="note" style="margin-top:16px">Was nach einer Feier von der Umlage übrig bleibt.</p>
+      <p class="note" style="margin-top:16px">Geld, das dem Verein außer den Strafen zufließt –
+        etwa der Rest einer Umlage nach einer Feier. Die Notiz sagt, woher es kommt, und ist deshalb Pflicht.</p>
       <div class="kassefeld">
         <div class="eyebrow">Datum</div>
         <input class="search" type="date" id="umlageDatum" value="${esc(D.heute)}" aria-label="Datum">
       </div>
       <div class="kassefeld">
         <div class="eyebrow">Betrag</div>
-        <input class="search" id="umlageBetrag" inputmode="decimal" placeholder="z. B. 12,50" aria-label="Betrag">
+        <div class="euro"><input class="search" id="umlageBetrag" inputmode="decimal" placeholder="z. B. 12,50" aria-label="Betrag"><span>€</span></div>
       </div>
       <div class="kassefeld">
         <div class="eyebrow">Notiz</div>
-        <input class="search" id="umlageNotiz" maxlength="120" placeholder="z. B. Sommerfest" aria-label="Notiz">
+        <input class="search" id="umlageNotiz" maxlength="120" placeholder="z. B. Umlage-Rest Sommerfest" aria-label="Notiz">
       </div>
       <p class="note kassefeld" id="umlageFehler"></p>
-      <button class="btn" id="umlageSpeichern" style="margin-top:12px">Umlage-Rest eintragen</button>
+      <button class="btn" id="umlageSpeichern" style="margin-top:12px">Einnahme eintragen</button>
 
       <div class="list" style="margin-top:22px"><div class="row">
-        <div><div class="n">Umlage-Reste gesamt</div><div class="m">${plural(liste.length, 'Eintrag', 'Einträge')}</div></div>
+        <div><div class="n">Einnahmen gesamt</div><div class="m">${plural(liste.length, 'Eintrag', 'Einträge')}</div></div>
         <div class="summe">${eur(summe)}</div></div></div>
       ${liste.length ? `<div class="list" style="margin-top:12px">${liste.slice(0, 20).map(u => `
-        <div class="row"><div><div class="n">${esc(u.notiz || 'Umlage-Rest')}</div>
+        <div class="row"><div><div class="n">${esc(u.notiz || 'ohne Notiz')}</div>
           <div class="m">${dat(u.datum)}</div></div>
           <div class="summe">${eur(u.betrag)}</div></div>`).join('')}</div>` : ''}`;
   }
@@ -2074,7 +2175,7 @@ function zeichneKasse(sicht){
     ? (D.ich && D.ich.nurLesenKasse
         ? 'Der Kassenwart hat dir als Stellvertreter Einsicht gegeben – ansehen ja, ändern nein.'
         : 'Der Kassenbericht dieser Saison, freigegeben vom Kassenwart.')
-    : 'Zahlungen, Kontostand, Ausgaben und Umlage-Reste. Alles, was du hier einträgst, gilt sofort.';
+    : 'Zahlungen, Kontostand, Ausgaben und sonstige Einnahmen. Alles, was du hier einträgst, gilt sofort.';
 
   $('kasseBody').innerHTML = KASSE_SICHTEN[aktuelleKasseSicht]();
 }
@@ -2177,10 +2278,14 @@ $('kasseBody').addEventListener('click', async e => {
 
   if (e.target.closest('#umlageSpeichern')){
     kasseFehler('umlageFehler', '');
+    if (!$('umlageNotiz').value.trim()){
+      kasseFehler('umlageFehler', 'Bitte eine Notiz angeben – sonst lässt sich die Einnahme später nicht zuordnen.');
+      return;
+    }
     const r = await kasseSenden('umlageAnlegen', {
       umlage: { datum: $('umlageDatum').value, betrag: $('umlageBetrag').value, notiz: $('umlageNotiz').value }
-    }, $('umlageSpeichern'), 'Umlage-Rest eintragen', 'umlageFehler');
-    if (r) hinweisleiste('Umlage-Rest eingetragen.');
+    }, $('umlageSpeichern'), 'Einnahme eintragen', 'umlageFehler');
+    if (r) hinweisleiste('Einnahme eingetragen.');
   }
 });
 
@@ -2194,11 +2299,15 @@ const FREIGABEN = [
   { k: 'gv', titel: 'Kegelkönig freigeben',
     dsc: 'Zeigt Kegelkönig und Pumpenkönig allen Kegelbrüdern. Gedacht für die Generalversammlung.' },
   { k: 'kasse', titel: 'Kassenbericht freigeben',
-    dsc: 'Zeigt allen Kegelbrüdern die Kassen-Übersicht. Summen, keine Namen.' },
+    dsc: 'Zeigt allen Kegelbrüdern die Kassen-Übersicht. Summen, keine Namen. Gedacht für die Generalversammlung.' },
   { k: 'einsichtAmt', titel: 'Einsicht für den 2. Schriftführer',
-    dsc: 'Dein Stellvertreter darf mitlesen: Auswertung und Abend-Rückblick, ohne Codeverwaltung. Ändern kann er nichts. Vor einer Abwesenheit setzen – im Ausfall kannst du den Schalter nicht mehr umlegen.' },
+    dsc: 'Dein Stellvertreter darf mitlesen: Auswertung und Abend-Rückblick, ohne Codeverwaltung. Ändern kann er nichts. Am besten vor einer Abwesenheit setzen.' },
   { k: 'einsichtKasse', titel: 'Einsicht für den 2. Kassenwart',
-    dsc: 'Dein Stellvertreter darf mitlesen: der Kassenbericht, kein Abhaken. Vor einer Abwesenheit setzen – im Ausfall kannst du den Schalter nicht mehr umlegen.' }
+    dsc: 'Dein Stellvertreter darf mitlesen: der Kassenbericht, kein Abhaken. Am besten vor einer Abwesenheit setzen.' },
+  { k: 'kvAmt', titel: 'Einsicht für die Kegelväter (Schriftführer)',
+    dsc: 'Beide Kegelväter dürfen den Bereich des Schriftführers mitlesen. Nur lesen.' },
+  { k: 'kvKasse', titel: 'Einsicht für die Kegelväter (Kasse)',
+    dsc: 'Beide Kegelväter dürfen den Kassenbericht mitlesen. Nur lesen.' }
 ];
 
 function zeichneFreigaben(){
@@ -2206,6 +2315,12 @@ function zeichneFreigaben(){
   const meine = FREIGABEN.filter(f => darf[f.k]);
   $('freigabenBlock').classList.toggle('hidden', !meine.length);
   if (!meine.length) return;
+
+  // Der Betreuer darf alles freigeben, sieht aber selbst nichts davon. Ohne den
+  // Hinweis wirkt es wie ein Fehler, dass die Bereiche bei ihm nicht auftauchen.
+  $('freigabenHinweis').textContent = (D.ich && D.ich.betreuer)
+    ? 'Du kannst alle Freigaben setzen, weil die App an dir hängt. Zu sehen bekommst du die freigegebenen Bereiche dadurch nicht – dafür braucht es das Amt.'
+    : 'Eine Einsicht gibt ausschließlich Leserechte – geändert werden kann damit nichts.';
 
   const stand = D.freigaben || {};
   $('freigabenListe').innerHTML = meine.map(f => {
@@ -2267,6 +2382,199 @@ $('freigabenListe').addEventListener('click', async e => {
     sw.disabled = false;
   }
 });
+
+/* ------------------------------------------------------------------ Push */
+/* Der geheime Teil liegt im Backend. Hier läuft nur: Erlaubnis holen, ein
+   Gerätekennzeichen von Firebase besorgen, es dem Backend melden – und
+   Nachrichten anzeigen, wenn die App gerade offen ist. */
+
+const FIREBASE_CDN = 'https://www.gstatic.com/firebasejs/10.12.2/';
+const pushKonfig = () => (self.KC_PUSH && self.KC_PUSH.projectId && self.KC_PUSH.vapidKey) ? self.KC_PUSH : null;
+const pushGeraet = () => speicher.lies('kc-push') || '';
+
+let firebaseBereit = null;
+
+function skriptLaden(url){
+  return new Promise((ok, fehl) => {
+    const s = document.createElement('script');
+    s.src = url; s.async = true;
+    s.onload = ok; s.onerror = () => fehl(new Error('nicht geladen: ' + url));
+    document.head.appendChild(s);
+  });
+}
+
+/* Erst laden, wenn jemand den Schalter umlegt – die zwei Firebase-Dateien
+   verzögern sonst jeden App-Start, obwohl sie fast nie gebraucht werden. */
+async function firebaseLaden(){
+  if (firebaseBereit) return firebaseBereit;
+  const k = pushKonfig();
+  if (!k) return Promise.resolve(false);
+  firebaseBereit = (async () => {
+    if (!window.firebase){
+      await skriptLaden(FIREBASE_CDN + 'firebase-app-compat.js');
+      await skriptLaden(FIREBASE_CDN + 'firebase-messaging-compat.js');
+    }
+    if (!firebase.apps.length) firebase.initializeApp(k);
+    return true;
+  })().catch(e => { console.warn('Firebase nicht geladen', e); firebaseBereit = null; return false; });
+  return firebaseBereit;
+}
+
+const istApple = () => /iPad|iPhone|iPod/.test(navigator.userAgent);
+const alsAppGestartet = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+function zeichnePush(){
+  const block = $('pushBlock');
+  const moeglich = !!pushKonfig() && D.pushMoeglich !== false && 'Notification' in window && 'serviceWorker' in navigator;
+  block.classList.toggle('hidden', !moeglich);
+  if (!moeglich) return;
+
+  const an = !!pushGeraet();
+  $('pushSwitch').setAttribute('aria-checked', an);
+  $('pushInfo').textContent = an
+    ? 'Dieses Gerät bekommt Meldungen zu Terminen und Freigaben.'
+    : 'Termine und Freigaben landen sonst nur in der App.';
+
+  // Auf dem iPhone stellt iOS Push ausschließlich zu, wenn die App über
+  // "Teilen → Zum Home-Bildschirm" installiert wurde. Im Safari-Tab bleibt der
+  // Schalter wirkungslos – das gehört dazugesagt, sonst sucht man den Fehler.
+  const hinweise = [];
+  if (istApple() && !alsAppGestartet()){
+    hinweise.push('Auf dem iPhone kommen Meldungen nur an, wenn die App über „Teilen → Zum Home-Bildschirm" installiert ist.');
+  }
+  if (Notification.permission === 'denied'){
+    hinweise.push('Dein Browser blockiert Meldungen für diese Seite. Das lässt sich nur in den Browser-Einstellungen wieder freigeben.');
+  }
+  $('pushHinweis').textContent = hinweise.join(' ');
+  $('pushHinweis').classList.toggle('hidden', !hinweise.length);
+}
+
+async function pushEinschalten(){
+  if (!(await firebaseLaden())) return { fehler: 'Der Benachrichtigungsdienst ließ sich nicht laden.' };
+
+  const erlaubnis = await Notification.requestPermission();
+  if (erlaubnis !== 'granted') return { fehler: 'Ohne Erlaubnis des Browsers geht es nicht.' };
+
+  const reg = await navigator.serviceWorker.ready;
+  let geraet;
+  try {
+    geraet = await firebase.messaging().getToken({
+      vapidKey: pushKonfig().vapidKey, serviceWorkerRegistration: reg });
+  } catch (e){
+    console.warn(e);
+    return { fehler: 'Dieses Gerät konnte nicht angemeldet werden.' };
+  }
+  if (!geraet) return { fehler: 'Dieses Gerät konnte nicht angemeldet werden.' };
+
+  const r = await api('pushAnmelden', { token: token, geraet: geraet }, API_VERSUCHE);
+  if (r.fehler) return r;
+  speicher.schreib('kc-push', geraet);
+  pushEmpfangVorbereiten();
+  return { ok: true };
+}
+
+async function pushAusschalten(){
+  const geraet = pushGeraet();
+  speicher.loesch('kc-push');
+  try {
+    if (await firebaseLaden()) await firebase.messaging().deleteToken();
+  } catch (e){ /* schon weg ist auch in Ordnung */ }
+  if (geraet) await api('pushAbmelden', { token: token, geraet: geraet }, API_VERSUCHE);
+  return { ok: true };
+}
+
+let empfangLaeuft = false;
+async function pushEmpfangVorbereiten(){
+  if (empfangLaeuft || !pushGeraet()) return;
+  if (!(await firebaseLaden())) return;
+  empfangLaeuft = true;
+  firebase.messaging().onMessage(m => meldungZeigen((m && m.data) || {}));
+}
+
+$('pushSwitch').addEventListener('click', async () => {
+  const sw = $('pushSwitch');
+  const ziel = sw.getAttribute('aria-checked') !== 'true';
+  sw.setAttribute('aria-checked', ziel);
+  const r = ziel ? await pushEinschalten() : await pushAusschalten();
+  if (r && r.fehler){
+    sw.setAttribute('aria-checked', !ziel);
+    $('pushHinweis').textContent = r.fehler;
+    $('pushHinweis').classList.remove('hidden');
+  } else {
+    hinweisleiste(ziel ? 'Benachrichtigungen sind an.' : 'Benachrichtigungen sind aus.');
+  }
+  zeichnePush();
+});
+
+/* ------------------------------------------------- Meldung in der App */
+/* Wenn die App offen ist, blendet weder iOS noch Android eine Systemmeldung
+   ein – man würde die Nachricht sonst schlicht verpassen. Deshalb hier eine
+   eigene Karte mit Nachfrage, statt ungefragt die Ansicht zu wechseln. */
+
+let meldungZiel = 'start';
+
+function meldungZeigen(d){
+  meldungZiel = d.ziel || 'start';
+  $('meldungTitel').textContent = d.titel || 'Neu in der App';
+  $('meldungText').textContent = (d.text || '') + ' Soll ich es dir zeigen?';
+  $('meldung').classList.remove('hidden');
+}
+
+function meldungSchliessen(){ $('meldung').classList.add('hidden'); }
+
+$('meldungSpaeter').addEventListener('click', meldungSchliessen);
+$('meldungZeigen').addEventListener('click', () => { meldungSchliessen(); zeigeZiel(meldungZiel); });
+
+/* --------------------------------------------------------- Deep-Link */
+/* Ein Ziel kann ankommen, bevor die Daten da sind (Tippen auf die Meldung
+   startet die App). Dann wird es gemerkt und nachgeholt, sobald die Ansicht
+   steht – sonst würde auf einen Reiter geklickt, den es noch nicht gibt. */
+
+let offenesZiel = '';
+
+function zeigeZiel(ziel){
+  if (!ziel) return;
+  if ($('app').classList.contains('hidden')){ offenesZiel = ziel; return; }
+
+  const reiter = { termine: 'verein', kasse: 'kasse', amt: 'amt', start: 'start' }[ziel] || 'start';
+  const knopf = document.querySelector('#tabs button[data-tab="' + reiter + '"]');
+  if (!knopf || knopf.classList.contains('hidden')){
+    hinweisleiste('Dieser Bereich ist für dich nicht freigeschaltet.', 'warn');
+    return;
+  }
+  knopf.click();
+
+  if (ziel === 'termine'){
+    const m = document.querySelector('#vereinSeg button[data-mode="termine"]');
+    if (m) m.click();
+  }
+  if (ziel === 'kasse'){
+    const c = document.querySelector('#kasseChips button[data-kasse="uebersicht"]');
+    if (c) c.click();
+  }
+  offenesZiel = '';
+}
+
+function offenesZielNachholen(){
+  if (offenesZiel) zeigeZiel(offenesZiel);
+}
+
+/* Beim Start: kam die App über einen Tipp auf eine Benachrichtigung? */
+(function () {
+  const p = new URLSearchParams(location.search);
+  const z = p.get('zeigen');
+  if (z){
+    offenesZiel = z;
+    // Die Adresse wieder aufräumen, sonst springt jedes Neuladen dorthin.
+    history.replaceState({}, '', location.pathname);
+  }
+})();
+
+if ('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data && e.data.typ === 'zeigen') zeigeZiel(e.data.ziel);
+  });
+}
 
 /* -------------------------------------------------- Service Worker */
 /* Warum das komplizierter aussieht als nötig:
