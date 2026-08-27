@@ -2,7 +2,7 @@
    Zweck: Die App startet auch ohne Netz. Die Daten selbst liegen nicht hier,
    sondern im lokalen Speicher der App – hier liegt nur die Hülle.
    Bei jeder neuen Fassung die Versionsnummer erhöhen. */
-const VERSION = 'kc-v1.6.0';
+const VERSION = 'kc-v1.6.1';
 const HUELLE = [
   './',
   './index.html',
