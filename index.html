@@ -44,6 +44,32 @@
   }
 }
 :root{ --radius:14px; --shell:460px; font-family:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif; }
+
+/* Kalender- und Uhr-Symbol in den Datums-/Uhrzeitfeldern sind native Bedienelemente
+   des Browsers. Ohne color-scheme malt der sie immer für hellen Grund – im dunklen
+   Design also dunkelgrau auf fast schwarz und damit praktisch unsichtbar.
+   Die drei Regeln folgen exakt derselben Logik wie die Farbpalette oben. */
+:root{ color-scheme: dark; }
+:root[data-app-theme="light"]{ color-scheme: light; }
+@media (prefers-color-scheme: light){
+  :root[data-app-theme="auto"]{ color-scheme: light; }
+}
+
+/* Datums- und Uhrzeitfelder auf dem iPhone.
+   Safari gibt diesen Feldern eine eigene, am Inhalt orientierte Mindestbreite und
+   ignoriert dabei width:100%. In einem Raster kommt hinzu, dass Rasterfelder von
+   Haus aus nicht unter ihre Inhaltsbreite schrumpfen (min-width:auto). Beides
+   zusammen ließ die Felder auf dem iPhone ineinander und über den rechten
+   Bildschirmrand hinauslaufen. Am PC fiel es nicht auf, dort ist genug Platz. */
+input[type="date"], input[type="time"]{
+  -webkit-appearance:none; appearance:none;
+  width:100%; min-width:0; max-width:100%;
+  height:46px; line-height:normal; text-align:left;
+}
+.feldpaar{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
+.feldpaar > *{ min-width:0; }
+/* Sicherheitsnetz: im Formular darf nichts breiter werden als das Formular. */
+.sheet-in input, .sheet-in .seg, .sheet-in .btn{ max-width:100%; }
 *{box-sizing:border-box}
 /* Kein versehentliches Zoomen: weder mit zwei Fingern noch per Doppeltipp. */
 html{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%}
@@ -427,7 +453,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
         <input class="search" type="date" id="terminDatum" aria-label="Datum">
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="feldpaar">
         <div>
           <div class="eyebrow" style="margin-bottom:10px">Beginn</div>
           <input class="search" type="time" id="terminBeginn" aria-label="Beginn">
@@ -441,7 +467,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
       <div>
         <div class="eyebrow" style="margin-bottom:10px">Bezeichnung</div>
         <input class="search" id="terminBez" placeholder="z. B. Frühschoppen" maxlength="80" aria-label="Bezeichnung">
-        <p class="note" style="margin-top:8px" id="terminBezNote">Bei einem Kegelabend darf das Feld leer bleiben.</p>
+        <p class="note" style="margin-top:8px" id="terminBezNote">Beim Kegelabend darf das Feld leer bleiben.</p>
       </div>
 
       <div>
@@ -525,7 +551,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.7.2';
 
 const LOGOS = {
   standard: {
@@ -1377,8 +1403,8 @@ function terminArtSetzen(art){
   document.querySelectorAll('#terminArt button').forEach(b =>
     b.setAttribute('aria-pressed', b.dataset.art === art));
   $('terminBezNote').textContent = art === 'Kegelabend'
-    ? 'Bei einem Kegelabend darf das Feld leer bleiben.'
-    : 'Eine Veranstaltung braucht eine Bezeichnung.';
+    ? 'Beim Kegelabend darf das Feld leer bleiben.'
+    : 'Pflichtfeld bei einer Veranstaltung.';
 }
 
 function terminFehler(text){
@@ -1753,20 +1779,56 @@ window.addEventListener('offline', () => hinweisleiste('Offline – ' + standTex
 })();
 
 /* -------------------------------------------------- Service Worker */
+/* Warum das komplizierter aussieht als nötig:
+   "uebernehmen" (skipWaiting) wirkt NICHT sofort. Die alte Fassung bleibt so
+   lange am Ruder, bis der neue Service Worker aktiv ist. Ein location.reload()
+   direkt hinter der Nachricht lädt deshalb noch einmal die ALTE Hülle – genau
+   so ist die App am 27.08.2026 auf 1.6.1 zurückgesprungen.
+   Richtig ist: auf 'controllerchange' warten und erst dann neu laden. */
 if ('serviceWorker' in navigator){
+  // Beim allerersten Start gibt es noch keinen Service Worker. Wenn der neue
+  // dann das Ruder übernimmt, ist nichts veraltet – ein Neuladen wäre nur ein
+  // sinnloses Flackern. Nachgeladen wird deshalb nur, wenn vorher schon einer lief.
+  const hatteVorgaenger = !!navigator.serviceWorker.controller;
+  let schonNeugeladen = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hatteVorgaenger || schonNeugeladen) return;
+    schonNeugeladen = true;   // Schutz gegen eine Endlosschleife aus Neuladen
+    location.reload();
+  });
+
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').then(reg => {
+
+      const anbieten = neu => {
+        if (!neu || !navigator.serviceWorker.controller) return;
+        const b = $('topbar');
+        b.className = 'topbar neu';
+        b.textContent = 'Neue Version verfügbar – tippen zum Laden';
+        b.classList.remove('hidden');
+        b.onclick = () => {
+          b.textContent = 'Wird geladen …';
+          neu.postMessage('uebernehmen');   // Neuladen passiert oben bei controllerchange
+        };
+      };
+
+      // Fall 1: Eine neue Fassung wartet schon, weil die App beim letzten Mal
+      // geschlossen wurde, bevor der Hinweis kam.
+      if (reg.waiting) anbieten(reg.waiting);
+
+      // Fall 2: Eine neue Fassung kommt, während die App offen ist.
       reg.addEventListener('updatefound', () => {
         const neu = reg.installing;
+        if (!neu) return;
         neu.addEventListener('statechange', () => {
-          if (neu.state === 'installed' && navigator.serviceWorker.controller){
-            const b = $('topbar');
-            b.className = 'topbar neu';
-            b.textContent = 'Neue Version verfügbar – tippen zum Laden';
-            b.classList.remove('hidden');
-            b.onclick = () => { neu.postMessage('uebernehmen'); location.reload(); };
-          }
+          if (neu.state === 'installed') anbieten(neu);
         });
+      });
+
+      // Auf dem Handy läuft die App tagelang im Hintergrund weiter. Ohne diesen
+      // Anstoß fragt der Browser oft erst nach einem echten Neustart nach.
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) reg.update().catch(()=>{});
       });
     }).catch(()=>{});
   });
