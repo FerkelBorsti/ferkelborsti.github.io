@@ -113,12 +113,13 @@ h2.sec{font-family:'Archivo Black',sans-serif;font-size:15px;margin:4px 0 -6px;l
 .bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
 .note{font-size:12.5px;color:var(--muted);line-height:1.6}
 .iban{font-family:'Archivo Black',monospace;font-size:14px;letter-spacing:.05em;word-spacing:.15em;margin-top:6px}
+.kassenstand{font-family:'Archivo Black',sans-serif;font-size:26px;line-height:1.1;margin-top:6px;font-variant-numeric:tabular-nums}
 .zahl{display:flex;align-items:center;gap:12px;background:var(--surface);border-bottom:1px solid var(--line);padding:12px 15px;width:100%;border:none;border-bottom:1px solid var(--line);text-align:left;font-family:inherit;color:inherit;cursor:pointer}
 .zahl:last-of-type{border-bottom:none}
 .zahl .tx{flex:1;min-width:0}
 .zahl .tx b{display:block;font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .zahl .tx span{display:block;font-size:15px;font-weight:600;margin-top:3px;word-break:break-word}
-.zahl .tx span.mono{font-family:'Archivo Black',monospace;letter-spacing:.04em;font-size:14.5px}
+.zahl .tx span.mono{font-variant-numeric:tabular-nums;letter-spacing:.03em}
 .zahl .cp{font-size:11.5px;font-weight:700;color:var(--accent);flex:none;letter-spacing:.04em;text-transform:uppercase}
 .zahl.ok .cp{color:var(--ok)}
 .zahl:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
@@ -142,6 +143,7 @@ details.para summary:focus-visible{outline:2px solid var(--accent);outline-offse
 .para .par{font-family:'Archivo Black',sans-serif;font-size:11px;color:var(--accent);letter-spacing:.06em;display:block;margin-bottom:3px}
 .para .ttl{font-weight:600;font-size:14.5px}
 .para .price{font-family:'Archivo Black',sans-serif;font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap;color:var(--text)}
+.para .price.zeichen{font-size:17px;line-height:1}
 .para .body{padding:0 15px 15px;color:var(--muted);font-size:13.5px;line-height:1.65}
 .para[open] summary .ttl{color:var(--accent)}
 .para .items{margin:12px 0 0;border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:7px}
@@ -266,6 +268,11 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 .jahr .leer{color:var(--muted);font-size:13px;line-height:1.6;padding-top:4px}
 .jahr .aktuell{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:99px;background:var(--accent-tint);color:var(--accent);flex:none}
 
+.ziehen{position:fixed;top:0;left:0;right:0;max-width:var(--shell);margin:0 auto;z-index:8;
+  display:flex;align-items:flex-end;justify-content:center;pointer-events:none;
+  color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  overflow:hidden;height:0;background:var(--ink)}
+.ziehen span{padding-bottom:8px}
 .topbar{padding:calc(9px + env(safe-area-inset-top)) 16px 9px;margin-top:calc(-1 * env(safe-area-inset-top));text-align:center;font-size:12.5px;font-weight:600;background:var(--surface-2);color:var(--muted);border-bottom:1px solid var(--line);cursor:default}
 .topbar.warn{background:var(--warn);color:#1B141E}
 .topbar.neu{background:var(--accent);color:#fff;cursor:pointer}
@@ -275,6 +282,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 </head>
 <body>
 <div class="shell">
+  <div class="ziehen" id="ziehen" aria-hidden="true"><span id="ziehenText"></span></div>
   <div class="topbar hidden" id="topbar"></div>
 
   <!-- ANMELDUNG -->
@@ -458,7 +466,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.4.0';
 
 const LOGOS = {
   standard: {
@@ -485,6 +493,8 @@ const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&l
 const dat = iso => { const t=String(iso||'').split('-'); return t.length===3 ? t[2]+'.'+t[1]+'.'+t[0] : String(iso||''); };
 const datKurz = iso => { const t=String(iso||'').split('-'); return t.length===3 ? t[2]+'.'+t[1]+'.' : ''; };
 const plural = (n, eins, viele) => n === 1 ? '1 ' + eins : n + ' ' + viele;
+// Zahlen immer deutsch: 19,5 statt 19.5
+const zahlText = n => (Number(n)||0).toLocaleString('de-DE',{maximumFractionDigits:2});
 const WOCHENTAG = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
 const wochentag = iso => { const d=new Date(iso+'T12:00:00'); return isNaN(d)?'':WOCHENTAG[d.getDay()]; };
 
@@ -749,7 +759,7 @@ function zeigeApp(){
   $('tabAmt').classList.toggle('hidden', !D.ich.schriftfuehrer);
   $('standText').textContent = standText();
   $('versionText').textContent = 'KC Knüppeldick · App ' + APP_VERSION + ' · Backend ' + (D.version||'?');
-  zeichneStart(); zeichneStrafen(); zeichneStatuten(D.statuten); zeichneRechner(D.preise);
+  zeichneStart(); zeichneStrafen(); zeichneStatuten(D.statuten); zeichneRechner(rechnerZeilen());
   zeichneWarte(); zeichneMitglieder(); zeichneTermine();
   if (D.ich.schriftfuehrer) zeichneAmt(aktuelleAmtSicht);
 }
@@ -783,7 +793,15 @@ function zeichneStart(){
   }
 
   if (la){
-    h += `<h2 class="sec" style="margin-top:24px">${D.ich.schriftfuehrer ? 'Der letzte Abend' : 'Dein letzter Abend'}</h2>
+    // Das Backend liefert dem Schriftführer nur die Vereinszahlen. Seinen eigenen
+    // Abend bauen wir aus meineTermine – dieselbe Quelle wie im Reiter "Strafen".
+    if (D.ich.schriftfuehrer && la.eigeneEintraege === undefined){
+      const meins = (D.meineTermine || []).filter(t => t.datum === la.datum)[0];
+      la.eigeneEintraege = meins ? meins.eintraege : [];
+      la.eigeneSumme = meins ? meins.summe : 0;
+      la.eigenerSonderwurf = (la.sonder || []).filter(s => s.n === D.ich.name).map(s => s.t)[0] || '';
+    }
+    h += `<h2 class="sec" style="margin-top:24px">${esc(la.art)} vom ${dat(la.datum)}</h2>
           <div class="list" style="margin-top:14px">${rueckblick(la)}</div>`;
   }
 
@@ -796,13 +814,14 @@ function zeichneStart(){
   }
 
   h += `<h2 class="sec" style="margin-top:24px">So zahlst du</h2>
-    <p class="note">Überweisung von Hand – ein direkter Sprung in die Banking-App gibt es
-      leider nicht, dafür fehlt ein einheitlicher Standard. Tippe stattdessen ein Feld an,
-      dann liegt der Wert in der Zwischenablage und du fügst ihn drüben ein.</p>
+    <p class="note">Überweise deine offenen Strafen an die Kegelkasse. Tippe ein Feld an,
+      dann liegt der Wert in der Zwischenablage.</p>
     <div class="list" style="margin-top:14px">${zahlfelder()}</div>
     <div class="card" style="margin-top:12px">
-      <div class="eyebrow">Kegelkasse${D.kasse.kontostand ? ' · Stand ' + esc(D.kasse.kontostand) : ''}</div>
-      <p class="note" style="margin:8px 0 0">Strafen müssen bis zum nächsten Kegeln auf dem Konto
+      <div class="eyebrow">Kegelkasse</div>
+      <div class="kassenstand">${esc(preisText(D.kasse.kontostand) || 'kein Stand hinterlegt')}</div>
+      ${D.kasse.stand ? `<div class="sub">Stand ${esc(D.kasse.stand)}</div>` : ''}
+      <p class="note" style="margin:12px 0 0">Strafen müssen bis zum nächsten Kegeln auf dem Konto
         sein (§4). Danach greift der Verspätungszuschlag nach §20.</p>
     </div>`;
 
@@ -817,7 +836,7 @@ function zeichneStart(){
 /* Empfaenger, IBAN, Betrag, Verwendungszweck – jedes Feld einzeln antippbar. */
 function zahlfelder(){
   const felder = [];
-  const zweck = 'Strafen ' + D.ich.name;
+  const zweck = 'Strafen Kegelverein';
   if (D.kasse.iban) felder.push({ k:'Empfänger', v: D.kasse.inhaber || 'KC Knüppeldick', mono:false });
   felder.push({ k:'IBAN', v: D.kasse.iban ? String(D.kasse.iban).replace(/\s/g,'').replace(/(.{4})/g,'$1 ').trim() : '',
                 kopie: String(D.kasse.iban || '').replace(/\s/g,''), mono:true });
@@ -877,38 +896,45 @@ function pumpenkegelZeile(la){
 }
 
 function rueckblick(la){
-  const kopf = `<div class="group-head"><span>${esc(la.art)} ${dat(la.datum)}</span>
-    <span>${la.anwesend ? la.anwesend + ' anwesend' : 'Anwesenheit nicht erfasst'}</span></div>`;
-  // Backend 1.2 liefert den Abendschnitt nur an Kegelbrüder, nicht an den
-  // Schriftführer. Fehlt er, bleibt die Zeile weg statt "0,00 €" zu behaupten.
+  const eigene = fasseZusammen(la.eigeneEintraege || []);
+  const eigeneSumme = la.eigeneSumme || 0;
+
+  // Block 1: der eigene Abend – für jeden gleich, auch für den Schriftführer.
+  let h = `<div class="group-head"><span>Dein Abend</span>
+      <span>${eur(eigeneSumme)}</span></div>` +
+    (eigene.length
+      ? eigene.map(x => hl(x.n + '×', x.t, x.n > 1 ? 'je ' + eur(x.summe / x.n) : '', eur(x.summe))).join('')
+      : hl('€','Keine Strafe kassiert','Sauberer Abend.','')) +
+    (la.eigenerSonderwurf ? hl('!','Dein Sonderwurf', la.eigenerSonderwurf + ' – die anderen zahlen', '') : '');
+
+  // Block 2: der ganze Abend.
+  h += `<div class="group-head"><span>Der ganze Abend</span>
+      <span>${la.anwesend ? la.anwesend + ' anwesend' : 'Anwesenheit nicht erfasst'}</span></div>`;
+
   const schnitt = typeof la.schnitt === 'number' && la.schnitt > 0
-    ? hl('Ø','Durchschnittsstrafe des Abends',
-        la.anwesend ? 'je Anwesender' : 'je Kegelbruder', eur(la.schnitt))
+    ? hl('Ø','Durchschnittsstrafe §17','Strafen der Anwesenden geteilt durch ihre Anzahl, aufgerundet auf 0,50 €', eur(la.schnitt))
     : '';
+
   if (D.ich.schriftfuehrer){
-    return kopf +
-      (la.teuerster ? hl('€','Teuerster Abend', la.teuerster.n + ' hat am meisten gesammelt', eur(la.teuerster.v)) : '') +
+    return h +
+      (la.teuerster ? hl('€','Teuerster Kegelbruder', la.teuerster.n + ' hat am meisten gesammelt', eur(la.teuerster.v)) : '') +
       schnitt +
       pumpenkegelZeile(la) +
       (la.haeufigste ? hl('×','Häufigste Strafe', la.haeufigste.t, la.haeufigste.n + '×') : '') +
       (la.bester ? hl('9','Bester Wurf', la.bester.n + ' bei 5 in die Vollen', la.bester.v + ' Holz') : '') +
       (la.sonder && la.sonder.length ? hl('!','Sonderwürfe', la.sonder.map(s=>s.n+' – '+s.t).join(' · '), '') : '') +
       `<div class="row"><div><div class="n">Kasseneingang des Abends</div>
-        <div class="m">alle Strafen zusammen</div></div><div class="v">${eur(la.summe)}</div></div>
+        <div class="m">alle Strafen zusammen, auch der Ausgleich der Abwesenden</div></div>
+        <div class="v">${eur(la.summe)}</div></div>
        <div class="row"><div><div class="n">Nur für dich sichtbar</div>
-        <div class="m">Die Kegelbrüder sehen hier ausschließlich ihren eigenen Abend</div></div></div>`;
+        <div class="m">Die Kegelbrüder sehen hier ausschließlich ihren eigenen Abend.</div></div></div>`;
   }
-  const eintraege = fasseZusammen(la.eigeneEintraege || []);
-  return kopf +
-    hl('€','Dein Abend', eintraege.length ? '' : 'Keine Strafe kassiert', eur(la.eigeneSumme)) +
-    eintraege.map(x => hl(x.n + '×', x.t, x.n > 1 ? 'je ' + eur(x.summe / x.n) : '', eur(x.summe))).join('') +
-    (la.eigenerSonderwurf ? hl('!','Dein Sonderwurf', la.eigenerSonderwurf + ' – die anderen zahlen', '') : '') +
+  return h +
     pumpenkegelZeile(la) +
     schnitt +
-    `<div class="row"><div><div class="n">Nur dein eigener Abend</div>
-      <div class="m">Wer sonst was gezahlt hat, sieht nur der Schriftführer</div></div></div>`;
+    `<div class="row"><div><div class="n">Mehr siehst du nicht</div>
+      <div class="m">Wer sonst was gezahlt hat, sieht nur der Schriftführer.</div></div></div>`;
 }
-
 function fasseZusammen(eintraege){
   const m = {};
   (eintraege||[]).forEach(e => {
@@ -921,20 +947,22 @@ function fasseZusammen(eintraege){
 
 function tresor(){
   if (D.gvFrei && D.koenige){
-    const k = D.koenige.kegel, p = D.koenige.pumpe;
+    const k = D.koenige.kegel, p = D.koenige.pumpe, n = D.koenige.alle9;
     return `<div class="eyebrow">Verkündet auf der Generalversammlung</div>
       <div class="big">${esc(k ? k.n : '–')}</div>
-      <div class="sub">Kegelkönig${k ? ' mit ' + k.v + ' Holz' : ''}</div>
+      <div class="sub">Kegelkönig${k ? ' mit ' + zahlText(k.v) + ' Holz' : ''}</div>
       ${p ? `<div class="sub" style="border-top:1px solid var(--line);padding-top:10px;width:100%">
-        Pumpenkönig: <strong style="color:var(--text)">${esc(p.n)}</strong> mit ${p.v} Pumpen</div>` : ''}`;
+        Pumpenkönig: <strong style="color:var(--text)">${esc(p.n)}</strong> mit ${zahlText(p.v)} Pumpen</div>` : ''}
+      ${n ? `<div class="sub" style="border-top:1px solid var(--line);padding-top:10px;width:100%">
+        König der alle 9: <strong style="color:var(--text)">${esc(n.n)}</strong> mit ${zahlText(n.v)}× alle 9</div>` : ''}`;
   }
   const ziel = new Date('2027-05-05T00:00:00');
   const tage = Math.max(0, Math.ceil((ziel - new Date()) / 86400000));
   return `<svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/>
       <path d="M8 10V7a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.3"/></svg>
     <div class="big">Noch unter Verschluss</div>
-    <div class="sub">Kegelkönig und Pumpenkönig werden auf der Generalversammlung
-      am 05.05.2027 verkündet – dann schaltet der Schriftführer sie hier frei.</div>
+    <div class="sub">Die Auswertung wird auf der Generalversammlung am 05.05.2027
+      verkündet – dann schaltet der Schriftführer sie hier frei.</div>
     <div class="countdown">noch ${tage} Tage</div>`;
 }
 
@@ -942,8 +970,9 @@ function ehrentafel(){
   const liste = (D.ehrentafel || []).slice();
   if (D.gvFrei && D.koenige){
     liste.unshift({ s:'2026/27', aktuell:true,
-      kegel: D.koenige.kegel ? { n: D.koenige.kegel.n, v: D.koenige.kegel.v + ' Holz' } : null,
-      pumpe: D.koenige.pumpe ? { n: D.koenige.pumpe.n, v: D.koenige.pumpe.v + ' Pumpen' } : null });
+      kegel: D.koenige.kegel ? { n: D.koenige.kegel.n, v: zahlText(D.koenige.kegel.v) + ' Holz' } : null,
+      pumpe: D.koenige.pumpe ? { n: D.koenige.pumpe.n, v: zahlText(D.koenige.pumpe.v) + ' Pumpen' } : null,
+      alle9: D.koenige.alle9 ? { n: D.koenige.alle9.n, v: zahlText(D.koenige.alle9.v) + '× alle 9' } : null });
   }
   if (!liste.length) return `<div class="row"><div class="n">Noch keine Einträge.</div></div>`;
   return liste.map(j => {
@@ -958,6 +987,7 @@ function ehrentafel(){
       <div class="body">
         ${z('Kegelkönig', j.kegel.n + ' · ' + j.kegel.v)}
         ${j.pumpe ? z('Pumpenkönig', j.pumpe.n + ' · ' + j.pumpe.v) : ''}
+        ${j.alle9 ? z('König der alle 9', j.alle9.n + ' · ' + j.alle9.v) : ''}
         ${j.anwesend ? z('Beste Anwesenheit', j.anwesend.n + ' · ' + j.anwesend.v) : ''}
         ${j.strafen ? z('Meiste Strafen', j.strafen.n + ' · ' + j.strafen.v) : ''}
         ${z('Kassenstand zum Jahresende', j.kasse)}
@@ -1021,12 +1051,17 @@ function preisText(b){
   if (!s || s.indexOf('€') >= 0) return s;
   return /^-?[\d.,\s]+$/.test(s) ? eur(num(s)) : s;
 }
+/* Die Kopfzeile des Tabellenblatts ("§ | Statuten | Strafen") rutscht als
+   vermeintlicher Paragraph mit durch – hier fliegt sie raus. */
+const istParagraph = s => /^§\s*\d/.test(String(s && s.p || ''));
+
 function zeichneStatuten(rows){
+  rows = (rows || []).filter(istParagraph);
   const box = $('statutList');
   if (!rows.length){ box.innerHTML = `<div class="row"><div class="n">Nichts gefunden.</div></div>`; return; }
   box.innerHTML = rows.map(s => `<details class="para">
     <summary><div><span class="par">${esc(s.p)}</span><span class="ttl">${esc(s.t)}</span></div>
-      ${s.b ? `<span class="price">${esc(preisText(s.b))}</span>` : ''}</summary>
+      ${s.b ? `<span class="price${/^[^\d]{1,2}$/.test(String(s.b).trim()) ? ' zeichen' : ''}">${esc(preisText(s.b))}</span>` : ''}</summary>
     <div class="body">${esc(s.d)}
       ${s.items && s.items.length ? `<div class="items">${s.items.map(i =>
         `<div>${esc(i.t)}<span>${esc(preisText(i.b))}</span></div>`).join('')}</div>` : ''}
@@ -1073,7 +1108,16 @@ $('calcReset').addEventListener('click', () => {
   zeichneRechner(rechnerZeilen()); rechnerLeiste();
 });
 let rechnerFilter = '';
-const rechnerZeilen = () => D.preise.filter(s => s.t.toLowerCase().includes(rechnerFilter));
+
+/* Der Rechner zählt Einzelstrafen zusammen. Zeilen ohne festen Einzelpreis gehören
+   deshalb nicht hinein: die Kopfzeile des Blattes, der Durchschnitt nach §17 ("⌀")
+   sowie die gedeckelten Beträge nach §18 und §37 ("max. 50,00 €"). Gesucht wird
+   jetzt auch über die zweite Zeile, also §-Nummer und Preis. */
+const rechenbar = s => istParagraph(s) && !/^\s*(max\.|ca\.|bis)/i.test(String(s.b || '')) && num(s.b) > 0;
+const rechnerZeilen = () => D.preise.filter(s => rechenbar(s) && (!rechnerFilter
+  || s.t.toLowerCase().includes(rechnerFilter)
+  || String(s.p).toLowerCase().includes(rechnerFilter)
+  || preisText(s.b).toLowerCase().includes(rechnerFilter)));
 $('calcSearch').addEventListener('input', e => {
   rechnerFilter = e.target.value.toLowerCase().trim(); zeichneRechner(rechnerZeilen());
 });
@@ -1175,6 +1219,20 @@ let aktuelleAmtSicht = 'dash';
 const gesamtPumpen = r => r.pumpenS + r.pumpenZ;
 const gesamtSonder = r => r.kranz + r.koenig + r.acht + r.alle9;
 
+/* §23: Der Kegelkönig wird nicht über die Summe ermittelt, sondern über den
+   individuellen Durchschnitt bei "5 in die Vollen" – nicht nachgeholte Würfe
+   zählen als 0 Holz. Und Kegelkönig kann nur werden, wer mindestens 60 %
+   anwesend war. Liefert das Backend den Durchschnitt noch nicht mit, wird er
+   hier aus Summe und Terminzahl gebildet. */
+const HUERDE = 0.6;
+const vollenSchnitt = r => typeof r.vollenSchnitt === 'number'
+  ? r.vollenSchnitt
+  : (r.vollenTermine ? Math.round(r.vollen / r.vollenTermine * 100) / 100 : 0);
+const koenigsfaehig = r => typeof r.koenigsfaehig === 'boolean'
+  ? r.koenigsfaehig
+  : (r.termine ? r.da / r.termine >= HUERDE : false);
+const quote = r => r.termine ? Math.round(r.da / r.termine * 100) : 0;
+
 function bwBlock(titel, key, mehrIstBesser, fmt, fuss){
   const A = D.auswertung || [];
   if (!A.length) return '';
@@ -1204,7 +1262,9 @@ const SICHTEN = {
     if (!A.length) return `<p class="note" style="margin-top:16px">Noch keine Daten.</p>`;
     const quote = A.reduce((a,r)=>a+r.da,0) / Math.max(1, A.reduce((a,r)=>a+r.termine,0));
     return `<div class="list" style="margin-top:16px">
-      ${bwBlock('5 in die Vollen', r=>r.vollen, true, r=>r.vollen+' Holz')}
+      ${bwBlock('5 in die Vollen (Ø je Termin)', vollenSchnitt, true,
+        r=>vollenSchnitt(r).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+' Holz',
+        'Nach §23 zählt der Durchschnitt, nicht die Summe. Kegelkönig wird nur, wer mindestens 60 % anwesend war.')}
       ${bwBlock('Pumpen', gesamtPumpen, false, r=>gesamtPumpen(r).toLocaleString('de-DE'),
         'Weniger ist besser. Pumpenkönig wird trotzdem, wer die meisten hat – das ist der Schlechteste hier.')}
       ${bwBlock('Anwesenheit', r=>r.da, true, r=>r.da+' / '+r.termine)}
@@ -1228,9 +1288,20 @@ const SICHTEN = {
     </div>`;
   },
   vollen(){
-    const l = (D.auswertung||[]).slice().sort((a,b)=>b.vollen-a.vollen);
-    return `<p class="note" style="margin-top:16px">Punktesumme der Saison. Wer hier oben steht, ist Kegelkönig.</p>`
-      + rangliste(l, r=>r.vollen, r=>r.vollen+' Holz');
+    const A = (D.auswertung||[]).slice();
+    if (!A.length) return `<p class="note" style="margin-top:16px">Noch keine Daten.</p>`;
+    const l = A.sort((a,b) => vollenSchnitt(b) - vollenSchnitt(a));
+    const koenig = l.filter(koenigsfaehig)[0];
+    const holz = r => vollenSchnitt(r).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1}) + ' Holz';
+    return `<p class="note" style="margin-top:16px">Gewertet wird nach §23 der <strong style="color:var(--text)">Durchschnitt
+        je Termin</strong>, nicht die Summe. Nicht nachgeholte Würfe zählen als 0 Holz.
+        Kegelkönig kann nur werden, wer mindestens 60 % anwesend war.</p>
+      ${koenig ? `<p class="note" style="margin-top:8px">Aktuell vorn und königsfähig:
+        <strong style="color:var(--accent)">${esc(koenig.n)}</strong> mit ${holz(koenig)}.</p>` : ''}`
+      + rangliste(l, vollenSchnitt, holz,
+          r => (r.vollen || 0) + ' Holz aus ' + plural(r.vollenTermine || 0, 'Wurf', 'Würfen')
+             + ' · ' + quote(r) + ' % anwesend'
+             + (koenigsfaehig(r) ? '' : ' · unter 60 %, nicht königsfähig'));
   },
   alle9(){
     const l = (D.auswertung||[]).slice().sort((a,b)=>b.alle9-a.alle9);
@@ -1294,7 +1365,7 @@ function zeichneAmt(sicht){
     const neu = sw.getAttribute('aria-checked') !== 'true';
     sw.setAttribute('aria-checked', neu);
     try {
-      const r = await api('gvFreigabe', { token: token, frei: neu });
+      const r = await api('gvFreigabe', { token: token, frei: neu }, API_VERSUCHE);
       if (r.fehler){ hinweisleiste(r.fehler, 'warn'); sw.setAttribute('aria-checked', !neu); return; }
       D.gvFrei = r.gvFrei;
       speicher.schreib('kc-daten', JSON.stringify(D));
@@ -1302,7 +1373,7 @@ function zeichneAmt(sicht){
       aktualisieren();
     } catch(e){
       sw.setAttribute('aria-checked', !neu);
-      hinweisleiste('Freigabe ging nicht – keine Verbindung.', 'warn');
+      hinweisleiste('Freigabe ging nach ' + API_VERSUCHE + ' Versuchen nicht durch.', 'warn');
     }
   });
   const liste = $('codeListe');
@@ -1311,7 +1382,7 @@ function zeichneAmt(sicht){
     const name = b.dataset.code;
     b.disabled = true; b.textContent = '…';
     try {
-      const r = await api('neuerCode', { token: token, mitglied: name });
+      const r = await api('neuerCode', { token: token, mitglied: name }, API_VERSUCHE);
       if (r.fehler){ hinweisleiste(r.fehler, 'warn'); b.textContent = 'Neuer Code'; b.disabled = false; return; }
       b.closest('.row').innerHTML =
         `<div><div class="n">${esc(name)}</div><div class="m">Neuer Code – jetzt notieren, er erscheint nur einmal</div></div>
@@ -1365,6 +1436,50 @@ document.addEventListener('keydown', e => {
 });
 window.addEventListener('online', () => { hinweisleiste(''); aktualisieren(); });
 window.addEventListener('offline', () => hinweisleiste('Offline – ' + standText(), 'warn'));
+
+/* ------------------------------------------- Runterziehen zum Aktualisieren */
+/* Nur wenn die Seite ganz oben steht und der Finger deutlich nach unten zieht.
+   Waagerechte Wischer (Chip-Leisten) und normales Scrollen bleiben unberührt. */
+(function(){
+  const AUSLOESER = 70, MAX = 110;
+  let startY = null, startX = null, aktiv = false, laeuft = false;
+  const feld = $('ziehen'), txt = $('ziehenText');
+
+  const zeige = h => {
+    feld.style.height = Math.round(h) + 'px';
+    txt.textContent = h >= AUSLOESER ? 'Loslassen zum Aktualisieren' : 'Zum Aktualisieren ziehen';
+  };
+  const zurueck = () => { feld.style.height = '0px'; aktiv = false; startY = null; };
+
+  document.addEventListener('touchstart', e => {
+    if (laeuft || e.touches.length !== 1) return;
+    if ($('app').classList.contains('hidden')) return;
+    if (window.scrollY > 0) return;
+    if (e.target.closest('.sheet, .lightbox, .chips')) return;
+    startY = e.touches[0].clientY; startX = e.touches[0].clientX; aktiv = false;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if (startY === null || laeuft) return;
+    const dy = e.touches[0].clientY - startY, dx = Math.abs(e.touches[0].clientX - startX);
+    if (dy <= 0 || dx > Math.abs(dy)) { zurueck(); return; }
+    if (window.scrollY > 0) { zurueck(); return; }
+    aktiv = true;
+    zeige(Math.min(MAX, dy * 0.5));
+  }, { passive: true });
+
+  document.addEventListener('touchend', async () => {
+    if (startY === null) return;
+    const hoehe = parseInt(feld.style.height || '0', 10);
+    if (aktiv && hoehe >= AUSLOESER){
+      laeuft = true;
+      txt.textContent = 'Wird geladen …';
+      feld.style.height = '34px';
+      try { await aktualisieren(); } finally { laeuft = false; zurueck(); }
+    } else zurueck();
+    startY = null; aktiv = false;
+  });
+})();
 
 /* -------------------------------------------------- Service Worker */
 if ('serviceWorker' in navigator){
