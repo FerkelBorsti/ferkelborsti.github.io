@@ -100,7 +100,7 @@ header.app{display:flex;align-items:center;gap:12px;padding:calc(14px + max(env(
 .badge:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
 .wordmark{flex:1;min-width:0;line-height:1.1}
 .wordmark img{display:block;width:100%;max-width:212px;height:auto}
-.wordmark span{display:block;font-family:'Archivo',sans-serif;font-weight:500;font-size:11px;color:var(--muted);letter-spacing:.09em;text-transform:uppercase;margin-top:5px}
+.wordmark span{display:block;font-family:'Archivo',sans-serif;font-weight:500;font-size:11px;color:var(--muted);letter-spacing:.09em;text-transform:uppercase;margin-top:5px;line-height:1.35;overflow-wrap:anywhere}
 .iconbtn{background:none;border:1px solid var(--line);border-radius:10px;width:38px;height:38px;display:grid;place-items:center;cursor:pointer;color:var(--muted);flex:none}
 .iconbtn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .iconbtn:hover{color:var(--text)}
@@ -404,9 +404,10 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 
       <section id="tab-kasse" class="hidden">
         <h2 class="sec">Kasse</h2>
-        <p class="note">Was hier abgehakt wird, steht sofort in „Rohdaten 2026_27".</p>
+        <p class="note" id="kasseKopf">Zahlungen, Kontostand, Ausgaben und Umlage-Reste. Alles, was du hier einträgst, gilt sofort.</p>
         <div class="chips" id="kasseChips">
-          <button data-kasse="offen" aria-pressed="true">Offene Beträge</button>
+          <button data-kasse="uebersicht" aria-pressed="true">Übersicht</button>
+          <button data-kasse="offen" aria-pressed="false">Offene Beträge</button>
           <button data-kasse="konto" aria-pressed="false">Kontostand</button>
           <button data-kasse="ausgaben" aria-pressed="false">Ausgaben</button>
           <button data-kasse="umlage" aria-pressed="false">Umlage</button>
@@ -416,7 +417,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 
       <section id="tab-amt" class="hidden">
         <h2 class="sec">Auswertung 2026/27</h2>
-        <p class="note">Nur für dich sichtbar, solange du die Ergebnisse nicht freigegeben hast.</p>
+        <p class="note" id="amtHinweis">Nur für dich sichtbar, solange du die Ergebnisse nicht freigegeben hast.</p>
         <div class="chips" id="amtChips">
           <button data-view="dash" aria-pressed="true">Übersicht</button>
           <button data-view="vollen" aria-pressed="false">5 in die Vollen</button>
@@ -521,6 +522,13 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
         </button>
       </div>
 
+      <div id="freigabenBlock" class="hidden">
+        <div class="eyebrow" style="margin-bottom:10px">Freigaben</div>
+        <div class="list" id="freigabenListe"></div>
+        <p class="note" style="margin-top:10px">Eine Einsicht gibt ausschließlich Leserechte –
+          geändert werden kann damit nichts.</p>
+      </div>
+
       <div>
         <div class="eyebrow" style="margin-bottom:10px">Darstellung</div>
         <div class="seg" id="themeSeg">
@@ -580,7 +588,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.10.1';
 
 const LOGOS = {
   standard: {
@@ -922,15 +930,30 @@ async function abrufen(frisch){
 
 function zeigeApp(){
   zeigeAnsicht('app');
-  $('whoami').textContent = D.ich.name + (D.ich.schriftfuehrer ? ' · Schriftführer' : '');
-  $('tabAmt').classList.toggle('hidden', !D.ich.schriftfuehrer);
-  $('tabKasse').classList.toggle('hidden', !D.ich.darfKasse);
+  // Welches Amt die erweiterte Ansicht freischaltet, entscheidet das Backend.
+  // Der Rückfall greift nur bei einem Backend älter als 1.11.
+  const rollen = (D.ich.rollen && D.ich.rollen.length)
+    ? D.ich.rollen
+    : (D.ich.schriftfuehrer ? ['Schriftführer'] : []);
+  $('whoami').textContent = D.ich.name + (rollen.length ? ' · ' + rollen.join(' · ') : '');
+  $('tabAmt').classList.toggle('hidden', !darfAmtSehen());
+  $('tabKasse').classList.toggle('hidden', !darfKasseSehen());
+  // Die Codeverwaltung ist Bearbeitung und bleibt beim Schriftführer allein.
+  const codeChip = document.querySelector('#amtChips button[data-view="codes"]');
+  if (codeChip) codeChip.classList.toggle('hidden', !D.ich.schriftfuehrer);
+  $('amtHinweis').textContent = D.ich.nurLesenAmt
+    ? 'Der Schriftführer hat dir als Stellvertreter Einsicht gegeben – ansehen ja, ändern nein.'
+    : 'Nur für dich sichtbar, solange du die Ergebnisse nicht freigegeben hast.';
   $('standText').textContent = standText() + (letzterApiFehler ? ' · zuletzt: ' + letzterApiFehler : '');
   $('versionText').textContent = 'KC Knüppeldick · App ' + APP_VERSION + ' · Backend ' + (D.version||'?');
   zeichneStart(); zeichneStrafen(); zeichneStatuten(D.statuten); zeichneRechner(rechnerZeilen());
   zeichneWarte(); zeichneMitglieder(); zeichneTermine();
-  if (D.ich.darfKasse) zeichneKasse();
-  if (D.ich.schriftfuehrer) zeichneAmt(aktuelleAmtSicht);
+  if (darfKasseSehen()) zeichneKasse();
+  if (darfAmtSehen()) {
+    if (!D.ich.schriftfuehrer && aktuelleAmtSicht === 'codes') aktuelleAmtSicht = 'dash';
+    zeichneAmt(aktuelleAmtSicht);
+  }
+  zeichneFreigaben();
 }
 
 /* -------------------------------------------------------------- Start */
@@ -1608,12 +1631,8 @@ const SICHTEN = {
       <div class="stat"><div class="eyebrow">Strafen gesamt</div>
         <b>${eur(A.reduce((a,r)=>a+r.betrag,0))}</b><div class="sub">alle Kegelbrüder</div></div>
     </div>
-    <div class="list" style="margin-top:16px">
-      <div class="setrow"><div><div class="lbl">Ergebnisse freigeben</div>
-        <div class="dsc">Schaltet Kegelkönig und Pumpenkönig für alle Kegelbrüder frei.
-          Gedacht für die Generalversammlung.</div></div>
-        <button class="switch" id="gvSwitch" role="switch" aria-checked="${D.gvFrei}" aria-label="Ergebnisse freigeben"></button></div>
-    </div>`;
+    <p class="note" style="margin-top:16px">Freigaben – auch die für Kegelkönig und Pumpenkönig –
+      liegen im Zahnrad oben rechts unter „Freigaben".</p>`;
   },
   vollen(){
     const A = (D.auswertung||[]).slice();
@@ -1688,22 +1707,6 @@ const SICHTEN = {
 function zeichneAmt(sicht){
   aktuelleAmtSicht = sicht;
   $('amtBody').innerHTML = SICHTEN[sicht]();
-  const sw = $('gvSwitch');
-  if (sw) sw.addEventListener('click', async () => {
-    const neu = sw.getAttribute('aria-checked') !== 'true';
-    sw.setAttribute('aria-checked', neu);
-    try {
-      const r = await api('gvFreigabe', { token: token, frei: neu }, API_VERSUCHE);
-      if (r.fehler){ hinweisleiste(r.fehler, 'warn'); sw.setAttribute('aria-checked', !neu); return; }
-      D.gvFrei = r.gvFrei;
-      speicher.schreib('kc-daten', JSON.stringify(D));
-      zeichneStart();
-      aktualisieren();
-    } catch(e){
-      sw.setAttribute('aria-checked', !neu);
-      hinweisleiste('Freigabe ging nach ' + API_VERSUCHE + ' Versuchen nicht durch.', 'warn');
-    }
-  });
   const liste = $('codeListe');
   if (liste) liste.addEventListener('click', async e => {
     const b = e.target.closest('button[data-code]'); if (!b) return;
@@ -1816,10 +1819,20 @@ window.addEventListener('offline', () => hinweisleiste('Offline – ' + standTex
    Nach Terminen sortiert müsste der Kassenwart dieselbe Überweisung an vier
    Stellen suchen. */
 
-let aktuelleKasseSicht = 'offen';
+let aktuelleKasseSicht = 'uebersicht';
 let ausgabeKategorie = '';
 
 const kasseD = () => D.kasseDaten || { offene: [], ausgaben: [], umlage: [], kategorien: [] };
+
+/* Sehen und Ändern sind zwei verschiedene Dinge:
+   - darfKasseAendern: der Kassenwart selbst
+   - darfKasseSehen:   zusätzlich, wer eine Einsicht bekommen hat – oder, wenn der
+     Kassenbericht freigegeben ist, jeder Kegelbruder (dann aber nur die Übersicht)
+   Der Rückfall auf die alten Felder greift bei einem Backend älter als 1.12. */
+const darfKasseAendern = () => !!(D.ich && D.ich.darfKasse);
+const darfKasseSehen   = () => !!(D.ich && (D.ich.darfKasseSehen !== undefined ? D.ich.darfKasseSehen : D.ich.darfKasse))
+                            || !!D.kassenbericht;
+const darfAmtSehen     = () => !!(D.ich && (D.ich.darfAmtSehen !== undefined ? D.ich.darfAmtSehen : D.ich.schriftfuehrer));
 
 /* num() kennt den deutschen Tausenderpunkt nicht: aus "1.234,56 €" wird dort
    1,234. Für den Kontostand ist das ein Faktor 1000 – deshalb ein eigener
@@ -1854,6 +1867,58 @@ function offenNachMann(){
 }
 
 const KASSE_SICHTEN = {
+
+  uebersicht(){
+    const b = D.kassenbericht;
+    if (!b) return '<p class="note" style="margin-top:16px">Noch keine Kassenzahlen vorhanden.</p>';
+
+    const zeile = (titel, unter, wert, betont) => `<div class="row">
+      <div><div class="n">${titel}</div>${unter ? `<div class="m">${unter}</div>` : ''}</div>
+      <div class="summe"${betont ? ' style="color:var(--accent)"' : ''}>${wert}</div></div>`;
+
+    return `
+      <div class="list" style="margin-top:16px">
+        ${zeile('Offen gesamt',
+                b.schuldner
+                  ? plural(b.schuldner, 'Kegelbruder hat offene Posten', 'Kegelbrüder haben offene Posten')
+                  : 'alles beglichen',
+                eur(b.offen))}
+        ${zeile('Davon überfällig',
+                b.ueberfaellig > 0 ? 'Frist verstrichen – §20 greift' : 'nichts überfällig',
+                eur(b.ueberfaellig), b.ueberfaellig > 0)}
+        ${zeile('Nächste Fälligkeit', b.naechsteFaelligkeit ? 'für offene Posten' : 'keine offene Frist',
+                b.naechsteFaelligkeit ? dat(b.naechsteFaelligkeit) : '–')}
+      </div>
+
+      <div class="list" style="margin-top:14px">
+        ${zeile('Eingegangen', 'bezahlte Strafen dieser Saison', eur(b.bezahlt))}
+        ${zeile('Zahlungsquote', 'von ' + eur(b.gefordert) + ' gefordert', b.quote + ' %')}
+        ${zeile('Spenden', 'auf Strafen aufgerundet', eur(b.spenden))}
+        ${zeile('Umlage-Reste', 'nach Feiern übrig geblieben', eur(b.umlage))}
+        ${zeile('Verspätungszuschläge', 'in den offenen Posten enthalten', eur(b.zuschlaege))}
+      </div>
+
+      <div class="list" style="margin-top:14px">
+        ${zeile('Ausgaben', plural(b.ausgabenAnzahl, 'Eintrag', 'Einträge'), eur(b.ausgaben))}
+        ${zeile('Bewegung der Saison', 'Eingegangen + Spenden + Umlage − Ausgaben',
+                (b.bewegung >= 0 ? '+ ' : '− ') + eur(Math.abs(b.bewegung)))}
+      </div>
+
+      <div class="list" style="margin-top:14px">
+        ${zeile('Kontostand', D.kasse && D.kasse.stand ? 'Stand ' + esc(D.kasse.stand) : 'ohne Stand-Datum',
+                esc((D.kasse && D.kasse.kontostand) || '–'))}
+      </div>
+
+      <p class="note" style="margin-top:12px">Die <strong>Bewegung</strong> ist keine Kassenprüfung: Sie zählt nur,
+        was in der App erfasst ist. Die Monatsbeiträge nach §14 laufen per Dauerauftrag und tauchen hier nicht auf,
+        ein Anfangsbestand ist ebenfalls nicht hinterlegt. Der Kontostand darüber ist der von Hand gepflegte Wert.</p>
+
+      ${b.jeTermin && b.jeTermin.length ? `
+      <div class="eyebrow" style="margin:22px 0 10px">Offen je Termin</div>
+      <div class="list">${b.jeTermin.map(t => `<div class="row">
+        <div><div class="n">${dat(t.datum)}</div><div class="m">${plural(t.anzahl, 'Posten', 'Posten')}</div></div>
+        <div class="summe">${eur(t.summe)}</div></div>`).join('')}</div>` : ''}`;
+  },
 
   offen(){
     if (!kasseD().offene.length){
@@ -1922,8 +1987,9 @@ const KASSE_SICHTEN = {
       </div>
       <p class="note kassefeld" id="kontoFehler"></p>
       <button class="btn" id="kontoSpeichern" style="margin-top:12px">Speichern</button>
-      <p class="note" style="margin-top:14px">Steht danach für alle Kegelbrüder in „Strafen &amp; Punkte".
-        ${k.iban ? 'IBAN und Kontoinhaber bleiben unverändert.' : ''}</p>`;
+      <p class="note" style="margin-top:14px">Der Kontostand ist für alle Kegelbrüder sichtbar –
+        er steht in der App unter „Start" und beim Zahlungsweg.
+        ${k.iban ? 'IBAN und Kontoinhaber bleiben davon unberührt.' : ''}</p>`;
   },
 
   ausgaben(){
@@ -1994,7 +2060,22 @@ const KASSE_SICHTEN = {
 
 function zeichneKasse(sicht){
   if (sicht) aktuelleKasseSicht = sicht;
-  if (!D.ich || !D.ich.darfKasse) return;
+  if (!darfKasseSehen()) return;
+
+  // Wer nur zusehen darf, bekommt ausschließlich die Übersicht. Die anderen drei
+  // Reiter sind reine Eingabemasken – sie ohne Schreibrecht anzuzeigen, wäre eine
+  // Einladung zum Ausprobieren mit anschließender Fehlermeldung.
+  const nurBericht = !darfKasseAendern();
+  document.querySelectorAll('#kasseChips button').forEach(b =>
+    b.classList.toggle('hidden', nurBericht && b.dataset.kasse !== 'uebersicht'));
+  if (nurBericht) aktuelleKasseSicht = 'uebersicht';
+
+  $('kasseKopf').textContent = nurBericht
+    ? (D.ich && D.ich.nurLesenKasse
+        ? 'Der Kassenwart hat dir als Stellvertreter Einsicht gegeben – ansehen ja, ändern nein.'
+        : 'Der Kassenbericht dieser Saison, freigegeben vom Kassenwart.')
+    : 'Zahlungen, Kontostand, Ausgaben und Umlage-Reste. Alles, was du hier einträgst, gilt sofort.';
+
   $('kasseBody').innerHTML = KASSE_SICHTEN[aktuelleKasseSicht]();
 }
 
@@ -2100,6 +2181,90 @@ $('kasseBody').addEventListener('click', async e => {
       umlage: { datum: $('umlageDatum').value, betrag: $('umlageBetrag').value, notiz: $('umlageNotiz').value }
     }, $('umlageSpeichern'), 'Umlage-Rest eintragen', 'umlageFehler');
     if (r) hinweisleiste('Umlage-Rest eingetragen.');
+  }
+});
+
+/* ------------------------------------------------------------ Freigaben */
+/* Alle vier Schalter liegen an EINEM Ort in den Einstellungen. Sie gehören zwar
+   je einem Bereich, sind aber nichts, was man beim Arbeiten braucht – und der
+   Kegelkönig-Schalter lag im Amt-Bereich zwischen den Ranglisten reichlich
+   versteckt für etwas, das genau einmal im Jahr gedrückt wird. */
+
+const FREIGABEN = [
+  { k: 'gv', titel: 'Kegelkönig freigeben',
+    dsc: 'Zeigt Kegelkönig und Pumpenkönig allen Kegelbrüdern. Gedacht für die Generalversammlung.' },
+  { k: 'kasse', titel: 'Kassenbericht freigeben',
+    dsc: 'Zeigt allen Kegelbrüdern die Kassen-Übersicht. Summen, keine Namen.' },
+  { k: 'einsichtAmt', titel: 'Einsicht für den 2. Schriftführer',
+    dsc: 'Dein Stellvertreter darf mitlesen: Auswertung und Abend-Rückblick, ohne Codeverwaltung. Ändern kann er nichts. Vor einer Abwesenheit setzen – im Ausfall kannst du den Schalter nicht mehr umlegen.' },
+  { k: 'einsichtKasse', titel: 'Einsicht für den 2. Kassenwart',
+    dsc: 'Dein Stellvertreter darf mitlesen: der Kassenbericht, kein Abhaken. Vor einer Abwesenheit setzen – im Ausfall kannst du den Schalter nicht mehr umlegen.' }
+];
+
+function zeichneFreigaben(){
+  const darf = (D.ich && D.ich.darfFreigeben) || {};
+  const meine = FREIGABEN.filter(f => darf[f.k]);
+  $('freigabenBlock').classList.toggle('hidden', !meine.length);
+  if (!meine.length) return;
+
+  const stand = D.freigaben || {};
+  $('freigabenListe').innerHTML = meine.map(f => {
+    const s = stand[f.k] || { frei: false, von: '', am: '' };
+    const vermerk = s.frei && s.von
+      ? `<div class="dsc" style="margin-top:5px"><strong>Freigegeben von ${esc(s.von)}${s.am ? ' am ' + dat(s.am) : ''}.</strong></div>`
+      : '';
+    return `<div class="setrow">
+      <div><div class="lbl">${esc(f.titel)}</div>
+        <div class="dsc">${esc(f.dsc)}</div>${vermerk}
+        <div class="dsc freigabeFrage hidden" style="margin-top:6px;color:var(--accent);font-weight:700">Sicher? Zum Freigeben noch einmal tippen.</div></div>
+      <button class="switch" role="switch" aria-checked="${s.frei}" data-frei="${esc(f.k)}" aria-label="${esc(f.titel)}"></button>
+    </div>`;
+  }).join('');
+}
+
+let freigabeUhr = null;
+
+$('freigabenListe').addEventListener('click', async e => {
+  const sw = e.target.closest('button[data-frei]'); if (!sw) return;
+  const schluessel = sw.dataset.frei;
+  const ziel = sw.getAttribute('aria-checked') !== 'true';
+  const zeile = sw.closest('.setrow');
+  const frage = zeile.querySelector('.freigabeFrage');
+
+  const entschaerfen = () => {
+    document.querySelectorAll('#freigabenListe button[data-frei]').forEach(b => b.dataset.sicher = '');
+    document.querySelectorAll('#freigabenListe .freigabeFrage').forEach(f => f.classList.add('hidden'));
+  };
+
+  // Freigeben ist die Handlung, die man nicht zurückholen kann – der König ist
+  // dann raus. Deshalb Rückfrage. Zurücknehmen geht ohne.
+  if (ziel && sw.dataset.sicher !== 'ja'){
+    entschaerfen();
+    sw.dataset.sicher = 'ja';
+    frage.classList.remove('hidden');
+    clearTimeout(freigabeUhr);
+    freigabeUhr = setTimeout(entschaerfen, 8000);
+    return;
+  }
+
+  clearTimeout(freigabeUhr);
+  entschaerfen();
+  sw.disabled = true;
+  try {
+    const r = await api('freigabeSetzen', { token: token, schluessel: schluessel, frei: ziel }, API_VERSUCHE);
+    if (r.fehler){ hinweisleiste(r.fehler, 'warn'); return; }
+    D.freigaben = r.freigaben;
+    D.gvFrei = !!(r.freigaben.gv && r.freigaben.gv.frei);
+    speicher.schreib('kc-daten', JSON.stringify(D));
+    zeichneFreigaben();
+    zeichneStart();
+    hinweisleiste(ziel ? 'Freigegeben.' : 'Freigabe zurückgenommen.');
+    // Beim Kegelkönig schickt der Server die Namen erst mit der nächsten Antwort mit.
+    if (schluessel === 'gv') aktualisieren(true);
+  } catch (err){
+    hinweisleiste('Keine Verbindung – nichts geändert.', 'warn');
+  } finally {
+    sw.disabled = false;
   }
 });
 
