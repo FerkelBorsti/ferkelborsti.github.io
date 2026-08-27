@@ -65,7 +65,9 @@ header.app{display:flex;align-items:center;gap:12px;padding:calc(14px + max(env(
 .iconbtn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .iconbtn:hover{color:var(--text)}
 .iconbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-main{flex:1;padding:20px 18px 96px;display:flex;flex-direction:column;gap:20px}
+/* Die Navigationsleiste ist fest und wächst auf dem iPhone um den Bereich der
+   Home-Anzeige. Ohne diesen Zuschlag klebt die letzte Kachel darunter fest. */
+main{flex:1;padding:20px 18px calc(112px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:20px}
 .hidden{display:none!important}
 
 .login{max-width:340px;margin:6vh auto 0;display:flex;flex-direction:column;gap:22px;text-align:center;align-items:center}
@@ -322,8 +324,11 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
           <button data-mode="rechnen" aria-pressed="false">Rechner</button>
         </div>
         <div id="modeLesen">
+          <p class="note" style="margin-top:16px">Alle Paragraphen zum Nachlesen – antippen klappt den
+            Text auf. Steht rechts ein Betrag, ist es eine Strafe; bei §4 hängt die komplette
+            Preisliste darunter. Gesucht wird über Nummer, Bezeichnung und Beschreibung.</p>
           <input class="search" id="statutSearch" placeholder="Paragraph oder Strafe suchen …"
-                 aria-label="Statuten durchsuchen" style="margin-top:16px">
+                 aria-label="Statuten durchsuchen" style="margin-top:14px">
           <div class="list" id="statutList" style="margin-top:14px"></div>
         </div>
         <div id="modeRechnen" class="hidden">
@@ -466,7 +471,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.6.0';
 
 const LOGOS = {
   standard: {
@@ -621,7 +626,7 @@ function standText(){
   const s = speicher.lies('kc-stand');
   if (!s) return '';
   const d = new Date(s);
-  return 'Stand ' + d.toLocaleDateString('de-DE') + ', ' +
+  return 'Stand ' + d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}) + ', ' +
          d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) + ' Uhr';
 }
 
@@ -980,16 +985,28 @@ function fasseZusammen(eintraege){
   return Object.keys(m).map(k => m[k]).sort((a,b) => b.summe - a.summe);
 }
 
+/* Reihenfolge wie vom Verein gewünscht: nach dem Pumpenkönig zuerst die alle 9,
+   dann der Kranz (dafür gibt es eine Urkunde), danach die übrigen Sonderwürfe. */
+const SONDERKOENIGE = [
+  ['Pumpenkönig',           'pumpe',      v => zahlText(v) + ' Pumpen'],
+  ['König der alle 9',      'alle9',      v => zahlText(v) + '×'],
+  ['Kranzkönig · Urkunde',  'kranz',      v => zahlText(v) + '×'],
+  ['König 8 ums Vordereck', 'acht',       v => zahlText(v) + '×'],
+  ['König aus den Vollen',  'koenigwurf', v => zahlText(v) + '×']
+];
+
 function tresor(){
   if (D.gvFrei && D.koenige){
-    const k = D.koenige.kegel, p = D.koenige.pumpe, n = D.koenige.alle9;
+    const k = D.koenige.kegel;
+    const weitere = SONDERKOENIGE
+      .filter(([, feld]) => D.koenige[feld])
+      .map(([titel, feld, fmt]) => `<div class="sub" style="border-top:1px solid var(--line);padding-top:10px;width:100%">
+        ${esc(titel)}: <strong style="color:var(--text)">${esc(D.koenige[feld].n)}</strong> mit ${esc(fmt(D.koenige[feld].v))}</div>`)
+      .join('');
     return `<div class="eyebrow">Verkündet auf der Generalversammlung</div>
       <div class="big">${esc(k ? k.n : '–')}</div>
       <div class="sub">Kegelkönig${k ? ' mit ' + zahlText(k.v) + ' Holz' : ''}</div>
-      ${p ? `<div class="sub" style="border-top:1px solid var(--line);padding-top:10px;width:100%">
-        Pumpenkönig: <strong style="color:var(--text)">${esc(p.n)}</strong> mit ${zahlText(p.v)} Pumpen</div>` : ''}
-      ${n ? `<div class="sub" style="border-top:1px solid var(--line);padding-top:10px;width:100%">
-        König der alle 9: <strong style="color:var(--text)">${esc(n.n)}</strong> mit ${zahlText(n.v)}× alle 9</div>` : ''}`;
+      ${weitere}`;
   }
   const ziel = new Date('2027-05-05T00:00:00');
   const tage = Math.max(0, Math.ceil((ziel - new Date()) / 86400000));
@@ -1000,14 +1017,15 @@ function tresor(){
       verkündet – dann schaltet der Schriftführer sie hier frei.</div>
     <div class="countdown">noch ${tage} Tage</div>`;
 }
-
 function ehrentafel(){
   const liste = (D.ehrentafel || []).slice();
   if (D.gvFrei && D.koenige){
-    liste.unshift({ s:'2026/27', aktuell:true,
-      kegel: D.koenige.kegel ? { n: D.koenige.kegel.n, v: zahlText(D.koenige.kegel.v) + ' Holz' } : null,
-      pumpe: D.koenige.pumpe ? { n: D.koenige.pumpe.n, v: zahlText(D.koenige.pumpe.v) + ' Pumpen' } : null,
-      alle9: D.koenige.alle9 ? { n: D.koenige.alle9.n, v: zahlText(D.koenige.alle9.v) + '× alle 9' } : null });
+    const eintrag = { s:'2026/27', aktuell:true,
+      kegel: D.koenige.kegel ? { n: D.koenige.kegel.n, v: zahlText(D.koenige.kegel.v) + ' Holz' } : null };
+    SONDERKOENIGE.forEach(([, feld, fmt]) => {
+      eintrag[feld] = D.koenige[feld] ? { n: D.koenige[feld].n, v: fmt(D.koenige[feld].v) } : null;
+    });
+    liste.unshift(eintrag);
   }
   if (!liste.length) return `<div class="row"><div class="n">Noch keine Einträge.</div></div>`;
   return liste.map(j => {
@@ -1021,8 +1039,8 @@ function ehrentafel(){
         ${j.aktuell ? '<span class="aktuell">neu</span>' : ''}</summary>
       <div class="body">
         ${z('Kegelkönig', j.kegel.n + ' · ' + j.kegel.v)}
-        ${j.pumpe ? z('Pumpenkönig', j.pumpe.n + ' · ' + j.pumpe.v) : ''}
-        ${j.alle9 ? z('König der alle 9', j.alle9.n + ' · ' + j.alle9.v) : ''}
+        ${SONDERKOENIGE.map(([titel, feld]) => j[feld]
+          ? z(titel.replace(' · Urkunde',''), j[feld].n + ' · ' + j[feld].v) : '').join('')}
         ${j.anwesend ? z('Beste Anwesenheit', j.anwesend.n + ' · ' + j.anwesend.v) : ''}
         ${j.strafen ? z('Meiste Strafen', j.strafen.n + ' · ' + j.strafen.v) : ''}
         ${z('Kassenstand zum Jahresende', j.kasse)}
@@ -1144,11 +1162,18 @@ $('calcReset').addEventListener('click', () => {
 });
 let rechnerFilter = '';
 
-/* Der Rechner zählt Einzelstrafen zusammen. Zeilen ohne festen Einzelpreis gehören
-   deshalb nicht hinein: die Kopfzeile des Blattes, der Durchschnitt nach §17 ("⌀")
-   sowie die gedeckelten Beträge nach §18 und §37 ("max. 50,00 €"). Gesucht wird
-   jetzt auch über die zweite Zeile, also §-Nummer und Preis. */
-const rechenbar = s => istParagraph(s) && !/^\s*(max\.|ca\.|bis)/i.test(String(s.b || '')) && num(s.b) > 0;
+/* Der Rechner zählt Einzelstrafen zusammen. Drei Paragraphen haben zwar einen
+   Betrag, aber keinen Einzelpreis zum Antippen – die gehören ausdrücklich nicht
+   hinein. Die Ausnahme steht als §-Nummer da und nicht als Textmuster: In der
+   Tabelle steht bei §18 eine blanke Zahl mit dem Zusatz "max." nur im Zellformat,
+   ein Filter über den Text greift dort ins Leere.
+     §17  Strafen für Abwesenheit – der Abendschnitt, keine feste Strafe
+     §18  Mangelnde Beteiligung   – gedeckelter Betrag, kein Einzelpreis
+     §37  Fegen                   – gedeckelter Betrag, kein Einzelpreis
+   Ändert sich die Nummerierung der Statuten, gehört diese Liste geprüft. */
+const RECHNER_AUSNAHMEN = ['§17', '§18', '§37'];
+const ausnahme = s => RECHNER_AUSNAHMEN.indexOf(String(s.p || '').replace(/\s/g,'')) >= 0;
+const rechenbar = s => istParagraph(s) && !ausnahme(s) && num(s.b) > 0;
 const rechnerZeilen = () => D.preise.filter(s => rechenbar(s) && (!rechnerFilter
   || s.t.toLowerCase().includes(rechnerFilter)
   || String(s.p).toLowerCase().includes(rechnerFilter)
