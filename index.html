@@ -466,7 +466,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.4.1';
 
 const LOGOS = {
   standard: {
@@ -550,6 +550,7 @@ function anzahlUndPreis(strafart, summe){
 }
 let token = speicher.lies('kc-token') || '';
 let online = true;
+let letzterApiFehler = '';
 
 /* ---------------------------------------------------- Backend-Zugriff */
 /* Apps Script liest bei einer Abfrage mehrere Tabellenblaetter. Dauert das zu
@@ -557,15 +558,30 @@ let online = true;
    fehl - deshalb wird bis zu dreimal probiert, statt sofort "Offline" zu melden.
    Ohne Zeitlimit wuerde eine haengende Anfrage ewig stehenbleiben. */
 const API_VERSUCHE  = 3;
-const API_ZEITLIMIT = 45000;
+/* Apps Script braucht nach einer Pause einen Kaltstart. Deshalb steigt das
+   Zeitlimit von Versuch zu Versuch, statt jedes Mal gleich lang zu warten –
+   ein flottes Backend antwortet sofort, ein träges bekommt seine Chance. */
+const API_ZEITLIMITE = [25000, 45000, 70000];
 const warte = ms => new Promise(r => setTimeout(r, ms));
+
+/* Sagt in Klartext, woran es lag. Ohne das steht überall nur "keine Verbindung",
+   und Zeitüberschreitung, Serverfehler und Anmeldeseite sehen gleich aus. */
+function fehlerGrund(e){
+  if (!e) return 'unbekannt';
+  if (e.name === 'AbortError') return 'Zeitüberschreitung – das Backend hat nicht rechtzeitig geantwortet';
+  if (e.istHttp) return 'Server antwortete mit ' + e.message;
+  if (e instanceof SyntaxError) return 'Antwort war kein JSON – vermutlich eine Fehler- oder Anmeldeseite von Google';
+  if (e instanceof TypeError) return 'Netzwerkfehler – keine Verbindung zu Google';
+  return e.message || 'unbekannt';
+}
 
 async function api(aktion, extra, versuche){
   const max = Math.max(1, versuche || 1);
   let letzterFehler;
   for (let i = 1; i <= max; i++){
     const abbruch = new AbortController();
-    const uhr = setTimeout(() => abbruch.abort(), API_ZEITLIMIT);
+    const grenze = API_ZEITLIMITE[Math.min(i, API_ZEITLIMITE.length) - 1];
+    const uhr = setTimeout(() => abbruch.abort(), grenze);
     try {
       const antwort = await fetch(API, {
         method: 'POST',
@@ -573,12 +589,16 @@ async function api(aktion, extra, versuche){
         body: JSON.stringify(Object.assign({ aktion: aktion }, extra || {})),
         signal: abbruch.signal
       });
-      if (!antwort.ok) throw new Error('HTTP ' + antwort.status);
+      if (!antwort.ok){
+        const f = new Error('HTTP ' + antwort.status);
+        f.istHttp = true;
+        throw f;
+      }
       return await antwort.json();
     } catch (e) {
       letzterFehler = e;
       if (i < max){
-        hinweisleiste('Verbindung hakt – Versuch ' + (i + 1) + ' von ' + max + ' …');
+        hinweisleiste('Versuch ' + i + ' von ' + max + ' fehlgeschlagen (' + fehlerGrund(e) + ') – nächster läuft …');
         await warte(1200 * i);
       }
     } finally {
@@ -748,8 +768,9 @@ async function aktualisieren(){
     hinweisleiste('');
   } catch (e) {
     online = false;
-    if (D) hinweisleiste('Keine Verbindung nach ' + API_VERSUCHE + ' Versuchen – ' + standText(), 'warn');
-    else { zeigeAnsicht('view-laden'); $('ladenText').textContent = 'Keine Verbindung. Sobald du wieder online bist, lädt die App von selbst.'; }
+    letzterApiFehler = fehlerGrund(e);
+    if (D) hinweisleiste('Daten nicht geladen: ' + letzterApiFehler + ' · ' + standText(), 'warn');
+    else { zeigeAnsicht('view-laden'); $('ladenText').textContent = 'Daten nicht geladen: ' + letzterApiFehler; }
   }
 }
 
@@ -757,7 +778,7 @@ function zeigeApp(){
   zeigeAnsicht('app');
   $('whoami').textContent = D.ich.name + (D.ich.schriftfuehrer ? ' · Schriftführer' : '');
   $('tabAmt').classList.toggle('hidden', !D.ich.schriftfuehrer);
-  $('standText').textContent = standText();
+  $('standText').textContent = standText() + (letzterApiFehler ? ' · zuletzt: ' + letzterApiFehler : '');
   $('versionText').textContent = 'KC Knüppeldick · App ' + APP_VERSION + ' · Backend ' + (D.version||'?');
   zeichneStart(); zeichneStrafen(); zeichneStatuten(D.statuten); zeichneRechner(rechnerZeilen());
   zeichneWarte(); zeichneMitglieder(); zeichneTermine();
