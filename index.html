@@ -466,7 +466,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.4.1';
+const APP_VERSION = '1.5.0';
 
 const LOGOS = {
   standard: {
@@ -557,11 +557,10 @@ let letzterApiFehler = '';
    lange oder bricht die Mobilverbindung kurz weg, schlaegt der erste Versuch
    fehl - deshalb wird bis zu dreimal probiert, statt sofort "Offline" zu melden.
    Ohne Zeitlimit wuerde eine haengende Anfrage ewig stehenbleiben. */
-const API_VERSUCHE  = 3;
-/* Apps Script braucht nach einer Pause einen Kaltstart. Deshalb steigt das
-   Zeitlimit von Versuch zu Versuch, statt jedes Mal gleich lang zu warten –
-   ein flottes Backend antwortet sofort, ein träges bekommt seine Chance. */
-const API_ZEITLIMITE = [25000, 45000, 70000];
+const API_VERSUCHE  = 2;
+/* Großzügig, weil eine Abfrage im Ausführungsprotokoll 8 bis 24 Sekunden
+   braucht und der Browser zusätzlich auf die Weiterleitung von Google wartet. */
+const API_ZEITLIMIT = 90000;
 const warte = ms => new Promise(r => setTimeout(r, ms));
 
 /* Sagt in Klartext, woran es lag. Ohne das steht überall nur "keine Verbindung",
@@ -580,8 +579,7 @@ async function api(aktion, extra, versuche){
   let letzterFehler;
   for (let i = 1; i <= max; i++){
     const abbruch = new AbortController();
-    const grenze = API_ZEITLIMITE[Math.min(i, API_ZEITLIMITE.length) - 1];
-    const uhr = setTimeout(() => abbruch.abort(), grenze);
+    const uhr = setTimeout(() => abbruch.abort(), API_ZEITLIMIT);
     try {
       const antwort = await fetch(API, {
         method: 'POST',
@@ -597,9 +595,13 @@ async function api(aktion, extra, versuche){
       return await antwort.json();
     } catch (e) {
       letzterFehler = e;
+      // Bei einer Zeitüberschreitung rechnet Apps Script serverseitig WEITER –
+      // ein zweiter Anlauf legt nur eine weitere Ausführung obendrauf und macht
+      // alles langsamer. Nachgelegt wird deshalb nur bei echten Netzfehlern.
+      if (e.name === 'AbortError') break;
       if (i < max){
         hinweisleiste('Versuch ' + i + ' von ' + max + ' fehlgeschlagen (' + fehlerGrund(e) + ') – nächster läuft …');
-        await warte(1200 * i);
+        await warte(1500);
       }
     } finally {
       clearTimeout(uhr);
@@ -752,9 +754,21 @@ async function start(){
   aktualisieren();
 }
 
-async function aktualisieren(){
+let laufenderAbruf = null;
+
+/* start(), der Knopf in den Einstellungen, das Runterziehen und das
+   Online-Ereignis können alle gleichzeitig auslösen. Ohne diese Sperre
+   schickt ein Gerät vier Abfragen los, die sich im Backend gegenseitig
+   ausbremsen – genau das war im Ausführungsprotokoll zu sehen. */
+function aktualisieren(frisch){
+  if (laufenderAbruf) return laufenderAbruf;
+  laufenderAbruf = abrufen(frisch).finally(() => { laufenderAbruf = null; });
+  return laufenderAbruf;
+}
+
+async function abrufen(frisch){
   try {
-    const r = await api('daten', { token: token }, API_VERSUCHE);
+    const r = await api('daten', { token: token, frisch: !!frisch }, API_VERSUCHE);
     if (r.fehler === 'Nicht angemeldet.'){
       speicher.loesch('kc-token'); speicher.loesch('kc-daten');
       token = ''; zeigeAnsicht('view-login');
@@ -1447,7 +1461,7 @@ $('tabs').addEventListener('click', e => {
 
 $('openSettings').addEventListener('click', () => { $('standText').textContent = standText(); $('settings').classList.remove('hidden'); });
 $('closeSettings').addEventListener('click', () => $('settings').classList.add('hidden'));
-$('reloadBtn').addEventListener('click', () => { $('settings').classList.add('hidden'); hinweisleiste('Wird geladen …'); aktualisieren(); });
+$('reloadBtn').addEventListener('click', () => { $('settings').classList.add('hidden'); hinweisleiste('Wird geladen …'); aktualisieren(true); });
 $('badge-small').addEventListener('click', () => $('lightbox').classList.remove('hidden'));
 $('showLogo').addEventListener('click', () => { $('settings').classList.add('hidden'); $('lightbox').classList.remove('hidden'); });
 $('lightbox').addEventListener('click', () => $('lightbox').classList.add('hidden'));
@@ -1496,7 +1510,7 @@ window.addEventListener('offline', () => hinweisleiste('Offline – ' + standTex
       laeuft = true;
       txt.textContent = 'Wird geladen …';
       feld.style.height = '34px';
-      try { await aktualisieren(); } finally { laeuft = false; zurueck(); }
+      try { await aktualisieren(true); } finally { laeuft = false; zurueck(); }
     } else zurueck();
     startY = null; aktiv = false;
   });
