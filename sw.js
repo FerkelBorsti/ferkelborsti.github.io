@@ -7,7 +7,7 @@
    und nur bei fehlendem Empfang aus dem Zwischenspeicher. Vorher galt umgekehrt
    "Zwischenspeicher zuerst" – dadurch startete die App auch mit Netz noch tagelang
    in der alten Fassung. Offline funktioniert unverändert, nur eben als Rückfall. */
-const VERSION = 'kc-v1.13.0';
+const VERSION = 'kc-v1.14.0';
 const HUELLE = [
   './',
   './index.html',
