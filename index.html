@@ -282,6 +282,26 @@ body.gesperrt{position:fixed;left:0;right:0;width:100%;overflow:hidden}
 .switch[aria-checked="true"]::after{transform:translateX(20px);background:#fff}
 .switch:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .switch[disabled]{opacity:.4;cursor:not-allowed}
+
+/* --- Strafen-Erfassung --- */
+.warnton{color:var(--accent)}
+.erfkopf{display:flex;gap:8px;flex-wrap:wrap}
+button.row.erfmann{border:none;width:100%;text-align:left;font-family:inherit;color:var(--text);
+  cursor:pointer;align-items:center}
+button.row.erfmann:active{background:var(--surface-2)}
+button.row.erfmann:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+/* Der Zähler ist das meistbenutzte Bedienelement des Abends und wird im Stehen,
+   oft einhändig getippt. 44 px sind die kleinste Fläche, die auf dem iPhone
+   zuverlässig trifft – darunter verzählt man sich. */
+.zaehl{display:flex;align-items:center;gap:4px;flex:none}
+.zaehl button{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);
+  background:var(--surface-2);color:var(--text);font-size:22px;font-weight:700;line-height:1;
+  cursor:pointer;display:flex;align-items:center;justify-content:center}
+.zaehl button:active{background:var(--accent);color:#fff;border-color:transparent}
+.zaehl button[disabled]{opacity:.35;cursor:not-allowed}
+.zaehl button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.zaehl b{min-width:56px;text-align:center;font-family:'Archivo Black',sans-serif;
+  font-variant-numeric:tabular-nums;font-size:15px}
 .linkrow{display:flex;align-items:center;gap:13px;background:var(--surface);padding:15px;text-decoration:none;color:inherit;border-bottom:1px solid var(--line)}
 .linkrow:last-child{border-bottom:none}
 .linkrow svg{width:24px;height:24px;flex:none;stroke:var(--accent);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
@@ -514,6 +534,20 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
     </div>
   </div>
 
+  <!-- STRAFEN ERFASSEN -->
+  <div class="sheet hidden" id="erfassung" role="dialog" aria-label="Strafen erfassen">
+    <div class="sheet-in">
+      <div class="sheet-head">
+        <h2 id="erfTitel">Erfassen</h2>
+        <button class="iconbtn" id="closeErfassung" aria-label="Schließen">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <p class="note" id="erfStand"></p>
+      <div id="erfBody"></div>
+    </div>
+  </div>
+
   <!-- MELDUNG, WENN DIE APP OFFEN IST -->
   <div class="meldung hidden" id="meldung" role="status" aria-live="polite">
     <div class="n" id="meldungTitel"></div>
@@ -670,7 +704,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.13.0';
+const APP_VERSION = '1.14.0';
 
 const LOGOS = {
   standard: {
@@ -1041,6 +1075,7 @@ function zeigeApp(){
   if (darfAmtSehen()) zeichneAmt(aktuelleAmtSicht);
   zeichneVerwaltung();
   zeichnePush();
+  schlangeSenden();          // was offline liegen blieb, geht jetzt raus
   pushEmpfangVorbereiten();
   offenesZielNachholen();
 }
@@ -1070,6 +1105,8 @@ function zeichneStart(){
           <div class="sub">${esc([t.ort, t.beginn ? t.beginn + ' Uhr' : ''].filter(String).join(' · ') || 'Zeit folgt')}</div></div>
         ${t.art === 'Kegelabend' ? `<div class="deadline">Abmeldung bis ${esc(uhrMinus(t.beginn))} Uhr – danach 10,00 € nach §2</div>` : ''}
         <p class="note" style="margin:0">Abmeldung geht vorerst weiter über WhatsApp.</p>
+        ${darfErfassen() && t.datum === D.heute
+          ? `<button class="btn" id="startErfassen" style="margin-top:12px">Strafen erfassen</button>` : ''}
       </div>`;
   }
 
@@ -1107,6 +1144,8 @@ function zeichneStart(){
     </div>`;
 
   $('tab-start').innerHTML = h;
+  if ($('startErfassen')) $('startErfassen').addEventListener('click',
+    () => erfassungOeffnen(D.naechsterTermin.datum, D.naechsterTermin.art));
   const zf = $('zahlfelder');
   if (zf) zf.addEventListener('click', e => {
     const b = e.target.closest('button[data-kopie]'); if (!b) return;
@@ -1537,6 +1576,7 @@ function zeichneTermine(){
     const vorbei = t.datum < heute;
     const naechster = !vorbei && t.datum === (D.naechsterTermin||{}).datum;
     const rechts = (naechster ? '<span class="pill open">als Nächstes</span>' : '')
+      + (darfErfassen() ? `<button class="btn ghost small" data-erf="${esc(t.datum)}" data-art="${esc(t.art)}">Erfassen</button>` : '')
       + (darf && !vorbei ? `<button class="btn ghost small" data-termin="${esc(t.datum)}" data-art="${esc(t.art)}">Ändern</button>` : '');
     return `<div class="row" style="${vorbei ? 'opacity:.55' : ''}">
       <div><div class="n">${esc(t.bezeichnung || t.art)}</div>
@@ -1631,6 +1671,8 @@ $('terminArt').addEventListener('click', e => {
   terminArtSetzen(b.dataset.art);
 });
 $('terminList').addEventListener('click', e => {
+  const erf = e.target.closest('button[data-erf]');
+  if (erf){ erfassungOeffnen(erf.dataset.erf, erf.dataset.art); return; }
   const b = e.target.closest('button[data-termin]'); if (!b) return;
   terminSheetOeffnen({ datum: b.dataset.termin, art: b.dataset.art });
 });
@@ -1839,7 +1881,7 @@ $('tabs').addEventListener('click', e => {
    bleibt hängen und man landet nach dem Schließen an einer anderen Stelle. */
 let gemerkteHoehe = 0;
 function ebenenOffen(){
-  return ['settings', 'verwaltung', 'terminSheet', 'lightbox']
+  return ['settings', 'verwaltung', 'terminSheet', 'erfassung', 'lightbox']
     .some(id => $(id) && !$(id).classList.contains('hidden'));
 }
 function hintergrundPruefen(){
@@ -1869,8 +1911,595 @@ $('lightbox').addEventListener('click', () => ebene('lightbox', false));
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   ebene('lightbox', false); ebene('verwaltung', false); ebene('settings', false);
+  if (!$('erfassung').classList.contains('hidden')){ ebene('erfassung', false); ERF = null; }
 });
 window.addEventListener('online', () => { hinweisleiste(''); aktualisieren(); });
+
+/* ============================================== Strafen erfassen (1.14) */
+/* Erfasst wird vom Kegelbruder aus: Man tippt den an, der sich die Strafe
+   eingefangen hat, und hakt sie in seiner Liste ab. Das entspricht dem, was an
+   der Bahn passiert – die Strafe entsteht an der Person, nicht an der Strafart
+   (Entscheidung Johannes, 28.08.2026).
+
+   Für den Anfang eines Abends gibt es einen zweiten, kurzen Weg: "Mehrere auf
+   einmal". Zu spät kommen und Vergessenes trifft meistens gleich mehrere, und
+   zwar bevor der erste Wurf gemacht ist. Dort wählt man einmal die Strafart und
+   tippt danach die Betroffenen an.
+
+   Geschrieben wird NICHT nach Rohdaten, sondern in das Termin-Blatt in
+   "Strafenlisten" – dort stecken Abenddurchschnitt, §17-Aufrundung, §18-Deckel
+   und die Verteilung der Sonderwürfe. Die App rechnet nur mit, was sie zur
+   Anzeige braucht; verbindlich ist die Tabelle. */
+
+let ERF = null;             // aktueller Abend, so wie das Blatt ihn hergibt
+let erfSicht = 'liste';     // liste | mann | anwesenheit | sammel
+let erfMann = '';
+let erfSuchtext = '';
+let erfMannStand = '';
+let erfObenListe = [];
+let erfSammelZeile = '';
+let erfLaedt = false;
+let erfGesendet = 0;
+
+const ERF_SCHLANGE = 'kc-erf-schlange';
+const ERF_ABGELEHNT = 'kc-erf-abgelehnt';
+
+function darfErfassen(){ return !!(D && D.ich && D.ich.darfErfassen); }
+
+function kennung(){
+  try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch(e){}
+  return 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+
+/* ------------------------------------------------------- Warteschlange */
+/* Jede Eintragung geht einzeln raus und trägt eine eigene Kennung. Das Backend
+   kennt die Kennungen und bucht keine zweimal – deshalb darf die App beliebig
+   oft nachsenden. Auf der Kegelbahn ist Funk selten verlässlich; die Anzeige
+   soll trotzdem sofort stimmen. */
+function schlange(){ try { return JSON.parse(speicher.lies(ERF_SCHLANGE) || '[]'); } catch(e){ return []; } }
+function schlangeSchreib(l){ speicher.schreib(ERF_SCHLANGE, JSON.stringify(l)); }
+function abgelehnte(){ try { return JSON.parse(speicher.lies(ERF_ABGELEHNT) || '[]'); } catch(e){ return []; } }
+function abgelehnteSchreib(l){ speicher.schreib(ERF_ABGELEHNT, JSON.stringify(l.slice(-20))); }
+
+function schlangeDazu(aktion, nutzlast, beschriftung){
+  const l = schlange();
+  l.push({ aktion: aktion, nutzlast: nutzlast, text: beschriftung, wann: Date.now() });
+  schlangeSchreib(l);
+  erfKopfZeichnen();
+  schlangeSenden();
+}
+
+let schlangeLaeuft = false;
+
+async function schlangeSenden(){
+  if (schlangeLaeuft || !token) return;
+  schlangeLaeuft = true;
+  try {
+    while (schlange().length){
+      // Aufeinanderfolgende Eintragungen gehen gebündelt raus. Nach einer
+      // Funkloch-Pause liegen schnell zwanzig Stück in der Schlange – einzeln
+      // wären das zwanzig Skript-Läufe zu je ein bis zwei Sekunden.
+      const l = schlange();
+      let n = 0;
+      while (n < l.length && n < 40 && l[n].aktion === 'erfassungBuchen') n++;
+
+      let antwort, anzahl;
+      try {
+        if (n >= 2){
+          anzahl = n;
+          antwort = await api('erfassungBuchenViele',
+            { token: token, eintraege: l.slice(0, n).map(x => x.nutzlast.eintrag) }, 1);
+        } else {
+          anzahl = 1;
+          antwort = await api(l[0].aktion, Object.assign({ token: token }, l[0].nutzlast), 1);
+        }
+      } catch (e) {
+        break;                       // kein Netz – der Rest bleibt liegen
+      }
+
+      // Ein fachlicher Fehler (unbekannte Strafart, gerechnete Zeile) wird durch
+      // Wiederholen nicht besser. Der Auftrag fliegt aus der Schlange, damit er
+      // nicht alles dahinter blockiert, und wird sichtbar festgehalten.
+      const merke = (text, fehler) => {
+        const w = abgelehnte();
+        w.push({ text: text, fehler: fehler, wann: Date.now() });
+        abgelehnteSchreib(w);
+      };
+      if (antwort && antwort.fehler){
+        l.slice(0, anzahl).forEach(a => merke(a.text || a.aktion, antwort.fehler));
+      } else if (antwort && antwort.ergebnisse){
+        antwort.ergebnisse.forEach((r, i) => {
+          if (r && r.fehler) merke((l[i] || {}).text || 'Eintrag', r.fehler);
+        });
+      }
+      schlangeSchreib(schlange().slice(anzahl));
+      erfGesendet += anzahl;
+      erfKopfZeichnen();
+    }
+  } finally {
+    schlangeLaeuft = false;
+    erfKopfZeichnen();
+  }
+}
+
+/* ------------------------------------------------------------ Rechnen */
+/* Was ein Kegelbruder heute zusammen hat. Bewusst nur eine Vorschau: Der
+   Abenddurchschnitt für Abwesende und der §18-Deckel entstehen erst in der
+   Tabelle, weil sie vom ganzen Abend abhängen. */
+function erfWert(name, label){
+  return ((ERF.werte || {})[name] || {})[label] || 0;
+}
+
+function erfSumme(name){
+  if (!ERF) return 0;
+  let s = 0;
+  ERF.zeilen.forEach(z => {
+    const v = erfWert(name, z.label);
+    if (!v) return;
+    if (z.art === 'strafe')                          s += v * z.betrag;
+    else if (z.art === 'euro' || z.art === 'geld')   s += v;
+    else if (z.art === 'pumpen')                     s += v * (ERF.pumpenSatz || 0);
+    else if (z.art === 'formel' && z.euro)           s += v;
+  });
+  // Anteil an den Sonderwürfen der anderen. Wer den Wurf gemacht hat, zahlt
+  // dafür nichts – "alle anderen zahlen" steht so in der Strafenliste.
+  if (ERF.anwesend.indexOf(name) >= 0){
+    ERF.zeilen.filter(z => z.art === 'verteilt').forEach(z => {
+      let andere = 0;
+      ERF.mitglieder.forEach(m => { if (m !== name) andere += erfWert(m, z.label); });
+      s += andere * z.betrag;
+    });
+  }
+  return Math.round(s * 100) / 100;
+}
+
+/* Was jemand allein deshalb zahlt, weil ein anderer einen Sonderwurf gemacht
+   hat. Steht nirgends als eigene Zeile in seiner Liste – deshalb der Vermerk. */
+function anteilSonderwuerfe(name){
+  if (!ERF || ERF.anwesend.indexOf(name) < 0) return 0;
+  let s = 0;
+  ERF.zeilen.filter(z => z.art === 'verteilt').forEach(z => {
+    let andere = 0;
+    ERF.mitglieder.forEach(m => { if (m !== name) andere += erfWert(m, z.label); });
+    s += andere * z.betrag;
+  });
+  return Math.round(s * 100) / 100;
+}
+
+function erfAnzahl(name){
+  let n = 0;
+  ERF.zeilen.forEach(z => { if (z.art !== 'zaehler' && erfWert(name, z.label)) n++; });
+  return n;
+}
+
+/* --------------------------------------------------------- Eintragen */
+function erfBuchen(name, label, delta, notiz){
+  const z = ERF.zeilen.filter(x => x.label === label)[0];
+  if (!z || z.art === 'formel') return;
+  const alt = erfWert(name, label);
+  let neu = Math.round((alt + delta) * 100) / 100;
+  if (neu < 0) neu = 0;
+  if (z.deckel > 0 && (z.art === 'euro') && neu > z.deckel) neu = z.deckel;
+  const echterDelta = Math.round((neu - alt) * 100) / 100;
+  if (!echterDelta) return;
+
+  if (!ERF.werte[name]) ERF.werte[name] = {};
+  if (neu) ERF.werte[name][label] = neu; else delete ERF.werte[name][label];
+
+  schlangeDazu('erfassungBuchen', {
+    eintrag: { id: kennung(), datum: ERF.datum, art: ERF.art,
+               name: name, zeile: label, delta: echterDelta, notiz: notiz || '' }
+  }, name + ' · ' + label);
+  erfZeichnen();
+}
+
+function erfSchalter(was, name, wert, beschriftung){
+  schlangeDazu('erfassungSetzen', {
+    eintrag: { id: kennung(), datum: ERF.datum, art: ERF.art, was: was, name: name, wert: wert }
+  }, beschriftung);
+}
+
+function erfAnwesenheit(name, anwesend){
+  const i = ERF.anwesend.indexOf(name);
+  if (anwesend && i < 0) ERF.anwesend.push(name);
+  if (!anwesend && i >= 0) ERF.anwesend.splice(i, 1);
+  erfSchalter('anwesenheit', name, anwesend, 'Anwesenheit ' + name);
+  erfZeichnen();
+}
+
+/* ----------------------------------------------------------- Öffnen */
+async function erfassungOeffnen(datum, art){
+  if (!darfErfassen()) return;
+  erfSicht = 'liste'; erfMann = ''; erfSammelZeile = '';
+  ebene('erfassung', true);
+  erfLaedt = true;
+  $('erfTitel').textContent = (art === 'Kegelabend' ? 'Kegelabend' : 'Veranstaltung') + ' ' + dat(datum);
+  $('erfBody').innerHTML = '<p class="note">Blatt wird geladen …</p>';
+  erfKopfZeichnen();
+  try {
+    // Erst leeren, was noch in der Schlange liegt, dann lesen. Sonst käme ein
+    // Blattstand zurück, in dem die letzten Eintragungen noch fehlen – sie
+    // gingen zwar hinterher trotzdem raus, aber die Anzeige wäre kurz falsch.
+    await schlangeSenden();
+    let r = await api('erfassungLesen', { token: token, datum: datum, art: art }, API_VERSUCHE);
+    if (r.fehler){ erfBody('<p class="note warnton">' + esc(r.fehler) + '</p>'); return; }
+    if (!r.existiert){
+      erfBody(`<p class="note">Für diesen Termin gibt es noch kein Blatt in „Strafenlisten".
+        Es wird aus der Vorlage angelegt – genau wie über das Menü in der Tabelle.</p>
+        <button class="btn" id="erfAnlegen" style="margin-top:14px">Blatt anlegen</button>`);
+      $('erfAnlegen').addEventListener('click', async ev => {
+        ev.target.disabled = true; ev.target.textContent = 'Moment …';
+        try {
+          const a = await api('erfassungAnlegen', { token: token, datum: datum, art: art }, API_VERSUCHE);
+          if (a.fehler){ erfBody('<p class="note warnton">' + esc(a.fehler) + '</p>'); return; }
+          ERF = Object.assign({ datum: datum, weg: erfWegAusTermin(datum, art) }, a); erfZeichnen();
+        } catch (e){ erfBody('<p class="note warnton">Keine Verbindung.</p>'); }
+      });
+      return;
+    }
+    ERF = Object.assign({ datum: datum, weg: erfWegAusTermin(datum, art) }, r);
+    erfZeichnen();
+  } catch (e){
+    erfBody('<p class="note warnton">Keine Verbindung – das Blatt konnte nicht geladen werden. '
+      + 'Was du hier einträgst, würde ohne geladenes Blatt ins Leere laufen.</p>');
+  } finally {
+    erfLaedt = false;
+    erfKopfZeichnen();
+  }
+}
+
+function erfWegAusTermin(datum, art){
+  const t = ((D || {}).termine || []).filter(x => x.datum === datum && x.art === art)[0];
+  return t && t.erfassungsweg === 'App' ? 'App' : 'Tabelle';
+}
+
+function erfBody(h){ $('erfBody').innerHTML = h; }
+
+function erfKopfZeichnen(){
+  const offen = schlange().length;
+  const fehler = abgelehnte().length;
+  const teile = [];
+  if (offen) teile.push(offen === 1 ? '1 Eintrag wird gesendet' : offen + ' Einträge werden gesendet');
+  if (!offen && erfGesendet) teile.push(plural(erfGesendet, 'Eintrag gesendet', 'Einträge gesendet'));
+  if (fehler) teile.push(fehler === 1 ? '1 abgelehnt' : fehler + ' abgelehnt');
+  const el = $('erfStand');
+  if (!el) return;
+  el.textContent = teile.join(' · ');
+  el.className = 'note' + (offen || fehler ? ' warnton' : '');
+}
+
+/* --------------------------------------------------------- Zeichnen */
+function erfZeichnen(){
+  erfKopfZeichnen();
+  if (!ERF) return;
+  if (erfSicht === 'mann')        return erfMannZeichnen();
+  if (erfSicht === 'anwesenheit') return erfAnwesenheitZeichnen();
+  if (erfSicht === 'sammel')      return erfSammelZeichnen();
+  erfListeZeichnen();
+}
+
+function erfListeZeichnen(){
+  const anwesend = ERF.mitglieder.filter(m => ERF.anwesend.indexOf(m) >= 0);
+  const rest     = ERF.mitglieder.filter(m => ERF.anwesend.indexOf(m) < 0);
+  const gesamt   = ERF.mitglieder.reduce((s, m) => s + erfSumme(m), 0);
+
+  const zeile = m => {
+    const n = erfAnzahl(m);
+    const summe = erfSumme(m);
+    const gast = /^gast/i.test(m);
+    const name = gast && ERF.gaeste[m] ? ERF.gaeste[m] + ' (' + m + ')' : m;
+    // Wer selbst nichts erfasst hat, kann trotzdem einen Betrag haben: den
+    // Anteil an den Sonderwürfen der anderen. "noch nichts" neben 7,50 € wäre
+    // schlicht falsch.
+    const unter = n ? plural(n, 'Strafart', 'Strafarten')
+                : summe ? 'Anteil an den Sonderwürfen der anderen'
+                : 'noch nichts';
+    return `<button class="row erfmann" data-mann="${esc(m)}">
+      <div><div class="n">${esc(name)}</div>
+        <div class="m">${esc(unter)}</div></div>
+      <div class="v">${eur(summe)}</div></button>`;
+  };
+
+  let h = `<div class="erfkopf">
+      <button class="btn ghost small" id="erfZuAnwesenheit">Anwesenheit</button>
+      <button class="btn ghost small" id="erfZuSammel">Mehrere auf einmal</button>
+    </div>`;
+
+  if (!anwesend.length){
+    h += `<p class="note warnton" style="margin-top:14px">Noch niemand als anwesend markiert.
+      Der Abenddurchschnitt nach §17 wird aus den Anwesenden gerechnet – ohne diese Angabe
+      stimmt am Ende nichts. Am besten gleich zu Beginn setzen.</p>`;
+  }
+
+  h += `<div class="list" style="margin-top:16px">
+      <div class="group-head"><span>Anwesend</span><span>${anwesend.length}</span></div>
+      ${anwesend.map(zeile).join('') || '<div class="row"><div class="m">niemand</div></div>'}
+    </div>`;
+
+  if (rest.length){
+    h += `<div class="list" style="margin-top:16px">
+      <div class="group-head"><span>Nicht anwesend</span><span>${rest.length}</span></div>
+      ${rest.map(zeile).join('')}
+    </div>
+    <p class="note" style="margin-top:8px">Auch Abwesende können Strafen bekommen – etwa die
+      20,00 € nach §5.1, wenn der Pumpenkegel fehlt. Sie zahlen dann Durchschnitt
+      <strong>plus</strong> diese Strafe.</p>`;
+  }
+
+  if (ERF.hatP18){
+    h += `<div class="list" style="margin-top:20px"><div class="setrow">
+      <div><div class="lbl">§18: mangelnde Beteiligung</div>
+        <div class="dsc">Vier Alkohol trinkende Kegelbrüder oder weniger. Deckelt die
+          Durchschnittsstrafe auf ${eur(50)} und erlaubt das Trinken auf Kosten der Kasse.
+          Der Kassenbon gehört danach als Ausgabe „Frei Suff" erfasst.</div></div>
+      <button class="switch" role="switch" aria-checked="${!!ERF.p18}" id="erfP18" aria-label="§18"></button>
+    </div></div>`;
+  }
+
+  h += `<div class="list" style="margin-top:20px"><div class="setrow">
+      <div><div class="lbl">Dieser Abend läuft über die App</div>
+        <div class="dsc">Trägt „App" statt „Tabelle" in die Spalte „Erfassungsweg" des
+          Termin-Blatts ein. Erfasst wird so oder so – der Vermerk hält nur fest, auf
+          welchem Weg. Im Schattenbetrieb ist genau das die Frage, die am Ende zu
+          beantworten ist.</div></div>
+      <button class="switch" role="switch" aria-checked="${ERF.weg === 'App'}" id="erfWeg"
+        aria-label="Erfassungsweg"></button>
+    </div></div>
+
+    <div class="list" style="margin-top:20px">
+      <div class="row"><div><div class="n">Vorschau Abend</div>
+        <div class="m">ohne Durchschnitt für Abwesende</div></div>
+      <div class="v">${eur(gesamt)}</div></div></div>
+    <p class="note" style="margin-top:10px">Alles landet direkt im Blatt
+      <strong>${esc(ERF.blatt)}</strong>. Verbindlich wird es erst, wenn du in der Tabelle
+      „Kegelverein → Jetzt synchronisieren" laufen lässt – bis dahin kannst du hier und dort
+      noch korrigieren.</p>`;
+
+  const w = abgelehnte();
+  if (w.length){
+    h += `<div class="list" style="margin-top:16px">
+      <div class="group-head"><span>Nicht angekommen</span></div>
+      ${w.map(x => `<div class="row"><div><div class="n">${esc(x.text)}</div>
+        <div class="m">${esc(x.fehler)}</div></div></div>`).join('')}
+      </div>
+      <button class="btn ghost small" id="erfFehlerWeg" style="margin-top:10px">Liste leeren</button>`;
+  }
+
+  erfBody(h);
+  $('erfZuAnwesenheit').addEventListener('click', () => { erfSicht = 'anwesenheit'; erfZeichnen(); });
+  $('erfZuSammel').addEventListener('click', () => { erfSicht = 'sammel'; erfSammelZeile = ''; erfZeichnen(); });
+  if ($('erfP18')) $('erfP18').addEventListener('click', () => {
+    ERF.p18 = !ERF.p18;
+    erfSchalter('p18', '', ERF.p18, '§18 ' + (ERF.p18 ? 'gesetzt' : 'entfernt'));
+    erfZeichnen();
+  });
+  if ($('erfFehlerWeg')) $('erfFehlerWeg').addEventListener('click', () => { abgelehnteSchreib([]); erfZeichnen(); });
+  $('erfWeg').addEventListener('click', async () => {
+    const ziel = ERF.weg === 'App' ? 'Tabelle' : 'App';
+    ERF.weg = ziel; erfZeichnen();
+    try {
+      const r = await api('erfassungsweg',
+        { token: token, datum: ERF.datum, art: ERF.art, weg: ziel }, API_VERSUCHE);
+      if (r.fehler){ hinweisleiste(r.fehler, 'warn'); ERF.weg = ziel === 'App' ? 'Tabelle' : 'App'; erfZeichnen(); }
+      else if (D && D.termine){
+        const t = D.termine.filter(x => x.datum === ERF.datum && x.art === ERF.art)[0];
+        if (t) t.erfassungsweg = ziel;
+      }
+    } catch (e){
+      hinweisleiste('Keine Verbindung – der Vermerk wurde nicht gespeichert.', 'warn');
+      ERF.weg = ziel === 'App' ? 'Tabelle' : 'App'; erfZeichnen();
+    }
+  });
+  $('erfBody').querySelectorAll('button[data-mann]').forEach(b =>
+    b.addEventListener('click', () => { erfMann = b.dataset.mann; erfSicht = 'mann'; erfZeichnen(); }));
+}
+
+/* Eine Zeile mit Minus, Zahl und Plus. Bei Euro-Zeilen zählt ein Schritt den
+   Satz hoch (0,75 € je fünf Minuten), bei allen anderen einen Vorfall. */
+function erfZaehlZeile(name, z){
+  const v = erfWert(name, z.label);
+  const schritt = z.art === 'euro' ? z.betrag : 1;
+  const anzeige = z.art === 'euro' || z.art === 'geld' ? eur(v) : String(v);
+  const sub = z.art === 'geld'     ? 'freier Betrag'
+            : z.art === 'euro'     ? 'je Schritt ' + eur(z.betrag) + (z.deckel ? ' · max. ' + eur(z.deckel) : '')
+            : z.art === 'verteilt' ? 'alle anderen zahlen ' + eur(z.betrag)
+            : z.art === 'pumpen'   ? eur(ERF.pumpenSatz || 0) + ' je Pumpe'
+            : z.art === 'zaehler'  ? 'nur Statistik, kostet nichts'
+            : z.art === 'formel'   ? 'rechnet die Tabelle – hier nicht änderbar'
+            : v ? v + ' × ' + eur(z.betrag) + ' = ' + eur(v * z.betrag)
+                : eur(z.betrag);
+
+  if (z.art === 'formel'){
+    return `<div class="row"><div><div class="n">${esc(z.label)}</div>
+      <div class="m">${esc(sub)}</div></div><div class="v">${esc(anzeige)}</div></div>`;
+  }
+  if (z.art === 'geld'){
+    return `<div class="row"><div><div class="n">${esc(z.label)}</div>
+      <div class="m">${esc(sub)}</div></div>
+      <div style="display:flex;align-items:center;gap:8px;flex:none">
+        <span class="v">${esc(anzeige)}</span>
+        <button class="btn ghost small" data-geld="1">Eintragen</button></div></div>`;
+  }
+  // Steht nichts drin, steht auch keine Null da: ein Plus reicht. Erst wenn
+  // etwas erfasst ist, erscheinen Zahl und Minus. Das nimmt der langen Liste
+  // die halbe Unruhe, ohne einen Handgriff mehr zu kosten.
+  return `<div class="row"><div><div class="n">${esc(z.label)}</div>
+      <div class="m">${esc(sub)}</div></div>
+    <div class="zaehl">
+      ${v ? `<button data-minus="${esc(z.label)}" data-schritt="${schritt}" aria-label="weniger">−</button>
+            <b>${esc(anzeige)}</b>` : ''}
+      <button data-plus="${esc(z.label)}" data-schritt="${schritt}" aria-label="mehr">+</button>
+    </div></div>`;
+}
+
+function erfMannZeichnen(){
+  const name = erfMann;
+  const gast = /^gast/i.test(name);
+  const titel = gast && ERF.gaeste[name] ? ERF.gaeste[name] + ' (' + name + ')' : name;
+  const suche = (erfSuchtext || '').toLowerCase();
+  const passt = z => !suche || z.label.toLowerCase().indexOf(suche) >= 0;
+  // Die Aufteilung in "heute erfasst" und "alle Strafen" wird beim Öffnen
+  // eines Kegelbruders einmal festgehalten. Sonst springt eine Zeile in dem
+  // Moment nach oben, in dem man sie antippt – und der nächste Tipp landet auf
+  // der Zeile, die nachgerutscht ist. Beim nächsten Öffnen sortiert es sich neu.
+  if (erfMannStand !== name){
+    erfMannStand = name;
+    erfObenListe = ERF.zeilen.filter(z => erfWert(name, z.label)).map(z => z.label);
+  }
+  const oben = z => erfObenListe.indexOf(z.label) >= 0;
+  const erfasst = ERF.zeilen.filter(oben);
+  const rest    = ERF.zeilen.filter(z => !oben(z) && passt(z));
+
+  let h = `<button class="btn ghost small" id="erfZurueck">← Alle Kegelbrüder</button>
+    <div class="list" style="margin-top:14px">
+      <div class="row"><div><div class="n">${esc(titel)}</div>
+        <div class="m">${ERF.anwesend.indexOf(name) >= 0 ? 'anwesend' : 'nicht anwesend'}${
+          anteilSonderwuerfe(name) ? ' · davon ' + eur(anteilSonderwuerfe(name)) + ' Anteil an Sonderwürfen' : ''}</div></div>
+        <div class="v">${eur(erfSumme(name))}</div></div>
+    </div>`;
+
+  if (erfasst.length){
+    h += `<div class="list" style="margin-top:16px">
+      <div class="group-head"><span>Heute erfasst</span></div>
+      ${erfasst.map(z => erfZaehlZeile(name, z)).join('')}</div>`;
+  }
+
+  h += `<input class="search" id="erfSuche" placeholder="Strafe suchen …"
+      aria-label="Strafe suchen" style="margin-top:16px" value="${esc(erfSuchtext || '')}">
+    <div class="list" style="margin-top:12px">
+      <div class="group-head"><span>Alle Strafen</span><span>${rest.length}</span></div>
+      ${rest.map(z => erfZaehlZeile(name, z)).join('') || '<div class="row"><div class="m">nichts gefunden</div></div>'}
+    </div>`;
+
+  erfBody(h);
+  $('erfZurueck').addEventListener('click', () => {
+    erfSicht = 'liste'; erfSuchtext = ''; erfMannStand = ''; erfZeichnen();
+  });
+  const s = $('erfSuche');
+  s.addEventListener('input', () => { erfSuchtext = s.value; const p = s.selectionStart; erfMannZeichnen();
+    const n = $('erfSuche'); n.focus(); try { n.setSelectionRange(p, p); } catch(e){} });
+  erfZaehlerBinden(name);
+}
+
+
+function erfZaehlerBinden(name){
+  $('erfBody').querySelectorAll('button[data-plus]').forEach(b => b.addEventListener('click',
+    () => erfBuchen(name, b.dataset.plus, Number(b.dataset.schritt))));
+  $('erfBody').querySelectorAll('button[data-minus]').forEach(b => b.addEventListener('click',
+    () => erfBuchen(name, b.dataset.minus, -Number(b.dataset.schritt))));
+  $('erfBody').querySelectorAll('button[data-geld]').forEach(b => b.addEventListener('click',
+    () => erfGeldspiel(name)));
+}
+
+/* Geldspiele bleiben Handarbeit – jedes Spiel ist anders und trifft andere
+   Beträge (Vorgabe Johannes). Die App nimmt deshalb nur Betrag und Grund
+   entgegen; der Grund hängt danach als Notiz an der Zelle im Blatt. */
+function erfGeldspiel(name){
+  const z = ERF.zeilen.filter(x => x.art === 'geld')[0];
+  if (!z) return;
+  erfBody(`<button class="btn ghost small" id="erfZurueck">← Zurück</button>
+    <h2 class="sec" style="margin-top:16px">Strafen aus Geldspielen</h2>
+    <p class="note">Für ${esc(name)}. Der Grund ist Pflicht – ohne ihn lässt sich später
+      nicht mehr nachvollziehen, wofür kassiert wurde.</p>
+    <input class="search" id="gsBetrag" inputmode="decimal" placeholder="Betrag, z. B. 4,50"
+      aria-label="Betrag" style="margin-top:14px">
+    <input class="search" id="gsGrund" placeholder="Grund, z. B. Kloppen 3. Runde"
+      aria-label="Grund" style="margin-top:10px">
+    <p class="note warnton hidden" id="gsFehler" style="margin-top:10px"></p>
+    <button class="btn" id="gsOk" style="margin-top:14px">Eintragen</button>`);
+  $('erfZurueck').addEventListener('click', () => erfZeichnen());
+  $('gsOk').addEventListener('click', () => {
+    const betrag = num($('gsBetrag').value);
+    const grund = $('gsGrund').value.trim();
+    const f = $('gsFehler');
+    if (!betrag){ f.textContent = 'Bitte einen Betrag eingeben.'; f.classList.remove('hidden'); return; }
+    if (!grund){ f.textContent = 'Bitte einen Grund eingeben.'; f.classList.remove('hidden'); return; }
+    erfBuchen(name, z.label, betrag, grund);
+  });
+}
+
+function erfAnwesenheitZeichnen(){
+  const zeile = m => {
+    const da = ERF.anwesend.indexOf(m) >= 0;
+    const gast = /^gast/i.test(m);
+    return `<div class="setrow">
+      <div style="flex:1"><div class="lbl">${esc(m)}</div>
+        ${gast ? `<input class="search" style="margin-top:8px;padding:9px 12px;font-size:14px"
+            data-gast="${esc(m)}" placeholder="Name des Gastes" value="${esc(ERF.gaeste[m] || '')}"
+            aria-label="Name für ${esc(m)}">` : ''}</div>
+      <button class="switch" role="switch" aria-checked="${da}" data-anw="${esc(m)}" aria-label="${esc(m)}"></button>
+    </div>`;
+  };
+  erfBody(`<button class="btn ghost small" id="erfZurueck">← Alle Kegelbrüder</button>
+    <h2 class="sec" style="margin-top:16px">Anwesenheit</h2>
+    <p class="note">Setzt das X in der Zeile „Anwesenheit" des Blatts. Daraus entsteht der
+      Abenddurchschnitt nach §17 – und damit das, was die Abwesenden zahlen.</p>
+    <div class="list" style="margin-top:16px">${ERF.mitglieder.map(zeile).join('')}</div>`);
+  $('erfZurueck').addEventListener('click', () => { erfSicht = 'liste'; erfZeichnen(); });
+  $('erfBody').querySelectorAll('button[data-anw]').forEach(b => b.addEventListener('click', () =>
+    erfAnwesenheit(b.dataset.anw, b.getAttribute('aria-checked') !== 'true')));
+  $('erfBody').querySelectorAll('input[data-gast]').forEach(inp => inp.addEventListener('change', () => {
+    const m = inp.dataset.gast;
+    ERF.gaeste[m] = inp.value.trim();
+    erfSchalter('gast', m, inp.value.trim(), 'Gastname ' + m);
+  }));
+}
+
+/* "Mehrere auf einmal": erst die Strafart, dann alle Betroffenen antippen.
+   Gedacht für den Anfang eines Abends – zu spät gekommen, etwas vergessen. */
+function erfSammelZeichnen(){
+  if (!erfSammelZeile){
+    const suche = (erfSuchtext || '').toLowerCase();
+    const auswahl = ERF.zeilen.filter(z => z.art !== 'formel' && z.art !== 'geld'
+      && (!suche || z.label.toLowerCase().indexOf(suche) >= 0));
+    erfBody(`<button class="btn ghost small" id="erfZurueck">← Alle Kegelbrüder</button>
+      <h2 class="sec" style="margin-top:16px">Mehrere auf einmal</h2>
+      <p class="note">Erst die Strafe wählen, dann alle antippen, die sie kassiert haben.
+        Gedacht für den Anfang: zu spät gekommen, Orden oder Shirt vergessen.</p>
+      <input class="search" id="erfSuche" placeholder="Strafe suchen …" style="margin-top:14px"
+        aria-label="Strafe suchen" value="${esc(erfSuchtext || '')}">
+      <div class="list" style="margin-top:12px">
+        ${auswahl.map(z => `<button class="row erfmann" data-wahl="${esc(z.label)}">
+          <div><div class="n">${esc(z.label)}</div>
+            <div class="m">${z.art === 'zaehler' ? 'nur Statistik' : eur(z.betrag)}</div></div>
+          <div class="v">›</div></button>`).join('')
+          || '<div class="row"><div class="m">nichts gefunden</div></div>'}
+      </div>`);
+    $('erfZurueck').addEventListener('click', () => { erfSicht = 'liste'; erfSuchtext = ''; erfZeichnen(); });
+    const s = $('erfSuche');
+    s.addEventListener('input', () => { erfSuchtext = s.value; const p = s.selectionStart; erfSammelZeichnen();
+      const n = $('erfSuche'); n.focus(); try { n.setSelectionRange(p, p); } catch(e){} });
+    $('erfBody').querySelectorAll('button[data-wahl]').forEach(b => b.addEventListener('click',
+      () => { erfSammelZeile = b.dataset.wahl; erfSuchtext = ''; erfZeichnen(); }));
+    return;
+  }
+
+  const z = ERF.zeilen.filter(x => x.label === erfSammelZeile)[0];
+  const schritt = z.art === 'euro' ? z.betrag : 1;
+  erfBody(`<button class="btn ghost small" id="erfZurueck">← Andere Strafe</button>
+    <h2 class="sec" style="margin-top:16px">${esc(z.label)}</h2>
+    <p class="note">Jeder Tipp zählt einen Schritt hoch. Zweimal tippen heißt zweimal
+      kassiert.${z.art === 'euro' ? ' Ein Schritt sind ' + eur(z.betrag) + '.' : ''}</p>
+    <div class="list" style="margin-top:16px">
+      ${ERF.mitglieder.map(m => {
+        const v = erfWert(m, z.label);
+        const da = ERF.anwesend.indexOf(m) >= 0;
+        return `<button class="row erfmann" data-sam="${esc(m)}" style="${da ? '' : 'opacity:.6'}">
+          <div><div class="n">${esc(m)}</div>
+            <div class="m">${da ? 'anwesend' : 'nicht anwesend'}</div></div>
+          <div class="v">${v ? (z.art === 'euro' ? eur(v) : v + '×') : '+'}</div></button>`;
+      }).join('')}
+    </div>
+    <button class="btn" id="erfSammelFertig" style="margin-top:16px">Fertig</button>`);
+  $('erfZurueck').addEventListener('click', () => { erfSammelZeile = ''; erfZeichnen(); });
+  $('erfSammelFertig').addEventListener('click', () => { erfSicht = 'liste'; erfSammelZeile = ''; erfZeichnen(); });
+  $('erfBody').querySelectorAll('button[data-sam]').forEach(b => b.addEventListener('click',
+    () => erfBuchen(b.dataset.sam, z.label, schritt)));
+}
+
+$('closeErfassung').addEventListener('click', () => { ebene('erfassung', false); ERF = null; });
+window.addEventListener('online', () => schlangeSenden());
+
 window.addEventListener('offline', () => hinweisleiste('Offline – ' + standText(), 'warn'));
 
 /* ------------------------------------------- Runterziehen zum Aktualisieren */
@@ -2309,6 +2938,8 @@ const FREIGABEN = [
     dsc: 'Dein Stellvertreter darf mitlesen: Auswertung und Abend-Rückblick, ohne Codeverwaltung. Ändern kann er nichts. Am besten vor einer Abwesenheit setzen.' },
   { k: 'einsichtKasse', titel: 'Einsicht für den 2. Kassenwart',
     dsc: 'Dein Stellvertreter darf mitlesen: der Kassenbericht, kein Abhaken. Am besten vor einer Abwesenheit setzen.' },
+  { k: 'erfassung', titel: 'Erfassen für den 2. Schriftführer',
+    dsc: 'Dein Stellvertreter darf Strafen am Handy erfassen – der einzige Schalter, der nicht nur Lesen erlaubt. Sinnvoll, wenn du an einem Abend nicht kannst. Der Bimbo-Wart bekommt ihn ausdrücklich nicht; ohne Schriftwart bleibt es beim Papier-Strafenzettel.' },
   { k: 'kvAmt', titel: 'Einsicht für die Kegelväter (Schriftführer)',
     dsc: 'Beide Kegelväter dürfen den Bereich des Schriftführers mitlesen. Nur lesen.' },
   { k: 'kvKasse', titel: 'Einsicht für die Kegelväter (Kasse)',
