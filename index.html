@@ -285,9 +285,12 @@ body.gesperrt{position:fixed;left:0;right:0;width:100%;overflow:hidden}
 /* Das Paragraphenzeichen steht an der Stelle, an der die anderen Reiter ihr
    Symbol haben: gleiche 21 px, gleicher Abstand aus dem gap der Leiste. Die
    Grundlinie liegt bei einem Schriftzeichen anders als bei einem Symbol –
-   deshalb wird es über die Zeilenhöhe mittig in seine 21 px gesetzt. */
+   deshalb wird es über die Zeilenhöhe mittig in seine 21 px gesetzt.
+   Die Schriftstärke ist bewusst NICHT die der Überschriften: Die übrigen
+   Symbole sind 1,9 px starke Striche, ein „Archivo Black"-§ steht daneben wie
+   gefettet (Rückmeldung 28.08.2026). 500 kommt der Strichstärke am nächsten. */
 nav.tabs button .parag{width:21px;height:21px;line-height:22px;text-align:center;
-  font-family:'Archivo Black',sans-serif;font-size:20px}
+  font-family:'Archivo',system-ui,sans-serif;font-weight:400;font-size:20px}
 
 /* --- Strafen-Erfassung --- */
 .warnton{color:var(--accent)}
@@ -724,7 +727,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.15.1';
+const APP_VERSION = '1.15.2';
 
 const LOGOS = {
   standard: {
@@ -2286,8 +2289,7 @@ function erfListeZeichnen(){
     h += `<div class="list" style="margin-top:20px"><div class="setrow">
       <div><div class="lbl">§18: mangelnde Beteiligung</div>
         <div class="dsc">Vier Alkohol trinkende Kegelbrüder oder weniger. Deckelt die
-          Durchschnittsstrafe auf ${eur(50)} und erlaubt das Trinken auf Kosten der Kasse.
-          Um den Kassenbon kümmert sich der Kassenwart – für dich ist hier Schluss.</div></div>
+          Durchschnittsstrafe auf ${eur(50)} und erlaubt das Trinken auf Kosten der Kasse.</div></div>
       <button class="switch" role="switch" aria-checked="${!!ERF.p18}" id="erfP18" aria-label="§18"></button>
     </div></div>`;
   }
