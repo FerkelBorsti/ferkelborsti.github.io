@@ -727,7 +727,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.15.2';
+const APP_VERSION = '1.16.0';
 
 const LOGOS = {
   standard: {
@@ -924,6 +924,26 @@ function hinweisleiste(text, art){
 
 /* ---------------------------------------------------------- Darstellung */
 function systemHell(){ return window.matchMedia('(prefers-color-scheme: light)').matches; }
+
+/* Das Symbol im Browser-Tab wechselt mit der Jahreszeit mit, genau wie das Logo
+   in der App. Zwei Entscheidungen dahinter:
+
+   1. Es folgt der SYSTEM-Farbe, nicht dem Design der App. Die Tab-Leiste gehört
+      dem Browser: Wer die App auf Hell stellt, während das Handy dunkel ist,
+      bekäme sonst ein Symbol, das in seiner Leiste verschwindet.
+   2. Das Symbol auf dem Home-Bildschirm bleibt davon unberührt. Das wird beim
+      Hinzufügen einmal eingebrannt – iOS liest das Manifest danach nie wieder,
+      und Chrome erst, wenn alle Fenster zu sind, das Gerät am Strom hängt und
+      im WLAN ist (nachgesehen am 28.08.2026). Wechseln kann deshalb nur das
+      hier, und das ist ehrlicher als ein Symbol, das bei der Hälfte des Vereins
+      umspringt und bei der anderen nicht. */
+function faviconSetzen(){
+  const satz = LOGOS[aktivesLogoSet()][systemHell() ? 'light' : 'dark'];
+  let l = document.querySelector('link[rel="icon"]');
+  if (!l){ l = document.createElement('link'); l.setAttribute('rel', 'icon'); document.head.appendChild(l); }
+  l.setAttribute('type', 'image/png');
+  l.setAttribute('href', satz.mark);
+}
 function istHell(t){ return t === 'light' || (t === 'auto' && systemHell()); }
 
 function ersterAdvent(jahr){
@@ -977,9 +997,23 @@ function applyTheme(t){
     : `Fest auf <strong style="color:var(--text)">${LOGO_NAMEN[logoWahl]}</strong> gestellt – die Jahreszeit wird ignoriert.`;
   speicher.schreib('kc-theme', t);
   speicher.schreib('kc-logo', logoWahl);
+  logoStand = aktiv;
+  faviconSetzen();
 }
+
+/* Die App bleibt auf dem Handy tagelang offen. Ohne diese Prüfung stünde am
+   1. Advent noch das Standard-Logo da, bis jemand neu lädt. */
+let logoStand = '';
+function logoJahreszeitPruefen(){
+  if (aktivesLogoSet() === logoStand) return;
+  applyTheme(document.documentElement.getAttribute('data-app-theme') || 'auto');
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) logoJahreszeitPruefen();
+});
 applyTheme(speicher.lies('kc-theme') || 'auto');
 window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+  faviconSetzen();   // gilt auch, wenn die App fest auf Hell oder Dunkel steht
   if (document.documentElement.getAttribute('data-app-theme') === 'auto') applyTheme('auto');
 });
 $('themeSeg').addEventListener('click', e => {
