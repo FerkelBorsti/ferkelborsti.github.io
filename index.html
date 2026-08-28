@@ -306,6 +306,15 @@ button.row.erfmann:focus-visible{outline:2px solid var(--accent);outline-offset:
 .zaehl button:active{background:var(--accent);color:#fff;border-color:transparent}
 .zaehl button[disabled]{opacity:.35;cursor:not-allowed}
 .zaehl button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Beim nächsten Termin stehen drei Dinge nebeneinander: die Marke „als
+   Nächstes", „Erfassen" und „Ändern". Auf einem 390-px-Bildschirm passt das
+   nicht in eine Zeile – vorher lief „Ändern" rechts aus dem Bild
+   (Rückmeldung 28.08.2026). Jetzt rutscht der Knopfblock bei Bedarf unter den
+   Text, statt abgeschnitten zu werden. */
+.row.terminzeile{flex-wrap:wrap;align-items:center}
+.row.terminzeile .terminText{flex:1 1 55%;min-width:0}
+.row.terminzeile .terminKnoepfe{display:flex;align-items:center;gap:8px;
+  flex:0 0 auto;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
 .erftipp{background:none;border:none;padding:0;margin:0;text-align:left;flex:1;min-width:0;
   font-family:inherit;color:var(--text);cursor:pointer}
 .erftipp:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
@@ -715,7 +724,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.15.0';
+const APP_VERSION = '1.15.1';
 
 const LOGOS = {
   standard: {
@@ -1603,10 +1612,10 @@ function zeichneTermine(){
     const rechts = (naechster ? '<span class="pill open">als Nächstes</span>' : '')
       + (darfErfassen() ? `<button class="btn ghost small" data-erf="${esc(t.datum)}" data-art="${esc(t.art)}">Erfassen</button>` : '')
       + (darf && !vorbei ? `<button class="btn ghost small" data-termin="${esc(t.datum)}" data-art="${esc(t.art)}">Ändern</button>` : '');
-    return `<div class="row" style="${vorbei ? 'opacity:.55' : ''}">
-      <div><div class="n">${esc(t.bezeichnung || t.art)}</div>
+    return `<div class="row terminzeile" style="${vorbei ? 'opacity:.55' : ''}">
+      <div class="terminText"><div class="n">${esc(t.bezeichnung || t.art)}</div>
         <div class="m">${esc(wochentag(t.datum))}, ${dat(t.datum)}${t.beginn ? ' · ' + esc(t.beginn) : ''}${t.ort ? ' · ' + esc(t.ort) : ''}</div></div>
-      ${rechts ? '<div style="display:flex;align-items:center;gap:8px;flex:none">' + rechts + '</div>' : ''}
+      ${rechts ? '<div class="terminKnoepfe">' + rechts + '</div>' : ''}
     </div>`;
   }).join('');
 }
@@ -2447,9 +2456,12 @@ function erfMannZeichnen(){
     erfMannStand = name;
     erfObenListe = ERF.zeilen.filter(z => erfWert(name, z.label)).map(z => z.label);
   }
+  // Die Geldspiel-Zeile hat seit 1.15.0 einen eigenen Knopf über der Liste, weil
+  // sie Betrag UND Grund braucht. In der Liste stünde sie dann ein zweites Mal.
+  const inListe = z => erfSichtbar(z) && z.art !== 'geld';
   const oben = z => erfObenListe.indexOf(z.label) >= 0;
-  const erfasst = ERF.zeilen.filter(z => oben(z) && erfSichtbar(z));
-  const rest    = ERF.zeilen.filter(z => !oben(z) && erfSichtbar(z) && passt(z));
+  const erfasst = ERF.zeilen.filter(z => oben(z) && inListe(z));
+  const rest    = ERF.zeilen.filter(z => !oben(z) && inListe(z) && passt(z));
 
   let h = `<button class="btn ghost small" id="erfZurueck">← Alle Kegelbrüder</button>
     <div class="list" style="margin-top:14px">
