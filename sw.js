@@ -7,7 +7,7 @@
    und nur bei fehlendem Empfang aus dem Zwischenspeicher. Vorher galt umgekehrt
    "Zwischenspeicher zuerst" – dadurch startete die App auch mit Netz noch tagelang
    in der alten Fassung. Offline funktioniert unverändert, nur eben als Rückfall. */
-const VERSION = 'kc-v1.12.0';
+const VERSION = 'kc-v1.13.0';
 const HUELLE = [
   './',
   './index.html',
@@ -32,14 +32,18 @@ try {
     importScripts(FIREBASE + 'firebase-app-compat.js');
     importScripts(FIREBASE + 'firebase-messaging-compat.js');
     firebase.initializeApp(self.KC_PUSH);
-    // Bewusst reine Daten-Nachrichten: So entscheidet dieser Code, wie die
-    // Meldung aussieht – und die geöffnete App kann stattdessen nachfragen.
+    // Seit Backend 1.16 schickt der Server Titel und Text als "notification"
+    // mit – die zeigt das System dann selbst an, in unserem Wortlaut. Dieser
+    // Zweig greift nur noch, wenn eine reine Daten-Nachricht ankommt; sonst
+    // stünde die Meldung doppelt auf dem Bildschirm.
     firebase.messaging().onBackgroundMessage(m => {
+      if (m && m.notification) return;
       const d = (m && m.data) || {};
       return self.registration.showNotification(d.titel || 'KC Knüppeldick', {
         body: d.text || '',
         icon: './icon-192.png',
         badge: './icon-192.png',
+        lang: 'de',
         tag: 'kc-' + (d.ziel || 'start'),
         data: { ziel: d.ziel || 'start' }
       });
@@ -53,7 +57,9 @@ try {
    das Ziel schicken – sonst die App mit ?zeigen=… neu öffnen. */
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const ziel = (e.notification.data && e.notification.data.ziel) || 'start';
+  // Bei einer "notification"-Meldung steckt das Ziel in FCMs eigenem Feld.
+  const roh = e.notification.data || {};
+  const ziel = roh.ziel || (roh.FCM_MSG && roh.FCM_MSG.data && roh.FCM_MSG.data.ziel) || 'start';
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(liste => {
       for (const c of liste){
