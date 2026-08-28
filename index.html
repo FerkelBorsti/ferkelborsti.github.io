@@ -205,7 +205,7 @@ details.para summary:focus-visible{outline:2px solid var(--accent);outline-offse
 /* Bewusst nicht auf .price beschränkt: Das Zeichen taucht auch in der
    aufgeklappten Unterliste von §4 auf, dort ohne .price-Umgebung – ohne diese
    Regel bliebe es dort unsichtbar (im Test am 27.08.2026 genau so passiert). */
-svg.dm{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2.6;
+svg.dm{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;
   stroke-linecap:round;display:inline-block;vertical-align:-5px}
 .para .body{padding:0 15px 15px;color:var(--muted);font-size:13.5px;line-height:1.65}
 .para[open] summary .ttl{color:var(--accent)}
@@ -454,7 +454,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
           <button data-view="sonder" aria-pressed="false">Sonderwürfe</button>
           <button data-view="strafen" aria-pressed="false">Strafen</button>
           <button data-view="spenden" aria-pressed="false">Spenden</button>
-          <button data-view="codes" aria-pressed="false">Codes</button>
+
         </div>
         <div id="amtBody"></div>
       </section>
@@ -485,6 +485,33 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
         <svg viewBox="0 0 24 24"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"/></svg>Amt
       </button>
     </nav>
+  </div>
+
+  <!-- VERWALTUNG: FREIGABEN UND ZUGANGSCODES -->
+  <div class="sheet hidden" id="verwaltung" role="dialog" aria-label="Verwaltung">
+    <div class="sheet-in">
+      <div class="sheet-head">
+        <h2>Verwaltung</h2>
+        <button class="iconbtn" id="closeVerwaltung" aria-label="Schließen">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <div id="freigabenBlock" class="hidden">
+        <div class="eyebrow" style="margin-bottom:10px">Freigaben</div>
+        <div class="list" id="freigabenListe"></div>
+        <p class="note" style="margin-top:10px" id="freigabenHinweis">Eine Einsicht gibt ausschließlich
+          Leserechte – geändert werden kann damit nichts.</p>
+      </div>
+
+      <div id="codeBlock" class="hidden">
+        <div class="eyebrow" style="margin-bottom:10px">Zugangscodes</div>
+        <p class="note" style="margin-bottom:12px">Ein neuer Code macht den alten sofort ungültig –
+          so entziehst du auch einem ausgetretenen Kegelbruder den Zugang. Der Code erscheint
+          genau einmal; verschick ihn gleich, danach ist er nicht mehr abrufbar.</p>
+        <div class="list" id="codeListe"></div>
+      </div>
+    </div>
   </div>
 
   <!-- MELDUNG, WENN DIE APP OFFEN IST -->
@@ -572,11 +599,16 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
         <p class="note hidden" id="pushHinweis" style="margin-top:10px"></p>
       </div>
 
-      <div id="freigabenBlock" class="hidden">
-        <div class="eyebrow" style="margin-bottom:10px">Freigaben</div>
-        <div class="list" id="freigabenListe"></div>
-        <p class="note" style="margin-top:10px" id="freigabenHinweis">Eine Einsicht gibt ausschließlich
-          Leserechte – geändert werden kann damit nichts.</p>
+      <div id="verwaltungBlock" class="hidden">
+        <div class="eyebrow" style="margin-bottom:10px">Verwaltung</div>
+        <div class="list">
+          <button class="linkrow" id="openVerwaltung" style="width:100%;border:none;cursor:pointer;font-family:inherit;text-align:left;background:var(--surface)">
+            <svg viewBox="0 0 24 24"><path d="M12 3.5 20 7v5.5c0 4-3.3 7-8 8.5-4.7-1.5-8-4.5-8-8.5V7z"/><path d="M9.5 12.2 11.3 14l3.4-3.6"/></svg>
+            <div style="flex:1"><div class="lbl">Freigaben und Zugangscodes</div>
+              <div class="dsc" id="verwaltungInfo"></div></div>
+            <span class="go">›</span>
+          </button>
+        </div>
       </div>
 
       <div>
@@ -638,7 +670,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.12.0';
+const APP_VERSION = '1.13.0';
 
 const LOGOS = {
   standard: {
@@ -998,9 +1030,6 @@ function zeigeApp(){
   $('whoami').textContent = D.ich.name + (rollen.length ? ' · ' + rollen.join(' · ') : '');
   $('tabAmt').classList.toggle('hidden', !darfAmtSehen());
   $('tabKasse').classList.toggle('hidden', !darfKasseSehen());
-  // Die Codeverwaltung ist Bearbeitung und bleibt beim Schriftführer allein.
-  const codeChip = document.querySelector('#amtChips button[data-view="codes"]');
-  if (codeChip) codeChip.classList.toggle('hidden', !D.ich.schriftfuehrer);
   $('amtHinweis').textContent = D.ich.nurLesenAmt
     ? 'Der Schriftführer hat dir als Stellvertreter Einsicht gegeben – ansehen ja, ändern nein.'
     : 'Nur für dich sichtbar, solange du die Ergebnisse nicht freigegeben hast.';
@@ -1009,11 +1038,8 @@ function zeigeApp(){
   zeichneStart(); zeichneStrafen(); zeichneStatuten(D.statuten); zeichneRechner(rechnerZeilen());
   zeichneWarte(); zeichneMitglieder(); zeichneTermine();
   if (darfKasseSehen()) zeichneKasse();
-  if (darfAmtSehen()) {
-    if (!D.ich.schriftfuehrer && aktuelleAmtSicht === 'codes') aktuelleAmtSicht = 'dash';
-    zeichneAmt(aktuelleAmtSicht);
-  }
-  zeichneFreigaben();
+  if (darfAmtSehen()) zeichneAmt(aktuelleAmtSicht);
+  zeichneVerwaltung();
   zeichnePush();
   pushEmpfangVorbereiten();
   offenesZielNachholen();
@@ -1319,9 +1345,12 @@ function zeichneStrafen(){
    wird das Zeichen nicht gesetzt, sondern gezeichnet: gleiche Optik auf jedem
    Gerät, skaliert mit und ist so kräftig wie der Rest der Preisspalte. */
 const DURCHMESSER_ZEICHEN = ['⌀', 'Ø', '∅'];
+/* Der Strich steht bewusst auf beiden Seiten über den Kreis hinaus und läuft
+   steiler als 45°. Genau daran unterscheidet sich das Durchmesser-Zeichen vom
+   Verbotsschild, bei dem der Balken im Kreis endet (Rückmeldung 28.08.2026). */
 const DURCHMESSER_SVG =
   '<svg class="dm" viewBox="0 0 24 24" role="img" aria-label="Durchschnitt">' +
-  '<circle cx="12" cy="12" r="8"/><path d="M5.5 18.5 18.5 5.5"/></svg>';
+  '<circle cx="12" cy="12" r="6.6"/><path d="M6.6 20.4 17.4 3.6"/></svg>';
 const istDurchmesser = b => DURCHMESSER_ZEICHEN.indexOf(String(b == null ? '' : b).trim()) >= 0;
 
 function preisText(b){
@@ -1767,36 +1796,12 @@ const SICHTEN = {
     if (!l.length) return `<p class="note" style="margin-top:16px">Bisher keine Spenden erfasst.</p>`;
     return `<p class="note" style="margin-top:16px">Freiwillig obendrauf.</p>`
       + rangliste(l, r=>r.spenden, r=>eur(r.spenden));
-  },
-  codes(){
-    return `<p class="note" style="margin-top:16px">Ein neuer Code macht den alten sofort ungültig.
-      So entziehst du auch einem ausgetretenen Kegelbruder den Zugang.</p>
-      <div class="list" id="codeListe">${(D.codes||[]).map(c =>
-        `<div class="row"><div><div class="n">${esc(c.name)}</div>
-          <div class="m">${c.aktiv ? 'Code aktiv' : 'noch kein Code'}</div></div>
-         <button class="btn ghost small" data-code="${esc(c.name)}">Neuer Code</button></div>`).join('')}</div>`;
   }
 };
 
 function zeichneAmt(sicht){
   aktuelleAmtSicht = sicht;
   $('amtBody').innerHTML = SICHTEN[sicht]();
-  const liste = $('codeListe');
-  if (liste) liste.addEventListener('click', async e => {
-    const b = e.target.closest('button[data-code]'); if (!b) return;
-    const name = b.dataset.code;
-    b.disabled = true; b.textContent = '…';
-    try {
-      const r = await api('neuerCode', { token: token, mitglied: name }, API_VERSUCHE);
-      if (r.fehler){ hinweisleiste(r.fehler, 'warn'); b.textContent = 'Neuer Code'; b.disabled = false; return; }
-      b.closest('.row').innerHTML =
-        `<div><div class="n">${esc(name)}</div><div class="m">Neuer Code – jetzt notieren, er erscheint nur einmal</div></div>
-         <div class="v" style="color:var(--accent)">${esc(r.code)}</div>`;
-    } catch(err){
-      hinweisleiste('Ging nicht – keine Verbindung.', 'warn');
-      b.textContent = 'Neuer Code'; b.disabled = false;
-    }
-  });
 }
 $('amtChips').addEventListener('click', e => {
   const b = e.target.closest('button[data-view]'); if (!b) return;
@@ -1834,7 +1839,7 @@ $('tabs').addEventListener('click', e => {
    bleibt hängen und man landet nach dem Schließen an einer anderen Stelle. */
 let gemerkteHoehe = 0;
 function ebenenOffen(){
-  return ['settings', 'terminSheet', 'lightbox']
+  return ['settings', 'verwaltung', 'terminSheet', 'lightbox']
     .some(id => $(id) && !$(id).classList.contains('hidden'));
 }
 function hintergrundPruefen(){
@@ -1863,7 +1868,7 @@ $('showLogo').addEventListener('click', () => { ebene('settings', false); ebene(
 $('lightbox').addEventListener('click', () => ebene('lightbox', false));
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  ebene('lightbox', false); ebene('settings', false);
+  ebene('lightbox', false); ebene('verwaltung', false); ebene('settings', false);
 });
 window.addEventListener('online', () => { hinweisleiste(''); aktualisieren(); });
 window.addEventListener('offline', () => hinweisleiste('Offline – ' + standText(), 'warn'));
@@ -2310,6 +2315,92 @@ const FREIGABEN = [
     dsc: 'Beide Kegelväter dürfen den Kassenbericht mitlesen. Nur lesen.' }
 ];
 
+/* Freigaben und Codes liegen zusammen in einer eigenen Ebene statt verstreut in
+   den Einstellungen und im Amt-Bereich: Beides fasst man selten an, beides ist
+   heikel, und der Betreuer kommt an die Codes, ohne Schriftführer zu sein. */
+function zeichneVerwaltung(){
+  zeichneFreigaben();
+  zeichneCodes();
+  const darfFrei  = !$('freigabenBlock').classList.contains('hidden');
+  const darfCodes = !$('codeBlock').classList.contains('hidden');
+  $('verwaltungBlock').classList.toggle('hidden', !darfFrei && !darfCodes);
+  $('verwaltungInfo').textContent =
+    darfFrei && darfCodes ? 'Ergebnisse freigeben, Codes neu vergeben'
+    : darfFrei            ? 'Ergebnisse und Einsicht freigeben'
+    :                       'Codes neu vergeben';
+}
+
+$('openVerwaltung').addEventListener('click', () => { ebene('settings', false); ebene('verwaltung', true); });
+$('closeVerwaltung').addEventListener('click', () => ebene('verwaltung', false));
+
+/* ------------------------------------------------------- Zugangscodes */
+
+const appAdresse = () => D.appAdresse || (location.origin + location.pathname);
+
+function zeichneCodes(){
+  const liste = D.codes;
+  $('codeBlock').classList.toggle('hidden', !liste);
+  if (!liste) return;
+  $('codeListe').innerHTML = liste.map(c => `
+    <div class="row" data-zeile="${esc(c.name)}">
+      <div><div class="n">${esc(c.name)}</div>
+        <div class="m">${c.aktiv ? 'Code vergeben' : 'noch kein Code'}</div></div>
+      <button class="btn ghost small" data-code="${esc(c.name)}">Neuer Code</button>
+    </div>`).join('');
+}
+
+function codeNachricht(name, code){
+  return 'Hallo ' + name + ',\n\ndein persönlicher Zugangscode für die KC-Knüppeldick-App:\n\n'
+    + code + '\n\nApp: ' + appAdresse()
+    + '\n\nDen Code einmal eingeben, danach bleibt dein Handy angemeldet. Bitte nicht weitergeben.';
+}
+
+/* Der Code erscheint genau einmal. Deshalb steht direkt daneben, was man damit
+   als Nächstes tut – Teilen öffnet WhatsApp und Co., Kopieren ist der Rückfall
+   auf Geräten ohne Teilen-Menü. */
+function codeZeileFertig(zeile, name, code){
+  zeile.innerHTML = `
+    <div style="flex:1;min-width:0">
+      <div class="n">${esc(name)}</div>
+      <div class="m">Erscheint nur dieses eine Mal</div>
+      <div class="summe" style="color:var(--accent);font-size:19px;margin-top:6px;letter-spacing:.08em">${esc(code)}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;flex:none">
+      <button class="btn small" data-teilen="${esc(code)}" data-name="${esc(name)}">Teilen</button>
+      <button class="btn ghost small" data-kopieren="${esc(code)}" data-name="${esc(name)}">
+        <span class="cp">Kopieren</span></button>
+    </div>`;
+  zeile.style.alignItems = 'flex-start';
+}
+
+$('codeListe').addEventListener('click', async e => {
+  const teilen = e.target.closest('button[data-teilen]');
+  if (teilen){
+    const text = codeNachricht(teilen.dataset.name, teilen.dataset.teilen);
+    try {
+      if (navigator.share) await navigator.share({ title: 'Zugangscode KC Knüppeldick', text: text });
+      else { kopiere(text, teilen.parentElement.querySelector('button[data-kopieren]')); hinweisleiste('Kein Teilen-Menü – Text kopiert.'); }
+    } catch (err){ /* abgebrochen ist kein Fehler */ }
+    return;
+  }
+
+  const kop = e.target.closest('button[data-kopieren]');
+  if (kop){ kopiere(codeNachricht(kop.dataset.name, kop.dataset.kopieren), kop); return; }
+
+  const b = e.target.closest('button[data-code]');
+  if (!b) return;
+  const name = b.dataset.code;
+  b.disabled = true; b.textContent = '…';
+  try {
+    const r = await api('neuerCode', { token: token, mitglied: name }, API_VERSUCHE);
+    if (r.fehler){ hinweisleiste(r.fehler, 'warn'); b.textContent = 'Neuer Code'; b.disabled = false; return; }
+    codeZeileFertig(b.closest('.row'), name, r.code);
+  } catch (err){
+    hinweisleiste('Ging nicht – keine Verbindung.', 'warn');
+    b.textContent = 'Neuer Code'; b.disabled = false;
+  }
+});
+
 function zeichneFreigaben(){
   const darf = (D.ich && D.ich.darfFreigeben) || {};
   const meine = FREIGABEN.filter(f => darf[f.k]);
@@ -2488,7 +2579,14 @@ async function pushEmpfangVorbereiten(){
   if (empfangLaeuft || !pushGeraet()) return;
   if (!(await firebaseLaden())) return;
   empfangLaeuft = true;
-  firebase.messaging().onMessage(m => meldungZeigen((m && m.data) || {}));
+  firebase.messaging().onMessage(m => {
+    // Seit Backend 1.16 stehen Titel und Text in "notification"; "data" trägt
+    // weiterhin das Sprungziel. Beides wird gelesen, damit ältere Nachrichten
+    // aus der Warteschlange nicht plötzlich ohne Text dastehen.
+    const n = (m && m.notification) || {};
+    const d = (m && m.data) || {};
+    meldungZeigen({ titel: n.title || d.titel, text: n.body || d.text, ziel: d.ziel });
+  });
 }
 
 $('pushSwitch').addEventListener('click', async () => {
