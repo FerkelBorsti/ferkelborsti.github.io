@@ -812,7 +812,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.18.2';
+const APP_VERSION = '1.18.3';
 
 const LOGOS = {
   standard: {
@@ -4017,18 +4017,34 @@ function stammStatutOeffnen(p, t){
   const f = stammStatutFinden(p, t);
   if (!f) return;
   const e = f.e;
+  /* Steht in der Betragsspalte ein ZEICHEN statt einer Zahl – das ⌀ bei §17,
+     „max. 200,00€" bei §37 –, dann ist das kein fehlender Betrag, sondern eine
+     Aussage: Dieser Paragraph hat keinen festen Betrag. Ein Eingabefeld davor zu
+     setzen wäre eine Falle; wer dort eine Zahl einträgt, verdreht die Bedeutung
+     des Paragraphen und die App zeigt danach einen Eurobetrag, wo der
+     Durchschnitt hingehört. Deshalb wird der Wert hier nur angezeigt.
+     (Aufgefallen Johannes, 29.08.2026.) */
+  const zeichenBetrag = (e.zahl === null || e.zahl === undefined) && !!e.b;
+
   const felder = [
     { art: 'info', label: 'Bezeichnung', wert: (f.para ? e.p + ' ' : '') + e.t,
       note: 'An der Bezeichnung hängt alles, was unter diesem Namen erfasst wurde. Sie lässt sich nur über den Knopf unten ändern – dann wandert sie überall zugleich mit.' },
     { art: 'knopf', label: 'Bezeichnung ändern', id: 'stammUmb',
-      tun: () => stammUmbenennenMaske(e, f.para) },
-    { art: 'zahl', label: 'Betrag in Euro', id: 'stammBetrag',
-      wert: (e.zahl !== null && e.zahl !== undefined) ? e.zahl : '',
-      note: e.zahl === null && e.b
-        ? 'Hier steht bisher keine Zahl, sondern „' + e.b + '". Sobald du eine Zahl einträgst, ist das weg.'
-        : 'Ein neuer Betrag gilt ab dem nächsten Abend. Abende, die schon waren, behalten ihren.' },
-    { art: 'lang', label: 'Beschreibung', id: 'stammBeschr', wert: e.d || '' }
+      tun: () => stammUmbenennenMaske(e, f.para) }
   ];
+
+  if (zeichenBetrag) {
+    felder.push({ art: 'info', label: 'Betrag', wert: e.b,
+      note: 'Dieser Paragraph hat keinen festen Betrag – statt einer Zahl steht hier ein Zeichen. '
+          + 'Es lässt sich deshalb hier nicht ändern: Eine Zahl an dieser Stelle würde aus der Regel '
+          + 'eine feste Strafe machen. Was sich ändern lässt, steht in den Feldern darunter.' });
+  } else {
+    felder.push({ art: 'zahl', label: 'Betrag in Euro', id: 'stammBetrag',
+      wert: (e.zahl !== null && e.zahl !== undefined) ? e.zahl : '',
+      note: 'Ein neuer Betrag gilt ab dem nächsten Abend. Abende, die schon waren, behalten ihren.' });
+  }
+
+  felder.push({ art: 'lang', label: 'Beschreibung', id: 'stammBeschr', wert: e.d || '' });
 
   /* Ein Rechenwert ist eine Zahl, die zwar in den Statuten steht, aber keine
      Strafe ist – bisher nur die Aufrundung der Durchschnittsstrafe nach §17.
@@ -4041,9 +4057,14 @@ function stammStatutOeffnen(p, t){
   });
 
   stammMaske(e.t, felder, 'Speichern', () => {
-    const b = stammZahl('stammBetrag', false);
-    if (b.fehler) return stammFehler(b.fehler);
-    const nutzlast = { p: e.p, t: e.t, betrag: b.wert, beschreibung: stammWert('stammBeschr') };
+    const nutzlast = { p: e.p, t: e.t, beschreibung: stammWert('stammBeschr') };
+    // Ohne Eingabefeld wird der Betrag auch nicht mitgeschickt – sonst würde das
+    // Zeichen beim Speichern der Beschreibung stillschweigend gelöscht.
+    if (!zeichenBetrag) {
+      const b = stammZahl('stammBetrag', false);
+      if (b.fehler) return stammFehler(b.fehler);
+      nutzlast.betrag = b.wert;
+    }
     if (hatRechenwert){
       const r = stammZahl('stammRechen', true);
       if (r.fehler) return stammFehler(r.fehler);
