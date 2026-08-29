@@ -363,6 +363,16 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
 .mystats .stat b{font-size:19px;line-height:1.2}
 .mystats .stat .sub{margin-top:3px}
 
+/* Was sich geändert hat – nur bis zur Kenntnisnahme sichtbar */
+.geaendert{position:relative;background:var(--accent-weich,rgba(198,20,101,.09))}
+.geaendert::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+.neupill{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;background:var(--accent);
+  color:#fff;font-size:10.5px;font-weight:700;letter-spacing:.04em;vertical-align:middle}
+.aendkarte{border:1px solid var(--accent);border-radius:14px;padding:15px;margin-top:18px;background:var(--surface)}
+.aendkarte .kopf{font-family:'Archivo Black',sans-serif;font-size:15px}
+.aendkarte .txt{color:var(--muted);font-size:13px;line-height:1.6;margin-top:6px}
+.aendkarte .knoepfe{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+
 /* Ehrentafel */
 details.jahr{background:var(--surface);border-bottom:1px solid var(--line)}
 details.jahr:last-child{border-bottom:none}
@@ -468,7 +478,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
         <div id="modeTermine" class="hidden">
           <button class="btn ghost small hidden" id="terminNeu" style="margin-top:16px">Termin anlegen</button>
           <div class="list" id="terminList" style="margin-top:16px"></div>
-          <p class="note hidden" id="terminHinweis" style="margin-top:10px">Termine legt der Kegelvater an – das Strafenblatt dazu bleibt Sache des Schriftführers.</p>
+          <p class="note hidden" id="terminHinweis" style="margin-top:10px">Termine legt der Kegelvater an – das Erfassen der Strafen bleibt Sache des Schriftführers.</p>
         </div>
       </section>
 
@@ -554,6 +564,68 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
           genau einmal; verschick ihn gleich, danach ist er nicht mehr abrufbar.</p>
         <div class="list" id="codeListe"></div>
       </div>
+    </div>
+  </div>
+
+
+  <!-- STAMMDATEN: STATUTEN, ÄMTER, MITGLIEDER -->
+  <div class="sheet hidden" id="stamm" role="dialog" aria-label="Stammdaten">
+    <div class="sheet-in">
+      <div class="sheet-head">
+        <h2>Stammdaten</h2>
+        <button class="iconbtn" id="closeStamm" aria-label="Schließen">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <div class="seg" id="stammSeg">
+        <button data-stamm="statuten" aria-pressed="true">Statuten</button>
+        <button data-stamm="aemter" aria-pressed="false">Ämter</button>
+        <button data-stamm="mitglieder" aria-pressed="false">Mitglieder</button>
+        <button data-stamm="protokoll" aria-pressed="false">Protokoll</button>
+      </div>
+
+      <p class="note" id="stammNote" style="margin-top:12px"></p>
+      <div id="stammBody"></div>
+
+      <div id="stammAbschluss" class="hidden" style="margin-top:26px">
+        <div class="eyebrow" style="margin-bottom:10px">Fertig für heute?</div>
+        <p class="note" id="stammAbschlussText"></p>
+        <button class="btn" id="stammAbschliessen" style="margin-top:12px">Änderungen abschließen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAMMDATEN: EINGABEMASKE -->
+  <div class="sheet hidden" id="stammForm" role="dialog" aria-label="Bearbeiten">
+    <div class="sheet-in">
+      <div class="sheet-head">
+        <h2 id="stammFormTitel">Bearbeiten</h2>
+        <button class="iconbtn" id="closeStammForm" aria-label="Schließen">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div id="stammFormBody"></div>
+      <p class="note hidden" id="stammFormFehler" style="color:var(--accent);font-weight:600"></p>
+      <button class="btn" id="stammSpeichern">Speichern</button>
+      <button class="btn ghost hidden" id="stammGefahr"></button>
+    </div>
+  </div>
+
+  <!-- STAMMDATEN: RÜCKFRAGE VOR EINER FOLGENREICHEN ÄNDERUNG -->
+  <div class="sheet hidden" id="stammFrage" role="dialog" aria-label="Rückfrage">
+    <div class="sheet-in">
+      <div class="sheet-head">
+        <h2 id="stammFrageTitel">Bist du sicher?</h2>
+        <button class="iconbtn" id="closeStammFrage" aria-label="Schließen">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <p class="note" id="stammFrageText" style="font-size:14px;line-height:1.55"></p>
+      <div id="stammFrageListe"></div>
+      <p class="note hidden" id="stammFrageFehler" style="color:var(--accent);font-weight:600"></p>
+      <button class="btn" id="stammFrageJa">Ja, durchführen</button>
+      <button class="btn ghost" id="stammFrageNein">Abbrechen</button>
     </div>
   </div>
 
@@ -668,6 +740,19 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
         </div>
       </div>
 
+      <div id="stammBlock" class="hidden">
+        <div class="eyebrow" style="margin-bottom:10px">Stammdaten</div>
+        <div class="list">
+          <button class="linkrow" id="openStamm" style="width:100%;border:none;cursor:pointer;font-family:inherit;text-align:left;background:var(--surface)">
+            <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="18.5" cy="18" r="2.5"/></svg>
+            <div style="flex:1"><div class="lbl">Statuten, Ämter, Mitglieder</div>
+              <div class="dsc">Nach der Generalversammlung nachziehen</div></div>
+            <span class="go">›</span>
+          </button>
+        </div>
+        <p class="note" style="margin-top:10px">Änderungen wirken sofort für alle – vor jedem Eingriff mit Folgen kommt eine Rückfrage.</p>
+      </div>
+
       <div>
         <div class="eyebrow" style="margin-bottom:10px">Darstellung</div>
         <div class="seg" id="themeSeg">
@@ -727,7 +812,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.16.0';
+const APP_VERSION = '1.18.2';
 
 const LOGOS = {
   standard: {
@@ -848,8 +933,8 @@ function fehlerGrund(e){
   if (!e) return 'unbekannt';
   if (e.name === 'AbortError') return 'Zeitüberschreitung – das Backend hat nicht rechtzeitig geantwortet';
   if (e.istHttp) return 'Server antwortete mit ' + e.message;
-  if (e instanceof SyntaxError) return 'Antwort war kein JSON – vermutlich eine Fehler- oder Anmeldeseite von Google';
-  if (e instanceof TypeError) return 'Netzwerkfehler – keine Verbindung zu Google';
+  if (e instanceof SyntaxError) return 'unerwartete Antwort – der Dienst hat gerade eine Störung';
+  if (e instanceof TypeError) return 'Netzwerkfehler – keine Verbindung';
   return e.message || 'unbekannt';
 }
 
@@ -891,6 +976,7 @@ async function api(aktion, extra, versuche){
 
 function datenMerken(d){
   D = ohneGaeste(d);
+  aendKeys = null;             // die Markierungen richten sich nach dem neuen Stand
   preiseMerken();
   speicher.schreib('kc-daten', JSON.stringify(d));
   speicher.schreib('kc-stand', new Date().toISOString());
@@ -1145,10 +1231,118 @@ function zeigeApp(){
   if (darfKasseSehen()) zeichneKasse();
   if (darfAmtSehen()) zeichneAmt(aktuelleAmtSicht);
   zeichneVerwaltung();
+  zeichneStammEintrag();
   zeichnePush();
   schlangeSenden();          // was offline liegen blieb, geht jetzt raus
   pushEmpfangVorbereiten();
   offenesZielNachholen();
+}
+
+/* ====================================== Was sich geändert hat (1.18) */
+/*
+   Nach der Generalversammlung ändert der Schriftführer Statuten, Ämter und
+   Mitgliederliste. Erst wenn er fertig ist und abschließt, erfahren es alle –
+   und dann auf drei Wegen zugleich:
+
+     1. als Nachricht auf dem Handy,
+     2. als Karte auf der Startseite, die auf die betroffenen Seiten führt,
+     3. als farbige Markierung an genau den Einträgen, die sich geändert haben.
+
+   Die Markierung ist ausdrücklich VERGÄNGLICH: Sie verschwindet, sobald man auf
+   "Verstanden" tippt. Eine Markierung, die bleibt, ist nach drei Tagen Tapete –
+   dann sucht niemand mehr, was neu ist.
+*/
+const STAMM_GESEHEN = 'kc-stamm-gesehen';
+
+function aendVergleich(t){
+  return String(t == null ? '' : t).replace(/\s+/g, ' ').trim().toLowerCase();
+}
+function aendStand(){ return (D && D.stammAenderungen) || null; }
+function aendRunde(){ const a = aendStand(); return a && a.runde ? Number(a.runde) : 0; }
+function aendGesehen(){ return Number(speicher.lies(STAMM_GESEHEN) || 0); }
+function aendNeu(){ return aendRunde() > 0 && aendRunde() > aendGesehen(); }
+
+let aendKeys = null;
+function aendSchluessel(){
+  if (aendKeys) return aendKeys;
+  aendKeys = {};
+  if (aendNeu()) ((aendStand() || {}).neu || []).forEach(e => {
+    aendKeys[aendVergleich(e.bereich) + '|' + aendVergleich(e.betrifft)] = e.was || 'geändert';
+  });
+  return aendKeys;
+}
+/** Ist dieser Eintrag Teil der letzten, noch nicht zur Kenntnis genommenen Runde? */
+function istGeaendert(bereich, betrifft){
+  return aendSchluessel()[aendVergleich(bereich) + '|' + aendVergleich(betrifft)] || '';
+}
+const neuPille = was => was ? `<span class="neupill">${esc(was)}</span>` : '';
+
+function aendKarte(){
+  if (!aendNeu()) return '';
+  const a = aendStand();
+  const bereiche = (a.bereiche || []).filter(b => b !== 'Hinweis');
+  const anzahl = (a.neu || []).length;
+  return `<div class="aendkarte">
+    <div class="kopf">Es hat sich etwas geändert</div>
+    <div class="txt">${anzahl === 1 ? 'Eine Änderung' : anzahl + ' Änderungen'}${
+      bereiche.length ? ' · ' + esc(bereiche.join(', ')) : ''}${
+      a.zeit ? ' · ' + esc(a.zeit) : ''}. Die betroffenen Einträge sind farbig
+      hervorgehoben, bis du sie zur Kenntnis genommen hast.</div>
+    <div class="knoepfe">
+      ${bereiche.map(b => `<button class="btn ghost small" data-aend="${esc(b)}">${esc(b)} ansehen</button>`).join('')}
+      <button class="btn ghost small" id="aendVerstanden">Verstanden</button>
+    </div></div>`;
+}
+
+/** Die Änderungen vergangener Jahre – für alle Kegelbrüder, nach Kegeljahr. */
+function aendHistorie(){
+  const liste = ((aendStand() || {}).eintraege || []);
+  if (!liste.length) return '';
+  const jahre = [];
+  const nach = {};
+  liste.forEach(e => {
+    const j = e.jahr || '–';
+    if (!nach[j]) { nach[j] = []; jahre.push(j); }
+    nach[j].push(e);
+  });
+  jahre.sort().reverse();
+  const zeile = e => `<div class="tr"><span class="k">${esc(e.bereich)}${
+      e.betrifft ? ' · ' + esc(e.betrifft) : ''}</span><span class="w">${esc(e.was || '')}${
+      e.vorher || e.nachher ? '<br><span style="font-weight:400;color:var(--muted)">'
+        + esc([e.vorher, e.nachher].filter(String).join(' → ')) + '</span>' : ''}</span></div>`;
+  return `<h2 class="sec" style="margin-top:24px">Was sich geändert hat</h2>
+    <p class="note">Alle Änderungen an Statuten, Ämtern und der Mitgliederliste –
+      nach Kegeljahr. Wer wann was geändert hat, steht dabei.</p>
+    <div class="list" style="margin-top:14px">${jahre.map((j, i) => `
+      <details class="jahr"${i === 0 ? ' open' : ''}><summary>
+        <div><div class="sais">${esc(j)}</div>
+          <div class="koenig">${nach[j].length === 1 ? 'eine Änderung' : nach[j].length + ' Änderungen'}</div></div>
+      </summary><div class="body">${nach[j].map(zeile).join('')}</div></details>`).join('')}</div>`;
+}
+
+/**
+ * "Verstanden" nimmt die Runde zur Kenntnis: Karte weg, Markierungen weg. Der
+ * Merker liegt auf dem Gerät, nicht beim Verein – jeder soll seine Änderungen
+ * selbst wegklicken, unabhängig von den anderen.
+ */
+function aendZurKenntnis(){
+  speicher.schreib(STAMM_GESEHEN, String(aendRunde()));
+  aendKeys = null;
+  zeichneStart(); zeichneStatuten(D.statuten); zeichneWarte(); zeichneMitglieder();
+  hinweisleiste('Änderungen zur Kenntnis genommen.');
+}
+
+/** Springt in den Bereich, in dem sich etwas geändert hat. */
+function aendAnsehen(bereich){
+  const ziel = { 'Statuten': 'statuten', 'Ämter': 'verein', 'Mitglieder': 'verein' }[bereich] || 'start';
+  const knopf = document.querySelector('#tabs button[data-tab="' + ziel + '"]');
+  if (knopf) knopf.click();
+  if (bereich === 'Ämter'){
+    const m = document.querySelector('#vereinSeg button[data-mode="warte"]'); if (m) m.click();
+  }
+  if (bereich === 'Mitglieder'){
+    const m = document.querySelector('#vereinSeg button[data-mode="leute"]'); if (m) m.click();
+  }
 }
 
 /* -------------------------------------------------------------- Start */
@@ -1160,6 +1354,8 @@ function zeichneStart(){
       <div class="amount ${D.offen > 0 ? '' : 'zero'}">${eur(D.offen)}</div>
       <div class="sub">${plural(D.meineTermine.filter(x=>!x.bezahlt).length,'Termin offen','Termine offen')} · ${esc(standText())}</div>
     </div>
+
+    ${aendKarte()}
 
     <div class="tworow" style="margin-top:20px">
       <div class="stat"><div class="eyebrow">Fehltage §12</div><b>${D.punkte}</b>
@@ -1202,6 +1398,8 @@ function zeichneStart(){
           <div class="list" style="margin-top:14px">${ehrentafel()}</div>`;
   }
 
+  h += aendHistorie();
+
   h += `<h2 class="sec" style="margin-top:24px">So zahlst du</h2>
     <p class="note">Überweise deine offenen Strafen an die Kegelkasse. Tippe ein Feld an,
       dann liegt der Wert in der Zwischenablage.</p>
@@ -1215,6 +1413,12 @@ function zeichneStart(){
     </div>`;
 
   $('tab-start').innerHTML = h;
+
+  // Karte "Es hat sich etwas geändert": ansehen oder zur Kenntnis nehmen
+  const verstanden = $('aendVerstanden');
+  if (verstanden) verstanden.addEventListener('click', aendZurKenntnis);
+  $('tab-start').querySelectorAll('button[data-aend]').forEach(b =>
+    b.addEventListener('click', () => aendAnsehen(b.dataset.aend)));
   if ($('startErfassen')) $('startErfassen').addEventListener('click',
     () => erfassungOeffnen(D.naechsterTermin.datum, D.naechsterTermin.art));
   const zf = $('zahlfelder');
@@ -1476,15 +1680,21 @@ function zeichneStatuten(rows){
   rows = (rows || []).filter(istParagraph);
   const box = $('statutList');
   if (!rows.length){ box.innerHTML = `<div class="row"><div class="n">Nichts gefunden.</div></div>`; return; }
-  box.innerHTML = rows.map(s => `<details class="para">
-    <summary><div><span class="par">${esc(s.p)}</span><span class="ttl">${esc(s.t)}</span></div>
+  box.innerHTML = rows.map(s => {
+    const markePara = istGeaendert('Statuten', s.t);
+    const markeItem = (s.items || []).map(i => istGeaendert('Statuten', i.t)).filter(String)[0] || '';
+    const marke = markePara || markeItem;
+    return `<details class="para${marke ? ' geaendert' : ''}"${marke ? ' open' : ''}>
+    <summary><div><span class="par">${esc(s.p)}</span><span class="ttl">${esc(s.t)}${neuPille(markePara)}</span></div>
       ${s.b ? (istDurchmesser(s.b)
         ? `<span class="price zeichen">${DURCHMESSER_SVG}</span>`
         : `<span class="price${/^[^\d]{1,2}$/.test(String(s.b).trim()) ? ' zeichen' : ''}">${esc(preisText(s.b))}</span>`) : ''}</summary>
     <div class="body">${esc(s.d)}
       ${s.items && s.items.length ? `<div class="items">${s.items.map(i =>
-        `<div>${esc(i.t)}<span>${istDurchmesser(i.b) ? DURCHMESSER_SVG : esc(preisText(i.b))}</span></div>`).join('')}</div>` : ''}
-    </div></details>`).join('');
+        `<div>${esc(i.t)}${neuPille(istGeaendert('Statuten', i.t))}<span>${
+          istDurchmesser(i.b) ? DURCHMESSER_SVG : esc(preisText(i.b))}</span></div>`).join('')}</div>` : ''}
+    </div></details>`;
+  }).join('');
 }
 $('statutSearch').addEventListener('input', e => {
   const q = e.target.value.toLowerCase().trim();
@@ -1603,9 +1813,10 @@ function zeichneWarte(){
   $('warteList').innerHTML = D.aemter.map(a => {
     const wer = a.wer || [];
     const hatOrden = wer.some((w,i) => traegt(a.amt, i));
-    return `<details class="amt">
+    const marke = istGeaendert('Ämter', a.amt);
+    return `<details class="amt${marke ? ' geaendert' : ''}"${marke ? ' open' : ''}>
       <summary>
-        <div><span class="ttl">${esc(a.amt)}</span>
+        <div><span class="ttl">${esc(a.amt)}${neuPille(marke)}</span>
           <span class="wh">${wer.length ? esc(wer[0]) + (wer.length > 1 ? ' · +' + (wer.length-1) + ' Vertretung' : '') : 'nicht besetzt'}</span></div>
         ${hatOrden ? `<span title="Trägt einen Orden oder eine Medaille">${ORDEN_SVG}</span>` : ''}
       </summary>
@@ -1624,7 +1835,8 @@ function zeichneMitglieder(){
       if (w === m.name) ae.push({ pos: i + 1, amt: a.amt });
     }));
     ae.sort((x, y) => x.pos - y.pos);
-    return `<div class="row"><div><div class="n">${esc(m.name)}</div>
+    const marke = istGeaendert('Mitglieder', m.name);
+    return `<div class="row${marke ? ' geaendert' : ''}"><div><div class="n">${esc(m.name)}${neuPille(marke)}</div>
       <div class="m">${ae.length ? ae.map(x => esc(x.pos + '. ' + x.amt)).join(' · ') : 'Kegelbruder'}</div></div></div>`;
   }).join('');
 }
@@ -1953,7 +2165,7 @@ $('tabs').addEventListener('click', e => {
    bleibt hängen und man landet nach dem Schließen an einer anderen Stelle. */
 let gemerkteHoehe = 0;
 function ebenenOffen(){
-  return ['settings', 'verwaltung', 'terminSheet', 'erfassung', 'lightbox']
+  return ['settings', 'verwaltung', 'stamm', 'stammForm', 'stammFrage', 'terminSheet', 'erfassung', 'lightbox']
     .some(id => $(id) && !$(id).classList.contains('hidden'));
 }
 function hintergrundPruefen(){
@@ -1982,7 +2194,8 @@ $('showLogo').addEventListener('click', () => { ebene('settings', false); ebene(
 $('lightbox').addEventListener('click', () => ebene('lightbox', false));
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  ebene('lightbox', false); ebene('verwaltung', false); ebene('settings', false);
+  ebene('lightbox', false); ebene('stammFrage', false); ebene('stammForm', false);
+  ebene('stamm', false); ebene('verwaltung', false); ebene('settings', false);
   if (!$('erfassung').classList.contains('hidden')){ ebene('erfassung', false); ERF = null; }
 });
 window.addEventListener('online', () => { hinweisleiste(''); aktualisieren(); });
@@ -2189,7 +2402,7 @@ async function erfassungOeffnen(datum, art){
   ebene('erfassung', true);
   erfLaedt = true;
   $('erfTitel').textContent = (art === 'Kegelabend' ? 'Kegelabend' : 'Veranstaltung') + ' ' + dat(datum);
-  $('erfBody').innerHTML = '<p class="note">Blatt wird geladen …</p>';
+  $('erfBody').innerHTML = '<p class="note">Der Abend wird geladen …</p>';
   erfKopfZeichnen();
   try {
     // Erst leeren, was noch in der Schlange liegt, dann lesen. Sonst käme ein
@@ -2200,8 +2413,7 @@ async function erfassungOeffnen(datum, art){
     if (r.fehler){ erfBody('<p class="note warnton">' + esc(r.fehler) + '</p>'); return; }
     if (!r.existiert){
       erfBody(`<p class="note">Für diesen Termin ist noch keine Strafenliste angelegt.
-        Sie entsteht aus der Vorlage und enthält alle Strafarten und alle Kegelbrüder –
-        du musst nichts vorbereiten.</p>
+        Sie enthält danach alle Strafarten und alle Kegelbrüder – du musst nichts vorbereiten.</p>
         <button class="btn" id="erfAnlegen" style="margin-top:14px">Strafenliste anlegen</button>`);
       $('erfAnlegen').addEventListener('click', async ev => {
         ev.target.disabled = true; ev.target.textContent = 'Moment …';
@@ -2216,8 +2428,8 @@ async function erfassungOeffnen(datum, art){
     ERF = Object.assign({ datum: datum }, r);
     erfZeichnen();
   } catch (e){
-    erfBody('<p class="note warnton">Keine Verbindung – das Blatt konnte nicht geladen werden. '
-      + 'Was du hier einträgst, würde ohne geladenes Blatt ins Leere laufen.</p>');
+    erfBody('<p class="note warnton">Keine Verbindung – der Abend konnte nicht geladen werden. '
+      + 'Was du jetzt einträgst, würde ins Leere laufen.</p>');
   } finally {
     erfLaedt = false;
     erfKopfZeichnen();
@@ -2373,16 +2585,15 @@ function erfSyncBlock(){
   const fertig = st.status === 'erledigt';
   const offen = schlange().length;
   return `<h2 class="sec" style="margin-top:24px">Strafen übertragen</h2>
-    <p class="note" style="margin-top:10px">Alles Erfasste steht sofort im Blatt
-      <strong>${esc(ERF.blatt)}</strong>. In die Auswertung, in „Offene Beträge" und in die
-      App der anderen kommt es erst mit der Übertragung – bis dahin kannst du hier noch
-      korrigieren.</p>
+    <p class="note" style="margin-top:10px">Alles Erfasste ist gespeichert. In die Auswertung,
+      in die offenen Beträge und in die App der anderen kommt es erst mit der Übertragung –
+      bis dahin kannst du hier noch korrigieren.</p>
     <button class="btn" id="erfSync" style="margin-top:12px"${laeuft || offen ? ' disabled' : ''}>${
       offen ? 'Erst senden, dann übertragen' : laeuft ? 'Angefordert …' : 'Jetzt übertragen'}</button>
     ${st.status ? `<p class="note ${fertig ? '' : 'warnton'}" style="margin-top:10px">${
       fertig ? 'Übertragen am ' + esc(st.erledigt || '') + (st.meldung ? ' · ' + esc(st.meldung) : '')
              : laeuft ? 'Angefordert um ' + esc((st.angefordert || '').slice(11, 16))
-                        + ' Uhr. Die Tabelle holt sich das von allein ab.'
+                        + ' Uhr. Das läuft von allein weiter.'
              : esc(st.meldung || '')}</p>` : ''}`;
 }
 
@@ -2402,14 +2613,14 @@ async function erfSyncAnfordern(){
 }
 
 /* Nachfragen, aber nicht endlos: nach zwei Minuten ohne Rückmeldung ist die
-   Automatik in der Tabelle offenbar nicht eingerichtet. Dann soll dastehen,
+   Automatik dahinter offenbar nicht eingerichtet. Dann soll dastehen,
    was zu tun ist, statt ein Rädchen, das sich für immer dreht. */
 function erfSyncVerfolgen(versuch){
   clearTimeout(erfSyncUhr);
   if (versuch > 12){
-    erfSyncStand = { status: 'fehlt', meldung: 'Keine Rückmeldung aus der Tabelle. '
-      + 'Läuft die automatische Übertragung dort noch nicht, startest du sie wie bisher '
-      + 'selbst über das Menü „Kegelverein → Jetzt synchronisieren".' };
+    erfSyncStand = { status: 'fehlt', meldung: 'Bisher keine Rückmeldung. Erfasst ist alles, '
+      + 'nur die Übertragung hängt – versuch es gleich noch einmal. Bleibt es dabei, '
+      + 'sag dem Betreuer der App Bescheid.' };
     erfZeichnen();
     return;
   }
@@ -2437,7 +2648,7 @@ function erfZaehlZeile(name, z){
             : z.art === 'euro'     ? 'je Schritt ' + eur(z.betrag) + (z.deckel ? ' · höchstens ' + eur(z.deckel) : '')
             : z.art === 'verteilt' ? 'alle anderen zahlen je ' + eur(z.betrag)
             : z.art === 'zaehler'  ? 'nur Statistik, kostet nichts'
-            : z.art === 'formel'   ? 'rechnet die Tabelle – hier nicht änderbar'
+            : z.art === 'formel'   ? 'wird ausgerechnet – hier nicht änderbar'
             : v ? v + ' × ' + eur(z.betrag) + ' = ' + eur(v * z.betrag)
                 : eur(z.betrag);
 
@@ -2567,7 +2778,7 @@ function erfZaehlerBinden(name){
 
 /* Geldspiele bleiben Handarbeit – jedes Spiel ist anders und trifft andere
    Beträge (Vorgabe Johannes). Die App nimmt deshalb nur Betrag und Grund
-   entgegen; der Grund hängt danach als Notiz an der Zelle im Blatt. */
+   entgegen; der Grund wird beim Eintrag mitgespeichert. */
 function erfGeldspiel(name){
   const z = ERF.zeilen.filter(x => x.art === 'geld')[0];
   if (!z) return;
@@ -2576,7 +2787,7 @@ function erfGeldspiel(name){
     <h2 class="sec" style="margin-top:16px">Strafen aus Geldspielen</h2>
     <p class="note">Für ${esc(name)}. Der Betrag wird zu dem addiert, was schon dasteht.
       Der Grund ist Pflicht – ohne ihn lässt sich später nicht mehr nachvollziehen, wofür
-      kassiert wurde. Er landet als Notiz an der Zelle im Blatt.</p>
+      kassiert wurde.</p>
     ${bisher ? `<div class="list" style="margin-top:14px"><div class="row">
       <div><div class="n">Bisher eingetragen</div></div><div class="v">${eur(bisher)}</div></div></div>` : ''}
     <div style="display:flex;align-items:center;gap:10px;margin-top:14px">
@@ -2617,7 +2828,7 @@ function erfAnwesenheitZeichnen(){
   };
   erfBody(`<button class="btn ghost small" id="erfZurueck">← Alle Kegelbrüder</button>
     <h2 class="sec" style="margin-top:16px">Anwesenheit</h2>
-    <p class="note">Setzt das X in der Zeile „Anwesenheit" des Blatts.${kegeln
+    <p class="note">Hält fest, wer da war.${kegeln
       ? ' Daraus entsteht der Abenddurchschnitt nach §17 – und damit das, was die Abwesenden zahlen.'
       : ' Bei einer Veranstaltung gibt es keinen Durchschnitt; der Eintrag hält nur fest, wer dabei war.'}</p>
     <div class="list" style="margin-top:16px">${ERF.mitglieder.map(zeile).join('')}</div>`);
@@ -2842,7 +3053,7 @@ const KASSE_SICHTEN = {
 
   offen(){
     if (!kasseD().offene.length){
-      return '<p class="note" style="margin-top:16px">In „Offene Beträge" steht noch keine Zeile.</p>';
+      return '<p class="note" style="margin-top:16px">Es steht nichts offen.</p>';
     }
     const gruppen = offenNachMann();
     const gesamt = Math.round(gruppen.reduce((s, g) => s + g.summe, 0) * 100) / 100;
@@ -2930,7 +3141,7 @@ const KASSE_SICHTEN = {
         <div class="chips" id="ausgabeKats" style="margin:0;padding:2px 0">${
           kategorien.length
             ? kategorien.map(k => `<button data-kat="${esc(k)}" aria-pressed="${k === ausgabeKategorie}">${esc(k)}</button>`).join('')
-            : '<span class="note">Im Blatt „Ausgaben_Kategorien" steht nichts.</span>'}</div>
+            : '<span class="note">Es sind noch keine Kategorien hinterlegt.</span>'}</div>
       </div>
       <div class="kassefeld">
         <div class="eyebrow">Notiz</div>
@@ -3461,7 +3672,8 @@ function zeigeZiel(ziel){
   if (!ziel) return;
   if ($('app').classList.contains('hidden')){ offenesZiel = ziel; return; }
 
-  const reiter = { termine: 'verein', kasse: 'kasse', amt: 'amt', start: 'start' }[ziel] || 'start';
+  const reiter = { termine: 'verein', warte: 'verein', kasse: 'kasse', amt: 'amt',
+                   aenderungen: 'start', start: 'start' }[ziel] || 'start';
   const knopf = document.querySelector('#tabs button[data-tab="' + reiter + '"]');
   if (!knopf || knopf.classList.contains('hidden')){
     hinweisleiste('Dieser Bereich ist für dich nicht freigeschaltet.', 'warn');
@@ -3556,6 +3768,575 @@ if ('serviceWorker' in navigator){
     }).catch(()=>{});
   });
 }
+
+/* ================================================ Stammdaten (App 1.17) */
+/*
+   Statuten samt Strafbeträgen, Ämter samt Besetzung und die Mitgliederliste
+   lassen sich hier aus der App heraus pflegen. Das ist der Schritt, mit dem die
+   vier Tabellen von der Arbeitsfläche zur reinen Datenbank werden.
+
+   Drei Dinge sind hier bewusst anders als im Rest der App:
+
+   1. NICHTS PASSIERT NEBENBEI. Alles, was über einen Betrag oder eine
+      Beschreibung hinausgeht, holt sich beim Backend zuerst eine Rückfrage mit
+      der vollständigen Auswirkung ("das trifft 6 Blätter und 37 erfasste
+      Strafen") und wird erst nach einem ausdrücklichen Ja ausgeführt.
+
+   2. UMBENENNEN IST EINE EIGENE HANDLUNG, kein Textfeld. An den Bezeichnungen
+      hängen die Suchformeln der Strafenlisten: Wer eine Bezeichnung nur
+      überschreibt, bekommt überall einen Betrag von 0 – ohne Fehlermeldung.
+
+   3. KEIN OFFLINE-PUFFER. Anders als bei der Erfassung gibt es hier keine
+      Warteschlange. Stammdaten ändert man am Küchentisch, nicht im Keller, und
+      eine halb übertragene Strukturänderung wäre schlimmer als eine, die gar
+      nicht erst losgeht.
+*/
+
+let SD = null;                  // Stammdaten, so wie das Backend sie liefert
+let stammSicht = 'statuten';
+let stammLaedt = false;
+let stammFrageDaten = null;     // { aktion, nutzlast } der Änderung, die bestätigt werden soll
+let stammPrimaer = null;        // Funktion hinter dem Speichern-Knopf
+let stammGefahrTun = null;      // Funktion hinter dem roten Knopf
+
+function darfStammdaten(){ return !!(D && D.ich && D.ich.darfStammdaten); }
+
+function zeichneStammEintrag(){
+  const b = $('stammBlock');
+  if (b) b.classList.toggle('hidden', !darfStammdaten());
+}
+
+function stammBetragAnzeige(e){
+  if (e.zahl !== null && e.zahl !== undefined) return eur(e.zahl);
+  return e.b ? e.b : '–';
+}
+
+function stammFehler(text, feld){
+  const e = $(feld || 'stammFormFehler');
+  e.textContent = text || '';
+  e.classList.toggle('hidden', !text);
+}
+
+/* ------------------------------------------------------------- Laden */
+
+async function stammLaden(){
+  if (stammLaedt) return;
+  stammLaedt = true;
+  $('stammNote').textContent = 'Wird geladen …';
+  try {
+    const r = await api('stammdaten', { token: token }, API_VERSUCHE);
+    if (r.fehler){ $('stammNote').textContent = r.fehler; return; }
+    SD = r;
+    stammZeichnen();
+  } catch (e) {
+    $('stammNote').textContent = 'Nicht geladen: ' + fehlerGrund(e)
+      + ' – die Stammdaten gibt es nur online.';
+  } finally {
+    stammLaedt = false;
+  }
+}
+
+/**
+ * Schickt eine Änderung ab. Antwortet das Backend mit einer Rückfrage, wird
+ * daraus die Bestätigungsebene – dieselbe Nutzlast geht danach mit
+ * `bestaetigt` noch einmal los.
+ */
+async function stammSenden(aktion, nutzlast, knopf, fehlerFeld){
+  const alt = knopf ? knopf.textContent : '';
+  if (knopf){ knopf.disabled = true; knopf.textContent = 'Moment …'; }
+  stammFehler('', fehlerFeld);
+  try {
+    const r = await api(aktion, Object.assign({ token: token }, nutzlast), API_VERSUCHE);
+    if (r.rueckfrage){ stammFrageZeigen(r.rueckfrage, aktion, nutzlast); return false; }
+    if (r.fehler){
+      stammFehler(r.fehler, fehlerFeld);
+      // Ist gerade keine Maske offen (etwa beim Abschließen), muss der Fehler
+      // trotzdem irgendwo stehen.
+      if ($('stammForm').classList.contains('hidden')) hinweisleiste(r.fehler, 'warn');
+      return false;
+    }
+    eigeneSchreibung();
+    if (r.stammdaten && !r.stammdaten.fehler) SD = r.stammdaten;
+    stammZeichnen();
+    ebene('stammFrage', false);
+    ebene('stammForm', false);
+    hinweisleiste(r.hinweis || 'Gespeichert.');
+    if (r.warnung) setTimeout(() => hinweisleiste(r.warnung, 'warn'), LEISTE_DAUER + 200);
+    // Statuten, Ämter und Mitglieder stecken auch in den übrigen Reitern.
+    aktualisieren(true);
+    return true;
+  } catch (e) {
+    stammFehler('Keine Verbindung – es wurde nichts gespeichert.', fehlerFeld);
+    return false;
+  } finally {
+    if (knopf){ knopf.disabled = false; knopf.textContent = alt; }
+  }
+}
+
+/* -------------------------------------------------------- Rückfrage */
+
+function stammFrageZeigen(frage, aktion, nutzlast){
+  stammFrageDaten = { aktion: aktion, nutzlast: nutzlast };
+  $('stammFrageTitel').textContent = frage.titel || 'Bist du sicher?';
+  $('stammFrageText').textContent = frage.text || '';
+  const liste = (frage.blaetter || frage.termine || []);
+  $('stammFrageListe').innerHTML = liste.length
+    ? '<div class="list" style="margin-top:12px">' + liste.map(x =>
+        '<div class="row"><div><div class="n">' + esc(x) + '</div></div></div>').join('') + '</div>'
+    : '';
+  stammFehler('', 'stammFrageFehler');
+  ebene('stammFrage', true);
+  $('stammFrage').scrollTop = 0;
+}
+
+/* ------------------------------------------------------ Eingabemaske */
+
+/**
+ * Eine einzige Maske für alles. `felder` ist eine Liste von Feldern, `primaer`
+ * die Funktion hinter dem Speichern-Knopf, `gefahr` der optionale rote Knopf,
+ * der immer zweistufig ist (erster Druck fragt, zweiter führt aus).
+ */
+function stammMaske(titel, felder, primaerText, primaer, gefahr){
+  $('stammFormTitel').textContent = titel;
+  $('stammFormBody').innerHTML = felder.map(f => {
+    if (f.art === 'info') return `<div style="margin-bottom:18px">
+        <div class="eyebrow" style="margin-bottom:6px">${esc(f.label)}</div>
+        <div style="font-size:15px;font-weight:600">${esc(f.wert || '–')}</div>
+        ${f.note ? `<p class="note" style="margin-top:6px">${esc(f.note)}</p>` : ''}
+      </div>`;
+    /* Betragsfelder sind bewusst KEIN type="number": Auf einem deutschen
+       Handy tippt man 3,50 mit Komma, und ein Zahlenfeld verwirft das
+       stillschweigend – das Feld bleibt leer, und abgeschickt würde eine 0.
+       Deshalb ein Textfeld mit Zifferntastatur und eigener Prüfung. */
+    if (f.art === 'text' || f.art === 'zahl' || f.art === 'datum') return `<div style="margin-bottom:18px">
+        <div class="eyebrow" style="margin-bottom:10px">${esc(f.label)}</div>
+        <input class="search" id="${f.id}" type="${f.art === 'datum' ? 'date' : 'text'}"
+          ${f.art === 'zahl' ? 'inputmode="decimal" autocomplete="off"' : ''}
+          value="${esc(f.wert == null ? '' : String(f.wert))}"
+          ${f.platzhalter ? `placeholder="${esc(f.platzhalter)}"` : ''}
+          maxlength="${f.max || 80}" aria-label="${esc(f.label)}">
+        ${f.note ? `<p class="note" style="margin-top:8px">${esc(f.note)}</p>` : ''}
+      </div>`;
+    if (f.art === 'lang') return `<div style="margin-bottom:18px">
+        <div class="eyebrow" style="margin-bottom:10px">${esc(f.label)}</div>
+        <textarea class="search" id="${f.id}" rows="5" style="resize:vertical"
+          aria-label="${esc(f.label)}">${esc(f.wert || '')}</textarea>
+        ${f.note ? `<p class="note" style="margin-top:8px">${esc(f.note)}</p>` : ''}
+      </div>`;
+    if (f.art === 'auswahl') return `<div style="margin-bottom:18px">
+        <div class="eyebrow" style="margin-bottom:10px">${esc(f.label)}</div>
+        <select class="search" id="${f.id}" aria-label="${esc(f.label)}">
+          ${(f.optionen || []).map(o => `<option value="${esc(o.wert)}"${o.wert === f.wert ? ' selected' : ''}>${esc(o.text)}</option>`).join('')}
+        </select>
+        ${f.note ? `<p class="note" style="margin-top:8px">${esc(f.note)}</p>` : ''}
+      </div>`;
+    if (f.art === 'haken') return `<div class="list" style="margin-bottom:18px">
+        <div class="setrow"><div><div class="lbl">${esc(f.label)}</div>
+          <div class="dsc">${esc(f.note || '')}</div></div>
+          <button class="switch" id="${f.id}" role="switch" aria-checked="${f.wert ? 'true' : 'false'}"
+                  aria-label="${esc(f.label)}"></button></div>
+      </div>`;
+    if (f.art === 'knopf') return `<button class="btn ghost small" id="${f.id}"
+        style="margin-bottom:18px">${esc(f.label)}</button>`;
+    return '';
+  }).join('');
+
+  felder.filter(f => f.art === 'haken').forEach(f => {
+    const s = $(f.id);
+    s.addEventListener('click', () => s.setAttribute('aria-checked', s.getAttribute('aria-checked') === 'true' ? 'false' : 'true'));
+  });
+  felder.filter(f => f.art === 'knopf' && f.tun).forEach(f => $(f.id).addEventListener('click', f.tun));
+
+  stammPrimaer = primaer;
+  const sp = $('stammSpeichern');
+  sp.textContent = primaerText || 'Speichern';
+  sp.classList.toggle('hidden', !primaer);
+
+  const gk = $('stammGefahr');
+  stammGefahrTun = gefahr ? gefahr.tun : null;
+  gk.classList.toggle('hidden', !gefahr);
+  gk.dataset.sicher = '';
+  gk.dataset.text = gefahr ? gefahr.text : '';
+  gk.textContent = gefahr ? gefahr.text : '';
+
+  stammFehler('');
+  ebene('stammForm', true);
+  $('stammForm').scrollTop = 0;
+}
+
+function stammWert(id){ const e = $(id); return e ? String(e.value || '').trim() : ''; }
+
+/** Betrag aus einem Feld: Komma wie Punkt, leer ist erlaubt, alles andere ein
+    Fehler. Ohne diese Prüfung würde aus einem Vertipper eine Strafart für 0 €. */
+function stammZahl(id, pflicht){
+  const roh = stammWert(id).replace(/\s|€/g, '');
+  if (!roh) return pflicht ? { fehler: 'Bitte einen Betrag eintragen.' } : { wert: '' };
+  if (!/^\d{1,6}([.,]\d{1,2})?$/.test(roh)) return { fehler: 'Der Betrag muss eine Zahl sein, z. B. 3,50.' };
+  return { wert: Number(roh.replace(',', '.')) };
+}
+function stammHaken(id){ const e = $(id); return !!e && e.getAttribute('aria-checked') === 'true'; }
+
+/* ---------------------------------------------------------- Statuten */
+
+function stammStatutenBody(){
+  const liste = (SD && SD.statuten) || [];
+  if (!liste.length) return '<p class="note">Noch nichts geladen.</p>';
+  return `<div class="knopfreihe" style="display:flex;gap:8px;flex-wrap:wrap;margin:14px 0">
+      <button class="btn ghost small" data-neu="strafart">Neue Strafart</button>
+      <button class="btn ghost small" data-neu="paragraph">Neuer Paragraph</button>
+    </div>` + liste.map(p => `
+    <details class="amt">
+      <summary><div><span class="ttl">${esc(p.p)} ${esc(p.t)}</span>
+        <span class="wh">${p.zahl !== null ? esc(eur(p.zahl)) : (p.items.length ? p.items.length + ' Strafarten' : 'ohne Betrag')}</span></div>
+      </summary>
+      <div class="body"><div class="list">
+        ${stammStatutZeile(p, true)}
+        ${p.items.map(i => stammStatutZeile(i, false)).join('')}
+      </div></div>
+    </details>`).join('');
+}
+
+function stammStatutZeile(e, istParagraph){
+  return `<div class="row stammrow" data-p="${esc(e.p || '')}" data-t="${esc(e.t || '')}" data-para="${istParagraph ? '1' : '0'}">
+    <div><div class="n">${esc(e.t || '(ohne Bezeichnung)')}</div>
+      <div class="m">${istParagraph ? 'Paragraph' : 'Strafart'} · ${esc(stammBetragAnzeige(e))}</div></div>
+    <span class="go">›</span></div>`;
+}
+
+function stammStatutFinden(p, t){
+  const liste = (SD && SD.statuten) || [];
+  for (let i = 0; i < liste.length; i++){
+    if (liste[i].p === p && liste[i].t === t) return { e: liste[i], para: true };
+    const tr = liste[i].items.filter(x => x.t === t)[0];
+    if (liste[i].p === p && tr) return { e: tr, para: false };
+  }
+  return null;
+}
+
+function stammStatutOeffnen(p, t){
+  const f = stammStatutFinden(p, t);
+  if (!f) return;
+  const e = f.e;
+  const felder = [
+    { art: 'info', label: 'Bezeichnung', wert: (f.para ? e.p + ' ' : '') + e.t,
+      note: 'An der Bezeichnung hängt alles, was unter diesem Namen erfasst wurde. Sie lässt sich nur über den Knopf unten ändern – dann wandert sie überall zugleich mit.' },
+    { art: 'knopf', label: 'Bezeichnung ändern', id: 'stammUmb',
+      tun: () => stammUmbenennenMaske(e, f.para) },
+    { art: 'zahl', label: 'Betrag in Euro', id: 'stammBetrag',
+      wert: (e.zahl !== null && e.zahl !== undefined) ? e.zahl : '',
+      note: e.zahl === null && e.b
+        ? 'Hier steht bisher keine Zahl, sondern „' + e.b + '". Sobald du eine Zahl einträgst, ist das weg.'
+        : 'Ein neuer Betrag gilt ab dem nächsten Abend. Abende, die schon waren, behalten ihren.' },
+    { art: 'lang', label: 'Beschreibung', id: 'stammBeschr', wert: e.d || '' }
+  ];
+
+  /* Ein Rechenwert ist eine Zahl, die zwar in den Statuten steht, aber keine
+     Strafe ist – bisher nur die Aufrundung der Durchschnittsstrafe nach §17.
+     Das Feld erscheint nur dort, wo wirklich einer hinterlegt ist. */
+  const hatRechenwert = e.rechenwert !== null && e.rechenwert !== undefined;
+  if (hatRechenwert) felder.push({
+    art: 'zahl', label: 'Aufrundung auf', id: 'stammRechen', wert: e.rechenwert,
+    note: 'Der Durchschnitt für Abwesende wird auf dieses Vielfache aufgerundet. '
+        + 'Gilt ab dem nächsten Abend; Abende, die schon waren, behalten ihre Aufrundung.'
+  });
+
+  stammMaske(e.t, felder, 'Speichern', () => {
+    const b = stammZahl('stammBetrag', false);
+    if (b.fehler) return stammFehler(b.fehler);
+    const nutzlast = { p: e.p, t: e.t, betrag: b.wert, beschreibung: stammWert('stammBeschr') };
+    if (hatRechenwert){
+      const r = stammZahl('stammRechen', true);
+      if (r.fehler) return stammFehler(r.fehler);
+      nutzlast.rechenwert = r.wert;
+    }
+    return stammSenden('statutSetzen', { eintrag: nutzlast }, $('stammSpeichern'));
+  }, f.para ? null : {
+    text: 'Strafart abschaffen',
+    tun: () => stammSenden('statutEntfernen', { eintrag: { p: e.p, t: e.t } }, $('stammGefahr'))
+  });
+}
+
+function stammUmbenennenMaske(e, istParagraph){
+  stammMaske('Bezeichnung ändern', [
+    { art: 'info', label: 'Bisher', wert: e.t },
+    { art: 'text', label: 'Neue Bezeichnung', id: 'stammNeuName', wert: e.t, max: 80,
+      note: 'Wird in den Statuten, in allen Abenden und in allen bereits erfassten Strafen zugleich geändert.' }
+  ], 'Umbenennen', () => stammSenden('statutUmbenennen',
+      { alt: { p: e.p, t: e.t }, neu: stammWert('stammNeuName') }, $('stammSpeichern')));
+}
+
+function stammNeueStrafartMaske(){
+  const paras = ((SD && SD.statuten) || []).map(p => ({ wert: p.p, text: p.p + ' ' + p.t }));
+  stammMaske('Neue Strafart', [
+    { art: 'auswahl', label: 'Gehört zu', id: 'stammNeuP', wert: paras.length ? paras[0].wert : '',
+      optionen: paras, note: 'Die neue Strafart wird ans Ende dieses Paragraphen gesetzt.' },
+    { art: 'text', label: 'Bezeichnung', id: 'stammNeuT', wert: '', max: 80 },
+    { art: 'zahl', label: 'Betrag in Euro', id: 'stammNeuB', wert: '' },
+    { art: 'lang', label: 'Beschreibung', id: 'stammNeuD', wert: '' },
+    { art: 'haken', label: 'Am Kegelabend erfassbar', id: 'stammNeuK', wert: true,
+      note: 'Ohne einen der beiden Haken taucht die Strafart beim Erfassen nie auf.' },
+    { art: 'haken', label: 'Bei Veranstaltungen erfassbar', id: 'stammNeuV', wert: false }
+  ], 'Anlegen', () => {
+    const b = stammZahl('stammNeuB', true);
+    if (b.fehler) return stammFehler(b.fehler);
+    if (!stammHaken('stammNeuK') && !stammHaken('stammNeuV')) {
+      return stammFehler('Ohne eine der beiden Listen taucht die Strafart beim Erfassen nie auf.');
+    }
+    return stammSenden('statutAnlegen', {
+      eintrag: { p: stammWert('stammNeuP'), t: stammWert('stammNeuT'), betrag: b.wert,
+                 beschreibung: stammWert('stammNeuD'),
+                 kegeln: stammHaken('stammNeuK'), veranstaltung: stammHaken('stammNeuV') }
+    }, $('stammSpeichern'));
+  });
+}
+
+function stammNeuerParagraphMaske(){
+  stammMaske('Neuer Paragraph', [
+    { art: 'text', label: 'Überschrift', id: 'stammPT', wert: '', max: 80 },
+    { art: 'zahl', label: 'Betrag in Euro', id: 'stammPB', wert: '',
+      note: 'Leer lassen, wenn der Paragraph nur Text ist.' },
+    { art: 'lang', label: 'Beschreibung', id: 'stammPD', wert: '' }
+  ], 'Anlegen', () => {
+    const b = stammZahl('stammPB', false);
+    if (b.fehler) return stammFehler(b.fehler);
+    return stammSenden('paragraphAnlegen', {
+      eintrag: { t: stammWert('stammPT'), betrag: b.wert, beschreibung: stammWert('stammPD') }
+    }, $('stammSpeichern'));
+  });
+}
+
+/* ------------------------------------------------------------- Ämter */
+
+function stammAemterBody(){
+  const liste = (SD && SD.aemter) || [];
+  if (!liste.length) return '<p class="note">Noch nichts geladen.</p>';
+  return `<div style="margin:14px 0">
+      <button class="btn ghost small" data-neu="amt">Neues Amt</button>
+    </div><div class="list">` + liste.map(a => `
+    <div class="row stammrow" data-amt="${esc(a.amt)}">
+      <div><div class="n">${esc(a.amt)}</div>
+        <div class="m">${(a.wer && a.wer.length) ? esc(a.wer.join(' · ')) : 'nicht besetzt'}</div></div>
+      <span class="go">›</span></div>`).join('') + '</div>';
+}
+
+function stammPersonenOptionen(wert){
+  const namen = ((SD && SD.mitglieder) || []).filter(m => !m.gast).map(m => m.name);
+  return [{ wert: '', text: '— nicht besetzt —' }].concat(namen.map(n => ({ wert: n, text: n })));
+}
+
+function stammAmtOeffnen(amt){
+  const a = ((SD && SD.aemter) || []).filter(x => x.amt === amt)[0];
+  if (!a) return;
+  const wer = a.wer || [];
+  const kern = ['Schriftführer', 'Kassenwart', 'Kegelvater'].indexOf(amt) >= 0;
+  stammMaske(amt, [
+    { art: 'auswahl', label: '1. Besetzung', id: 'stammA1', wert: wer[0] || '', optionen: stammPersonenOptionen(),
+      note: kern ? 'An diesem Amt hängen Rechte in der App. Die Änderung wirkt sofort.' : '' },
+    { art: 'auswahl', label: '2. Besetzung', id: 'stammA2', wert: wer[1] || '', optionen: stammPersonenOptionen() },
+    { art: 'auswahl', label: '3. Besetzung', id: 'stammA3', wert: wer[2] || '', optionen: stammPersonenOptionen() },
+    { art: 'lang', label: 'Beschreibung', id: 'stammAD', wert: a.d || '' }
+  ], 'Speichern', () => stammSenden('amtSetzen', {
+    amt: { amt: amt, wer: [stammWert('stammA1'), stammWert('stammA2'), stammWert('stammA3')],
+           beschreibung: stammWert('stammAD') }
+  }, $('stammSpeichern')), kern ? null : {
+    text: 'Amt abschaffen',
+    tun: () => stammSenden('amtEntfernen', { amt: { amt: amt } }, $('stammGefahr'))
+  });
+}
+
+function stammNeuesAmtMaske(){
+  stammMaske('Neues Amt', [
+    { art: 'text', label: 'Name des Amts', id: 'stammNAT', wert: '', max: 60 },
+    { art: 'auswahl', label: '1. Besetzung', id: 'stammNA1', wert: '', optionen: stammPersonenOptionen() },
+    { art: 'auswahl', label: '2. Besetzung', id: 'stammNA2', wert: '', optionen: stammPersonenOptionen() },
+    { art: 'auswahl', label: '3. Besetzung', id: 'stammNA3', wert: '', optionen: stammPersonenOptionen() },
+    { art: 'lang', label: 'Beschreibung', id: 'stammNAD', wert: '' }
+  ], 'Anlegen', () => stammSenden('amtAnlegen', {
+    amt: { amt: stammWert('stammNAT'),
+           wer: [stammWert('stammNA1'), stammWert('stammNA2'), stammWert('stammNA3')],
+           beschreibung: stammWert('stammNAD') }
+  }, $('stammSpeichern')));
+}
+
+/* -------------------------------------------------------- Mitglieder */
+
+function stammMitgliederBody(){
+  const liste = (SD && SD.mitglieder) || [];
+  if (!liste.length) return '<p class="note">Noch nichts geladen.</p>';
+  return `<div style="margin:14px 0">
+      <button class="btn ghost small" data-neu="mitglied">Neuer Kegelbruder</button>
+    </div><div class="list">` + liste.map(m => `
+    <div class="row stammrow" data-mit="${esc(m.name)}" style="${m.aktiv ? '' : 'opacity:.55'}">
+      <div><div class="n">${esc(m.name)}</div>
+        <div class="m">${esc(m.typ)} · ${m.aktiv ? 'aktiv' : 'inaktiv'}${m.eintritt ? ' · seit ' + dat(m.eintritt) : ''}${m.austritt ? ' · aus ' + dat(m.austritt) : ''}</div></div>
+      <span class="go">›</span></div>`).join('') + '</div>';
+}
+
+function stammMitgliedOeffnen(name){
+  const m = ((SD && SD.mitglieder) || []).filter(x => x.name === name)[0];
+  if (!m) return;
+  stammMaske(name, [
+    { art: 'info', label: 'Name', wert: m.name,
+      note: 'Unter diesem Namen läuft alles, was er je bekommen hat. Ändern geht nur über den Knopf – dann wandert er überall zugleich mit, samt Zugang und angemeldeten Geräten.' },
+    { art: 'knopf', label: 'Namen ändern', id: 'stammMUmb', tun: () => stammMitgliedUmbenennenMaske(m) },
+    { art: 'info', label: 'Art', wert: m.typ },
+    { art: 'haken', label: 'Aktiv', id: 'stammMAktiv', wert: !!m.aktiv,
+      note: 'Wer austritt, verschwindet aus den künftigen Abenden – seine bisherigen bleiben vollständig erhalten.' },
+    { art: 'datum', label: 'Eintritt', id: 'stammMEin', wert: m.eintritt || '' },
+    { art: 'datum', label: 'Austritt', id: 'stammMAus', wert: m.austritt || '' }
+  ], 'Speichern', () => stammSenden('mitgliedSetzen', {
+    mitglied: { name: m.name, aktiv: stammHaken('stammMAktiv'),
+                eintritt: stammWert('stammMEin'), austritt: stammWert('stammMAus') }
+  }, $('stammSpeichern')));
+}
+
+function stammMitgliedUmbenennenMaske(m){
+  stammMaske('Namen ändern', [
+    { art: 'info', label: 'Bisher', wert: m.name },
+    { art: 'text', label: 'Neuer Name', id: 'stammMNeu', wert: m.name, max: 40,
+      note: 'Er muss sich danach nicht neu anmelden – Code und Geräte wandern mit.' }
+  ], 'Umbenennen', () => stammSenden('mitgliedUmbenennen',
+      { alt: m.name, neu: stammWert('stammMNeu') }, $('stammSpeichern')));
+}
+
+function stammNeuesMitgliedMaske(){
+  stammMaske('Neuer Kegelbruder', [
+    { art: 'text', label: 'Name', id: 'stammNMN', wert: '', max: 40,
+      note: 'So, wie er künftig überall auftauchen soll.' },
+    { art: 'datum', label: 'Eintritt', id: 'stammNME', wert: (D && D.heute) || '' },
+    { art: 'haken', label: 'Als Gast führen', id: 'stammNMG', wert: false,
+      note: 'Gäste tauchen in der App nicht auf und bekommen keinen Zugang.' }
+  ], 'Anlegen', () => stammSenden('mitgliedAnlegen', {
+    mitglied: { name: stammWert('stammNMN'), eintritt: stammWert('stammNME'),
+                typ: stammHaken('stammNMG') ? 'Gast' : 'Mitglied' }
+  }, $('stammSpeichern')));
+}
+
+/* --------------------------------------------------------- Protokoll */
+
+function stammProtokollBody(){
+  const liste = (SD && SD.protokoll) || [];
+  if (!liste.length) return '<p class="note">Noch keine Änderung aufgezeichnet.</p>';
+  return '<div class="list" style="margin-top:14px">' + liste.map(e => `
+    <div class="row"><div>
+      <div class="n">${esc(e.bereich)}${e.betrifft ? ' · ' + esc(e.betrifft) : ''}${
+        e.runde ? '' : '<span class="neupill">offen</span>'}</div>
+      <div class="m">${esc(e.was || '')}${e.vorher || e.nachher
+        ? ' · ' + esc([e.vorher, e.nachher].filter(String).join(' → ')) : ''}<br>${
+        esc(e.zeit)} · ${esc(e.wer)}</div>
+    </div></div>`).join('') + '</div>';
+}
+
+/* ------------------------------------------------------- Zeichnen und Knöpfe */
+
+const STAMM_NOTIZ = {
+  statuten: 'Ein geänderter Betrag gilt ab dem nächsten Abend. Abende, die schon stattgefunden haben, behalten ihren Betrag – auch wenn sie noch nicht bezahlt sind.',
+  aemter: 'Die Besetzung wirkt sofort: Wer hier steht, sieht beim nächsten Öffnen der App seinen Bereich. Jede Änderung an Schriftführer, Kassenwart und Kegelvater geht zusätzlich als Nachricht an die Kegelväter.',
+  mitglieder: 'Ein neuer Kegelbruder ist ab dem nächsten Abend dabei. Vergangene Abende bleiben so, wie sie waren.',
+  protokoll: 'Jede Änderung mit Name und Uhrzeit. Was du abschließt, sehen danach alle Kegelbrüder in der Historie.'
+};
+
+/**
+ * Der Abschluss ist bewusst ein eigener Schritt und passiert nicht bei jeder
+ * einzelnen Änderung: Nach einer Generalversammlung fallen zwanzig Änderungen an,
+ * und zwanzig Meldungen auf dem Handy liest niemand. Erst wenn hier alles steht,
+ * geht EINE Nachricht an alle.
+ */
+function stammAbschlussZeichnen(){
+  const offen = SD ? (SD.offeneAenderungen || 0) : 0;
+  $('stammAbschluss').classList.toggle('hidden', !offen);
+  if (!offen) return;
+  $('stammAbschlussText').textContent =
+    (offen === 1 ? 'Eine Änderung wartet' : offen + ' Änderungen warten')
+    + ' darauf, bekannt gegeben zu werden. Bis dahin sieht sie außer dir niemand. '
+    + 'Mit dem Abschließen bekommen alle Kegelbrüder eine Nachricht, und die Änderungen '
+    + 'stehen ab dann in der Historie.';
+  const k = $('stammAbschliessen');
+  k.dataset.sicher = '';
+  k.textContent = 'Änderungen abschließen';
+}
+
+function stammZeichnen(){
+  document.querySelectorAll('#stammSeg button').forEach(b =>
+    b.setAttribute('aria-pressed', b.dataset.stamm === stammSicht));
+  $('stammNote').textContent = STAMM_NOTIZ[stammSicht] || '';
+  stammAbschlussZeichnen();
+  $('stammBody').innerHTML =
+      stammSicht === 'statuten'   ? stammStatutenBody()
+    : stammSicht === 'aemter'     ? stammAemterBody()
+    : stammSicht === 'mitglieder' ? stammMitgliederBody()
+    :                               stammProtokollBody();
+}
+
+$('openStamm').addEventListener('click', () => {
+  ebene('settings', false);
+  ebene('stamm', true);
+  stammZeichnen();
+  stammLaden();
+});
+$('closeStamm').addEventListener('click', () => ebene('stamm', false));
+$('closeStammForm').addEventListener('click', () => ebene('stammForm', false));
+$('closeStammFrage').addEventListener('click', () => ebene('stammFrage', false));
+$('stammFrageNein').addEventListener('click', () => ebene('stammFrage', false));
+
+$('stammSeg').addEventListener('click', e => {
+  const b = e.target.closest('button[data-stamm]'); if (!b) return;
+  stammSicht = b.dataset.stamm;
+  stammZeichnen();
+});
+
+$('stammBody').addEventListener('click', e => {
+  const neu = e.target.closest('button[data-neu]');
+  if (neu){
+    if (neu.dataset.neu === 'strafart')  stammNeueStrafartMaske();
+    if (neu.dataset.neu === 'paragraph') stammNeuerParagraphMaske();
+    if (neu.dataset.neu === 'amt')       stammNeuesAmtMaske();
+    if (neu.dataset.neu === 'mitglied')  stammNeuesMitgliedMaske();
+    return;
+  }
+  const r = e.target.closest('.stammrow'); if (!r) return;
+  if (r.dataset.amt !== undefined)      stammAmtOeffnen(r.dataset.amt);
+  else if (r.dataset.mit !== undefined) stammMitgliedOeffnen(r.dataset.mit);
+  else if (r.dataset.t !== undefined)   stammStatutOeffnen(r.dataset.p, r.dataset.t);
+});
+
+$('stammSpeichern').addEventListener('click', () => { if (stammPrimaer) stammPrimaer(); });
+
+/* Der rote Knopf ist immer zweistufig – der erste Druck fragt nach, der zweite
+   führt aus. Ein Browser-Dialog kommt hier nicht in Frage: Er blockiert die
+   ganze Seite, und auf dem iPhone sieht er aus, als käme er von Safari. */
+$('stammGefahr').addEventListener('click', () => {
+  const k = $('stammGefahr');
+  if (k.dataset.sicher !== 'ja'){
+    k.dataset.sicher = 'ja';
+    k.textContent = 'Wirklich?';
+    return;
+  }
+  k.dataset.sicher = '';
+  k.textContent = k.dataset.text;
+  if (stammGefahrTun) stammGefahrTun();
+});
+
+/* Zweistufig, weil danach vierzehn Handys klingeln. */
+$('stammAbschliessen').addEventListener('click', () => {
+  const k = $('stammAbschliessen');
+  if (k.dataset.sicher !== 'ja'){
+    k.dataset.sicher = 'ja';
+    k.textContent = 'Wirklich? Alle werden benachrichtigt';
+    return;
+  }
+  k.dataset.sicher = '';
+  // Kein eigener Fehlertext hier: stammSenden meldet bereits, WAS schiefging –
+  // ein pauschales "hat nicht geklappt" würde die genauere Meldung überschreiben.
+  stammSenden('stammAbschliessen', {}, k, 'stammFormFehler');
+});
+
+$('stammFrageJa').addEventListener('click', () => {
+  if (!stammFrageDaten) return;
+  stammSenden(stammFrageDaten.aktion,
+    Object.assign({}, stammFrageDaten.nutzlast, { bestaetigt: true }),
+    $('stammFrageJa'), 'stammFrageFehler');
+});
 
 start();
 
