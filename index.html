@@ -476,6 +476,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
           <div class="list" id="memberList" style="margin-top:16px"></div>
         </div>
         <div id="modeTermine" class="hidden">
+          <button class="btn ghost small hidden" id="freiNeu" style="margin-top:16px">Freie Strafe</button>
           <button class="btn ghost small hidden" id="terminNeu" style="margin-top:16px">Termin anlegen</button>
           <div class="list" id="terminList" style="margin-top:16px"></div>
           <p class="note hidden" id="terminHinweis" style="margin-top:10px">Termine legt der Kegelvater an – das Erfassen der Strafen bleibt Sache des Schriftführers.</p>
@@ -640,6 +641,27 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
       </div>
       <p class="note" id="erfStand"></p>
       <div id="erfBody"></div>
+    </div>
+  </div>
+
+
+  <!-- FREIE STRAFE -->
+  <div class="sheet hidden" id="freistrafe" role="dialog" aria-label="Freie Strafe">
+    <div class="sheet-in">
+      <div class="sheet-head">
+        <h2 id="freiTitel">Freie Strafe</h2>
+        <button class="iconbtn" id="closeFrei" aria-label="Schließen">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <div class="seg hidden" id="freiSeg">
+        <button data-frei="strafe" aria-pressed="true">Strafe</button>
+        <button data-frei="korrektur" aria-pressed="false">Korrektur</button>
+      </div>
+
+      <p class="note" id="freiNote" style="margin-top:12px"></p>
+      <div id="freiBody"></div>
     </div>
   </div>
 
@@ -812,7 +834,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.20';
+const APP_VERSION = '1.21';
 
 const LOGOS = {
   standard: {
@@ -1922,6 +1944,10 @@ function zeichneTermine(){
   const darf = darfTerminePflegen();
   $('terminNeu').classList.toggle('hidden', !darf);
   $('terminHinweis').classList.toggle('hidden', !darf);
+  /* Eine freie Strafe gehört zu keinem Termin – sie steht trotzdem hier, weil
+     der Schriftführer hier erfasst. Der Kassenwart erreicht die Korrektur
+     zusätzlich über die offenen Beträge. */
+  $('freiNeu').classList.toggle('hidden', !(darfErfassen() || darfKorrektur()));
   $('terminList').innerHTML = D.termine.map(t => {
     const vorbei = t.datum < heute;
     const naechster = !vorbei && t.datum === (D.naechsterTermin||{}).datum;
@@ -2252,7 +2278,7 @@ $('tabs').addEventListener('click', e => {
    bleibt hängen und man landet nach dem Schließen an einer anderen Stelle. */
 let gemerkteHoehe = 0;
 function ebenenOffen(){
-  return ['settings', 'verwaltung', 'stamm', 'stammForm', 'stammFrage', 'terminSheet', 'erfassung', 'lightbox']
+  return ['settings', 'verwaltung', 'stamm', 'stammForm', 'stammFrage', 'terminSheet', 'erfassung', 'freistrafe', 'lightbox']
     .some(id => $(id) && !$(id).classList.contains('hidden'));
 }
 function hintergrundPruefen(){
@@ -2283,6 +2309,7 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   ebene('lightbox', false); ebene('stammFrage', false); ebene('stammForm', false);
   ebene('stamm', false); ebene('verwaltung', false); ebene('settings', false);
+  ebene('freistrafe', false);
   if (!$('erfassung').classList.contains('hidden')){ ebene('erfassung', false); ERF = null; }
 });
 window.addEventListener('online', () => { hinweisleiste(''); aktualisieren(); });
@@ -2986,6 +3013,429 @@ window.addEventListener('online', () => schlangeSenden());
 
 window.addEventListener('offline', () => hinweisleiste('Offline – ' + standText(), 'warn'));
 
+
+/* ================================================= Freie Strafe (1.21) */
+/* Eine Strafe, die zu keinem Termin gehört: das Handy am Tisch zwischen zwei
+   Abenden, ein Verstoß nach §5.1, ein vergessener Orden bei einer Gelegenheit,
+   für die niemand eine Strafenliste anlegt.
+
+   Sie geht deshalb einen anderen Weg als der Abend: Es gibt kein Termin-Blatt,
+   in das sie gehören würde – kein Durchschnitt, kein §18-Deckel, keine
+   Sonderwürfe. Sie ist genau eine Zeile in den Rohdaten und ein offener Betrag.
+   Gerechnet wird trotzdem nicht hier: Der offene Betrag entsteht wie immer aus
+   der Formel, die App legt die Zeile nur an.
+
+   Bewusst OHNE Warteschlange, anders als beim Abend: Eine freie Strafe trägt man
+   in Ruhe ein, nicht zu vierzehnt im Keller. Eine halb abgeschickte Einzelstrafe
+   wäre schlimmer als eine, die gar nicht erst losgeht – deshalb braucht sie
+   Empfang, und die App sagt es, wenn keiner da ist. Die Kennung fährt trotzdem
+   mit: Ein zweiter Tipp auf denselben Knopf bucht nicht zweimal. */
+
+let FS = null;                  // Antwort von freiStrafeDaten
+let fsSicht = 'strafe';         // strafe | korrektur
+let fsSchritt = 'form';         // form | wahl | posten
+let fsMann = '';
+let fsStrafart = '';
+let fsEigene = false;           // eigene Bezeichnung statt einer Strafart aus den Statuten
+let fsAnzahl = 1;
+let fsAbweichend = false;       // Betrag von Hand statt aus den Statuten
+let fsBetragText = '';
+let fsBezeichnung = '';
+let fsDatum = '';
+let fsBezug = '';
+let fsSuche = '';
+let fsPosten = null;            // gewählter offener Posten für die Korrektur
+let fsLaedt = false;
+let fsFehlerText = '';
+
+function darfKorrektur(){
+  return !!(D && D.ich && (D.ich.darfKorrektur !== undefined ? D.ich.darfKorrektur
+                                                             : D.ich.darfErfassen));
+}
+function fsPreisVon(t){
+  const e = (FS && FS.strafarten || []).filter(s => s.t === t)[0];
+  return e ? Number(e.b) || 0 : 0;
+}
+function fsBetragZahl(){
+  if (fsSicht === 'korrektur') return -Math.abs(num(fsBetragText));
+  if (fsEigene || fsAbweichend) return num(fsBetragText);
+  return Math.round(fsPreisVon(fsStrafart) * fsAnzahl * 100) / 100;
+}
+function fsStrafartText(){
+  return fsEigene ? fsBezeichnung.trim() : fsStrafart;
+}
+
+function fsZuruecksetzen(){
+  fsSchritt = 'form'; fsStrafart = ''; fsEigene = false; fsAnzahl = 1;
+  fsAbweichend = false; fsBetragText = ''; fsBezeichnung = ''; fsBezug = '';
+  fsSuche = ''; fsPosten = null; fsFehlerText = '';
+  fsDatum = (FS && FS.heute) || (D && D.heute) || '';
+}
+
+function fsOeffnen(sicht){
+  fsSicht = (sicht === 'korrektur' || !darfErfassen()) ? 'korrektur' : 'strafe';
+  FS = null;
+  fsMann = '';
+  fsZuruecksetzen();
+  ebene('freistrafe', true);
+  fsSegZeichnen();
+  fsZeichnen();
+  fsLaden();
+}
+
+async function fsLaden(){
+  if (fsLaedt) return;
+  fsLaedt = true;
+  $('freiNote').textContent = 'Wird geladen …';
+  try {
+    const r = await api('freiStrafeDaten', { token: token }, API_VERSUCHE);
+    if (r.fehler){ $('freiNote').textContent = r.fehler; return; }
+    FS = r;
+    if (!fsDatum) fsDatum = FS.heute;
+    fsSegZeichnen();
+    fsZeichnen();
+  } catch (e) {
+    $('freiNote').textContent = 'Nicht geladen: ' + fehlerGrund(e)
+      + ' – eine freie Strafe lässt sich nur online eintragen.';
+  } finally {
+    fsLaedt = false;
+  }
+}
+
+function fsSegZeichnen(){
+  const beides = darfErfassen() && darfKorrektur();
+  $('freiSeg').classList.toggle('hidden', !beides);
+  $('freiSeg').querySelectorAll('button[data-frei]').forEach(b =>
+    b.setAttribute('aria-pressed', b.dataset.frei === fsSicht));
+  $('freiTitel').textContent = fsSicht === 'korrektur' ? 'Korrektur' : 'Freie Strafe';
+}
+
+/* Textfelder werden vor jedem Neuzeichnen gesichert – sonst ist weg, was
+   gerade getippt wurde. */
+function fsFelderSichern(){
+  if ($('fsBetrag'))      fsBetragText  = $('fsBetrag').value;
+  if ($('fsBezeichnung')) fsBezeichnung = $('fsBezeichnung').value;
+  if ($('fsBezug'))       fsBezug       = $('fsBezug').value;
+  if ($('fsDatumFeld'))   fsDatum       = $('fsDatumFeld').value;
+}
+
+function fsFehler(text){
+  fsFehlerText = text || '';
+  const e = $('fsFehler');
+  if (e){ e.textContent = fsFehlerText; e.classList.toggle('hidden', !fsFehlerText); }
+}
+
+function fsZeichnen(){
+  if (!FS){ $('freiBody').innerHTML = ''; return; }
+  $('freiNote').textContent = fsSicht === 'korrektur'
+    ? 'Eine falsch erfasste Strafe wird nicht gelöscht, sondern ausgeglichen – so bleibt für die Kassenprüfung nachvollziehbar, was passiert ist.'
+    : 'Für eine Strafe, die zu keinem Kegelabend und keiner Veranstaltung gehört. Sie steht sofort im offenen Betrag des Kegelbruders.';
+  if (fsSchritt === 'wahl')   return fsWahlZeichnen();
+  if (fsSchritt === 'posten') return fsPostenZeichnen();
+  return fsSicht === 'korrektur' ? fsKorrekturZeichnen() : fsStrafeZeichnen();
+}
+
+/* ------------------------------------------------------- Strafe */
+
+function fsStrafeZeichnen(){
+  const preis = fsPreisVon(fsStrafart);
+  const betrag = fsBetragZahl();
+  const eigenerBetrag = fsEigene || fsAbweichend;
+
+  const maenner = FS.kegelbrueder.map(n =>
+    `<button data-fsmann="${esc(n)}" aria-pressed="${n === fsMann}">${esc(n)}</button>`).join('');
+
+  const strafZeile = fsEigene
+    ? `<div class="n">Eigene Bezeichnung</div><div class="m">Betrag wird von Hand eingetragen</div>`
+    : fsStrafart
+      ? `<div class="n">${esc(fsStrafart)}</div><div class="m">${preis > 0 ? eur(preis) + ' je Vorfall' : 'ohne Betrag in den Statuten'}</div>`
+      : `<div class="n">Strafart wählen</div><div class="m">aus den Statuten oder eigene Bezeichnung</div>`;
+
+  $('freiBody').innerHTML = `
+    <div style="margin-top:16px">
+      <div class="eyebrow" style="margin-bottom:10px">Kegelbruder</div>
+      <div class="chips" id="fsMaenner" style="margin:0;padding:2px 0">${maenner}</div>
+    </div>
+
+    <div style="margin-top:18px">
+      <div class="eyebrow" style="margin-bottom:10px">Strafart</div>
+      <div class="list">
+        <button class="row erfmann" id="fsStrafartWahl" style="width:100%">
+          <div>${strafZeile}</div><div class="v">›</div></button>
+      </div>
+    </div>
+
+    ${fsEigene ? `
+    <div style="margin-top:18px">
+      <div class="eyebrow" style="margin-bottom:10px">Bezeichnung</div>
+      <input class="search" id="fsBezeichnung" maxlength="120" placeholder="z. B. Kegel nicht vorgezeigt (§5.1)"
+             value="${esc(fsBezeichnung)}" aria-label="Bezeichnung">
+      <p class="note" style="margin-top:8px">Steht später genau so in den Rohdaten und im offenen Betrag.</p>
+    </div>` : ''}
+
+    ${(!fsEigene && !fsAbweichend && preis > 0) ? `
+    <div style="margin-top:18px">
+      <div class="eyebrow" style="margin-bottom:10px">Anzahl</div>
+      <div class="row">
+        <div><div class="n">${fsAnzahl} × ${eur(preis)}</div><div class="m">macht ${eur(betrag)}</div></div>
+        <div style="display:flex;align-items:center;gap:8px;flex:none">
+          <button class="btn ghost small" data-fsanzahl="-1" aria-label="weniger">−</button>
+          <button class="btn ghost small" data-fsanzahl="1" aria-label="mehr">+</button>
+        </div>
+      </div>
+    </div>` : ''}
+
+    ${eigenerBetrag ? `
+    <div style="margin-top:18px">
+      <div class="eyebrow" style="margin-bottom:10px">Betrag</div>
+      <div class="euro"><input class="search" id="fsBetrag" inputmode="decimal" placeholder="z. B. 5,00"
+             value="${esc(fsBetragText)}" aria-label="Betrag"><span>€</span></div>
+    </div>` : ''}
+
+    ${(!fsEigene && fsStrafart) ? `
+    <button class="btn ghost small" id="fsBetragUm" style="margin-top:12px">${
+      fsAbweichend ? 'Betrag doch aus den Statuten' : 'Anderen Betrag eintragen'}</button>` : ''}
+
+    <div style="margin-top:18px">
+      <div class="eyebrow" style="margin-bottom:10px">Datum</div>
+      <input class="search" type="date" id="fsDatumFeld" value="${esc(fsDatum)}"
+             min="${esc(FS.grenze)}" max="${esc(FS.heute)}" aria-label="Datum">
+      <p class="note" style="margin-top:8px">Wann die Strafe angefallen ist. Bezahlt sein muss sie
+        bis zum nächsten Kegelabend${FS.faellig ? ' – das ist der ' + dat(FS.faellig) : ''}.</p>
+    </div>
+
+    <div style="margin-top:18px">
+      <div class="eyebrow" style="margin-bottom:10px">Bezug oder Notiz</div>
+      <input class="search" id="fsBezug" maxlength="200" placeholder="freiwillig, z. B. Frühschoppen"
+             value="${esc(fsBezug)}" aria-label="Bezug oder Notiz">
+    </div>
+
+    <div class="list" style="margin-top:18px"><div class="row">
+      <div><div class="n">${fsMann ? esc(fsMann) : 'Noch kein Kegelbruder'}</div>
+        <div class="m">${fsStrafartText() ? esc(fsStrafartText()) : 'noch keine Strafart'}${fsDatum ? ' · ' + dat(fsDatum) : ''}</div></div>
+      <div class="summe">${betrag > 0 ? eur(betrag) : '–'}</div></div></div>
+
+    <p class="note hidden" id="fsFehler" style="color:var(--accent);font-weight:600;margin-top:12px"></p>
+    <button class="btn" id="fsSpeichern" style="margin-top:14px">Strafe eintragen</button>
+
+    ${(FS.letzte || []).length ? `
+    <details class="kasse" style="margin-top:22px;border:1px solid var(--line);border-radius:var(--radius)">
+      <summary><div><div class="n">Zuletzt erfasst</div>
+        <div class="m">${plural(FS.letzte.length, 'freie Strafe', 'freie Strafen')}</div></div></summary>
+      <div class="body">${FS.letzte.map(l => `
+        <div class="kassepost">
+          <div><div>${esc(l.name)}</div><div class="m">${dat(l.datum)} · ${esc(l.strafart)}</div></div>
+          <span class="summe">${eur(l.betrag)}</span>
+        </div>`).join('')}</div>
+    </details>` : ''}`;
+
+  fsFehler(fsFehlerText);
+  $('fsMaenner').querySelectorAll('button[data-fsmann]').forEach(b =>
+    b.addEventListener('click', () => { fsFelderSichern(); fsMann = b.dataset.fsmann; fsFehler(''); fsZeichnen(); }));
+  $('fsStrafartWahl').addEventListener('click', () => { fsFelderSichern(); fsSuche = ''; fsSchritt = 'wahl'; fsZeichnen(); });
+  $('freiBody').querySelectorAll('button[data-fsanzahl]').forEach(b =>
+    b.addEventListener('click', () => {
+      fsFelderSichern();
+      fsAnzahl = Math.max(1, Math.min(50, fsAnzahl + Number(b.dataset.fsanzahl)));
+      fsZeichnen();
+    }));
+  if ($('fsBetragUm')) $('fsBetragUm').addEventListener('click', () => {
+    fsFelderSichern();
+    fsAbweichend = !fsAbweichend;
+    if (fsAbweichend && !fsBetragText){
+      const p = fsPreisVon(fsStrafart) * fsAnzahl;
+      fsBetragText = p > 0 ? p.toFixed(2).replace('.', ',') : '';
+    }
+    fsZeichnen();
+  });
+  $('fsSpeichern').addEventListener('click', () => fsSenden($('fsSpeichern')));
+}
+
+/* --------------------------------------------- Strafart auswählen */
+
+function fsWahlZeichnen(){
+  const suche = (fsSuche || '').toLowerCase();
+  const liste = (FS.strafarten || []).filter(s => !suche || s.t.toLowerCase().indexOf(suche) >= 0);
+  $('freiBody').innerHTML = `
+    <button class="btn ghost small" id="fsZurueck" style="margin-top:16px">← Zurück</button>
+    <input class="search" id="fsSuche" placeholder="Strafart suchen …" style="margin-top:14px"
+           aria-label="Strafart suchen" value="${esc(fsSuche)}">
+    <div class="list" style="margin-top:12px">
+      <button class="row erfmann" data-fswahl="__eigene__" style="width:100%">
+        <div><div class="n">Eigene Bezeichnung</div>
+          <div class="m">für alles, wofür in den Statuten kein Betrag steht – etwa §5.1</div></div>
+        <div class="v">›</div></button>
+      ${liste.map(s => `<button class="row erfmann" data-fswahl="${esc(s.t)}" style="width:100%">
+        <div><div class="n">${esc(s.t)}</div><div class="m">${esc(s.p)}</div></div>
+        <div class="v">${eur(s.b)}</div></button>`).join('')
+        || '<div class="row"><div class="m">nichts gefunden</div></div>'}
+    </div>`;
+  $('fsZurueck').addEventListener('click', () => { fsSchritt = 'form'; fsZeichnen(); });
+  const s = $('fsSuche');
+  s.addEventListener('input', () => {
+    fsSuche = s.value; const p = s.selectionStart; fsWahlZeichnen();
+    const n = $('fsSuche'); n.focus(); try { n.setSelectionRange(p, p); } catch(e){}
+  });
+  $('freiBody').querySelectorAll('button[data-fswahl]').forEach(b =>
+    b.addEventListener('click', () => {
+      const w = b.dataset.fswahl;
+      if (w === '__eigene__'){ fsEigene = true; fsStrafart = ''; fsAbweichend = false; }
+      else { fsEigene = false; fsStrafart = w; fsAbweichend = false; fsBetragText = ''; }
+      fsAnzahl = 1; fsSchritt = 'form'; fsFehler(''); fsZeichnen();
+    }));
+}
+
+/* ----------------------------------------------------- Korrektur */
+
+function fsKorrekturZeichnen(){
+  const rest = fsPosten ? Math.round((fsPosten.offen - Math.abs(num(fsBetragText))) * 100) / 100 : 0;
+  $('freiBody').innerHTML = `
+    <div style="margin-top:16px">
+      <div class="eyebrow" style="margin-bottom:10px">Welcher Posten?</div>
+      <div class="list">
+        <button class="row erfmann" id="fsPostenWahl" style="width:100%">
+          <div>${fsPosten
+            ? `<div class="n">${esc(fsPosten.name)}</div>
+               <div class="m">${dat(fsPosten.datum)} · ${esc(fsPosten.quelle)} · offen ${eur(fsPosten.offen)}</div>`
+            : `<div class="n">Posten wählen</div><div class="m">aus den offenen Beträgen</div>`}</div>
+          <div class="v">›</div></button>
+      </div>
+    </div>
+
+    <div style="margin-top:18px">
+      <div class="eyebrow" style="margin-bottom:10px">Betrag, der abgezogen wird</div>
+      <div class="euro"><input class="search" id="fsBetrag" inputmode="decimal" placeholder="z. B. 7,50"
+             value="${esc(fsBetragText)}" aria-label="Betrag"><span>€</span></div>
+      <p class="note" style="margin-top:8px">${fsPosten
+        ? 'Voreingetragen ist der ganze Posten. Für einen Teilbetrag überschreiben – es bleiben dann '
+          + eur(Math.max(0, rest)) + ' offen.'
+        : 'Wird eingetragen, sobald ein Posten gewählt ist.'}</p>
+    </div>
+
+    <div style="margin-top:18px">
+      <div class="eyebrow" style="margin-bottom:10px">Grund</div>
+      <input class="search" id="fsBezug" maxlength="120" placeholder="z. B. doppelt erfasst"
+             value="${esc(fsBezug)}" aria-label="Grund">
+      <p class="note" style="margin-top:8px">Steht als „Korrektur: …“ in den Rohdaten – ohne Grund wird nicht gebucht.</p>
+    </div>
+
+    <div class="list" style="margin-top:18px"><div class="row">
+      <div><div class="n">${fsPosten ? esc(fsPosten.name) : 'Kein Posten gewählt'}</div>
+        <div class="m">${fsPosten ? dat(fsPosten.datum) + ' · ' + esc(fsPosten.quelle) : 'noch nichts ausgewählt'}</div></div>
+      <div class="summe" style="color:var(--accent)">${num(fsBetragText) > 0 ? '− ' + eur(Math.abs(num(fsBetragText))) : '–'}</div></div></div>
+
+    <p class="note hidden" id="fsFehler" style="color:var(--accent);font-weight:600;margin-top:12px"></p>
+    <button class="btn" id="fsSpeichern" style="margin-top:14px">Korrektur buchen</button>
+    <p class="note" style="margin-top:12px">Fällt der Posten damit auf null, verschwindet er aus den
+      offenen Beträgen. Die ursprüngliche Zeile bleibt stehen – gelöscht wird nichts.</p>
+    ${FS.allePosten === false ? `<p class="note" style="margin-top:10px">Hier stehen nur die freien
+      Strafen. Was an einem Kegelabend falsch erfasst wurde, änderst du besser dort, wo es entstanden
+      ist – im Abend selbst – und überträgst noch einmal.</p>` : ''}`;
+
+  fsFehler(fsFehlerText);
+  $('fsPostenWahl').addEventListener('click', () => { fsFelderSichern(); fsSuche = ''; fsSchritt = 'posten'; fsZeichnen(); });
+  $('fsBetrag').addEventListener('input', () => { fsBetragText = $('fsBetrag').value; });
+  $('fsSpeichern').addEventListener('click', () => fsSenden($('fsSpeichern')));
+}
+
+function fsPostenZeichnen(){
+  const suche = (fsSuche || '').toLowerCase();
+  const liste = (FS.posten || []).filter(p => !suche
+    || p.name.toLowerCase().indexOf(suche) >= 0
+    || dat(p.datum).indexOf(suche) >= 0);
+  $('freiBody').innerHTML = `
+    <button class="btn ghost small" id="fsZurueck" style="margin-top:16px">← Zurück</button>
+    <input class="search" id="fsSuche" placeholder="Kegelbruder oder Datum …" style="margin-top:14px"
+           aria-label="Posten suchen" value="${esc(fsSuche)}">
+    <div class="list" style="margin-top:12px">
+      ${liste.map((p, i) => `<button class="row erfmann" data-fspost="${i}" style="width:100%">
+        <div><div class="n">${esc(p.name)}</div>
+          <div class="m">${dat(p.datum)} · ${esc(p.quelle)}${p.faellig ? ' · fällig ' + dat(p.faellig) : ''}</div></div>
+        <div class="v">${eur(p.offen)}</div></button>`).join('')
+        || '<div class="row"><div class="m">nichts offen</div></div>'}
+    </div>`;
+  $('fsZurueck').addEventListener('click', () => { fsSchritt = 'form'; fsZeichnen(); });
+  const s = $('fsSuche');
+  s.addEventListener('input', () => {
+    fsSuche = s.value; const p = s.selectionStart; fsPostenZeichnen();
+    const n = $('fsSuche'); n.focus(); try { n.setSelectionRange(p, p); } catch(e){}
+  });
+  $('freiBody').querySelectorAll('button[data-fspost]').forEach(b =>
+    b.addEventListener('click', () => {
+      fsPosten = liste[Number(b.dataset.fspost)];
+      fsBetragText = fsPosten.offen.toFixed(2).replace('.', ',');
+      fsSchritt = 'form'; fsFehler(''); fsZeichnen();
+    }));
+}
+
+/* -------------------------------------------------------- Senden */
+
+async function fsSenden(knopf){
+  fsFelderSichern();
+  const korrektur = fsSicht === 'korrektur';
+
+  if (korrektur){
+    if (!fsPosten) return fsFehler('Bitte erst den Posten wählen, der korrigiert werden soll.');
+    if (!(num(fsBetragText) > 0)) return fsFehler('Bitte den Betrag eintragen, der abgezogen wird.');
+    if (!fsBezug.trim()) return fsFehler('Ohne Grund wird keine Korrektur gebucht.');
+  } else {
+    if (!fsMann) return fsFehler('Bitte den Kegelbruder antippen.');
+    if (!fsStrafartText()) return fsFehler('Bitte die Strafart wählen oder eine Bezeichnung eintragen.');
+    if ((fsEigene || fsAbweichend) && !(num(fsBetragText) > 0)) return fsFehler('Bitte den Betrag eintragen.');
+    if (!fsEigene && !fsAbweichend && !(fsPreisVon(fsStrafart) > 0)){
+      return fsFehler('Für diese Strafart steht in den Statuten kein Betrag – bitte „Anderen Betrag eintragen“.');
+    }
+    if (!fsDatum) return fsFehler('Bitte das Datum wählen.');
+  }
+  fsFehler('');
+
+  const eintrag = korrektur
+    ? { id: kennung(), modus: 'korrektur', datum: fsPosten.datum, name: fsPosten.name,
+        quelle: fsPosten.quelle, strafart: 'Korrektur: ' + fsBezug.trim(),
+        betrag: -Math.abs(num(fsBetragText)), bezug: fsBezug.trim() }
+    : { id: kennung(), modus: 'strafe', datum: fsDatum, name: fsMann,
+        strafart: fsStrafartText(), anzahl: fsAnzahl, bezug: fsBezug.trim(),
+        betrag: (fsEigene || fsAbweichend) ? num(fsBetragText) : '' };
+
+  const alt = knopf.textContent;
+  knopf.disabled = true; knopf.textContent = 'Moment …';
+  try {
+    const r = await api('freiStrafeBuchen', { token: token, eintrag: eintrag }, 1);
+    if (r.fehler){ fsFehler(r.fehler); return; }
+    eigeneSchreibung();
+    if (r.doppelt){ hinweisleiste('War schon gebucht.'); }
+    else if (korrektur){
+      hinweisleiste(r.erledigt
+        ? 'Korrektur gebucht – der Posten ist damit erledigt.'
+        : 'Korrektur gebucht – offen bleiben ' + eur(r.offen) + '.');
+    } else {
+      hinweisleiste(eintrag.name + ': ' + eur(r.betrag) + ' eingetragen.');
+    }
+    if (r.warnung) setTimeout(() => hinweisleiste(r.warnung, 'warn'), LEISTE_DAUER + 200);
+    const mann = fsMann;
+    fsZuruecksetzen();
+    fsMann = korrektur ? '' : mann;   // meist folgt die nächste Strafe für denselben
+    fsZeichnen();
+    fsLaden();
+    aktualisieren(true);
+  } catch (e) {
+    fsFehler('Keine Verbindung – es wurde nichts gebucht. ' + fehlerGrund(e) + '.');
+  } finally {
+    knopf.disabled = false; knopf.textContent = alt;
+  }
+}
+
+$('closeFrei').addEventListener('click', () => ebene('freistrafe', false));
+$('freiNeu').addEventListener('click', () => fsOeffnen(darfErfassen() ? 'strafe' : 'korrektur'));
+$('freiSeg').addEventListener('click', e => {
+  const b = e.target.closest('button[data-frei]'); if (!b) return;
+  fsFelderSichern();
+  fsSicht = b.dataset.frei;
+  fsZuruecksetzen();
+  fsSegZeichnen();
+  fsZeichnen();
+});
+
 /* ------------------------------------------- Runterziehen zum Aktualisieren */
 /* Nur wenn die Seite ganz oben steht und der Finger deutlich nach unten zieht.
    Waagerechte Wischer (Chip-Leisten) und normales Scrollen bleiben unberührt. */
@@ -3169,7 +3619,8 @@ const KASSE_SICHTEN = {
             <div style="display:flex;align-items:center;gap:10px;flex:none">
               <span class="summe">${eur(p.offen)}</span>
               <button class="btn ghost small" data-bezahlt="ja"
-                      data-datum="${esc(p.datum)}" data-name="${esc(p.name)}">Bezahlt</button>
+                      data-datum="${esc(p.datum)}" data-name="${esc(p.name)}"
+                      data-quelle="${esc(p.quelle || '')}">Bezahlt</button>
             </div>
           </div>`).join('')}</div>
       </details>`).join('')}</div>`
@@ -3183,11 +3634,18 @@ const KASSE_SICHTEN = {
           <div class="kassepost">
             <div><div>${esc(p.name)}</div><div class="m">${dat(p.datum)} · ${eur(p.betrag)}</div></div>
             <button class="btn ghost small" data-bezahlt="nein"
-                    data-datum="${esc(p.datum)}" data-name="${esc(p.name)}">Zurücknehmen</button>
+                    data-datum="${esc(p.datum)}" data-name="${esc(p.name)}"
+                    data-quelle="${esc(p.quelle || '')}">Zurücknehmen</button>
           </div>`).join('')}</div>
       </details>` : '';
 
-    return kopf + liste + abgehakt;
+    /* Der Kassenwart merkt beim Kassieren, dass ein Posten nicht stimmt –
+       deshalb steht der Weg zur Korrektur hier und nicht nur beim Erfassen. */
+    const korrektur = darfKorrektur()
+      ? '<button class="btn ghost small" data-korrektur="1" style="margin-top:12px">Posten korrigieren</button>'
+      : '';
+
+    return kopf + korrektur + liste + abgehakt;
   },
 
   konto(){
@@ -3343,13 +3801,20 @@ $('kasseChips').addEventListener('click', e => {
 });
 
 $('kasseBody').addEventListener('click', async e => {
+  if (e.target.closest('button[data-korrektur]')){
+    e.preventDefault(); e.stopPropagation();
+    fsOeffnen('korrektur');
+    return;
+  }
+
   const einzeln = e.target.closest('button[data-bezahlt]');
   if (einzeln){
     // Der Knopf sitzt in einer <summary> bzw. in einem <details> – ohne das hier
     // klappt beim Tippen zusätzlich der Eintrag auf oder zu.
     e.preventDefault(); e.stopPropagation();
     const r = await kasseSenden('bezahltSetzen', {
-      posten: [{ datum: einzeln.dataset.datum, name: einzeln.dataset.name }],
+      posten: [{ datum: einzeln.dataset.datum, name: einzeln.dataset.name,
+                 quelle: einzeln.dataset.quelle || '' }],
       bezahlt: einzeln.dataset.bezahlt === 'ja'
     }, einzeln, einzeln.textContent);
     if (r) hinweisleiste(einzeln.dataset.bezahlt === 'ja' ? 'Als bezahlt vermerkt.' : 'Zurückgenommen.');
@@ -3362,7 +3827,7 @@ $('kasseBody').addEventListener('click', async e => {
     const mann = offenNachMann().filter(g => g.name === alle.dataset.alle)[0];
     if (!mann) return;
     const r = await kasseSenden('bezahltSetzen', {
-      posten: mann.posten.map(p => ({ datum: p.datum, name: p.name })), bezahlt: true
+      posten: mann.posten.map(p => ({ datum: p.datum, name: p.name, quelle: p.quelle })), bezahlt: true
     }, alle, 'Alles bezahlt');
     if (r) hinweisleiste(esc(mann.name) + ': ' + plural(r.geaendert || 0, 'Posten', 'Posten') + ' abgehakt.');
     return;
