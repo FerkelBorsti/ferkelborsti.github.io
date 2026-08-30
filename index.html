@@ -812,7 +812,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.18.3';
+const APP_VERSION = '1.18.5';
 
 const LOGOS = {
   standard: {
@@ -1690,7 +1690,10 @@ function zeichneStatuten(rows){
         ? `<span class="price zeichen">${DURCHMESSER_SVG}</span>`
         : `<span class="price${/^[^\d]{1,2}$/.test(String(s.b).trim()) ? ' zeichen' : ''}">${esc(preisText(s.b))}</span>`) : ''}</summary>
     <div class="body">${esc(s.d)}
-      ${s.items && s.items.length ? `<div class="items">${s.items.map(i =>
+      ${(s.items && s.items.length) || typeof s.rechenwert === 'number' ? `<div class="items">${
+        (typeof s.rechenwert === 'number'
+          ? `<div>Aufrundung<span>${esc(eur(s.rechenwert))}</span></div>` : '')
+        + (s.items || []).map(i =>
         `<div>${esc(i.t)}${neuPille(istGeaendert('Statuten', i.t))}<span>${
           istDurchmesser(i.b) ? DURCHMESSER_SVG : esc(preisText(i.b))}</span></div>`).join('')}</div>` : ''}
     </div></details>`;
