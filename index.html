@@ -64,6 +64,33 @@
 .meldung .n{font-weight:700;font-size:15px}
 .meldung .m{color:var(--muted);font-size:13px;margin-top:4px;line-height:1.5}
 .meldungKnoepfe{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+/* Einführung: Karten-Folge beim ersten Start, bei neuen Ämtern, nach einem Update (1.23) */
+.tour{position:fixed;inset:0;z-index:30;background:var(--veil);display:flex;align-items:center;
+  justify-content:center;padding:18px;overflow-y:auto}
+.tour-in{width:100%;max-width:390px;background:var(--surface);border:1px solid var(--line);
+  border-radius:18px;padding:20px 20px 18px;box-shadow:0 18px 50px rgba(0,0,0,.5);
+  display:flex;flex-direction:column;gap:13px}
+.tour-kopf{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.tour-schritt{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.tour-ueber{background:none;border:none;color:var(--muted);font-family:inherit;font-size:12.5px;
+  cursor:pointer;padding:4px 2px;text-decoration:underline}
+.tour-ueber:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.tour-sym{width:46px;height:46px;border-radius:14px;background:var(--accent-tint);
+  display:flex;align-items:center;justify-content:center}
+.tour-sym svg{width:24px;height:24px;stroke:var(--accent);fill:none;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+.tour h3{font-family:'Archivo Black',sans-serif;font-size:19px;margin:0;line-height:1.25}
+.tour p{margin:0;font-size:14px;line-height:1.6;color:var(--text)}
+.tour p.klein{font-size:12.5px;color:var(--muted);line-height:1.55}
+.tour ul{margin:0;padding-left:18px;font-size:14px;line-height:1.6}
+.tour ul li{margin-bottom:6px}
+.tour ul li:last-child{margin-bottom:0}
+.tour-punkte{display:flex;gap:6px;justify-content:center;margin-top:2px}
+.tour-punkte i{width:6px;height:6px;border-radius:50%;background:var(--line);transition:width .15s ease}
+.tour-punkte i.an{background:var(--accent);width:18px;border-radius:3px}
+.tour-knoepfe{display:flex;gap:8px;align-items:center}
+.tour-knoepfe .btn{flex:1}
+
 
 /* Betragsfelder mit €-Zeichen am rechten Rand */
 .euro{position:relative}
@@ -695,6 +722,25 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
     </div>
   </div>
 
+  <!-- EINFÜHRUNG: Karten-Folge (1.23) -->
+  <div class="tour hidden" id="tour" role="dialog" aria-modal="true" aria-label="Einführung">
+    <div class="tour-in">
+      <div class="tour-kopf">
+        <span class="tour-schritt" id="tourSchritt"></span>
+        <button class="tour-ueber" id="tourUeber">Überspringen</button>
+      </div>
+      <div class="tour-sym" id="tourSym" aria-hidden="true"></div>
+      <h3 id="tourTitel"></h3>
+      <div id="tourText"></div>
+      <p class="klein hidden" id="tourKlein"></p>
+      <div class="tour-punkte" id="tourPunkte" aria-hidden="true"></div>
+      <div class="tour-knoepfe">
+        <button class="btn ghost" id="tourZurueck">Zurück</button>
+        <button class="btn" id="tourWeiter">Weiter</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TERMIN ANLEGEN / ÄNDERN -->
   <div class="sheet hidden" id="terminSheet" role="dialog" aria-label="Termin">
     <div class="sheet-in">
@@ -796,6 +842,18 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
       </div>
 
       <div>
+        <div class="eyebrow" style="margin-bottom:10px">Erste Schritte</div>
+        <div class="list">
+          <button class="linkrow" id="openTour" style="width:100%;border:none;cursor:pointer;font-family:inherit;text-align:left;background:var(--surface)">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.8c0 1.7-2.4 2.1-2.4 3.6"/><circle cx="12" cy="17.2" r="1" fill="currentColor" stroke="none"/></svg>
+            <div style="flex:1"><div class="lbl">Einführung ansehen</div>
+              <div class="dsc" id="tourInfo">Die wichtigsten Funktionen in einer Minute</div></div>
+            <span class="go">›</span>
+          </button>
+        </div>
+      </div>
+
+      <div>
         <div class="eyebrow" style="margin-bottom:10px">Darstellung</div>
         <div class="seg" id="themeSeg">
           <button data-theme="auto" aria-pressed="true">Automatisch</button>
@@ -854,7 +912,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.22';
+const APP_VERSION = '1.23';
 
 /* Das laufende Kegeljahr. Es steht außerdem noch als fester Text in der
    Überschrift "Auswertung 2026/27" im Reiter "Amt" – beim Saisonwechsel sind
@@ -1332,6 +1390,7 @@ function zeigeApp(){
   schlangeSenden();          // was offline liegen blieb, geht jetzt raus
   pushEmpfangVorbereiten();
   offenesZielNachholen();
+  tourPruefen();
 }
 
 /* ====================================== Was sich geändert hat (1.18) */
@@ -2414,7 +2473,7 @@ $('tabs').addEventListener('click', e => {
    bleibt hängen und man landet nach dem Schließen an einer anderen Stelle. */
 let gemerkteHoehe = 0;
 function ebenenOffen(){
-  return ['settings', 'verwaltung', 'stamm', 'stammForm', 'stammFrage', 'terminSheet', 'erfassung', 'freistrafe', 'lightbox']
+  return ['settings', 'verwaltung', 'stamm', 'stammForm', 'stammFrage', 'terminSheet', 'erfassung', 'freistrafe', 'lightbox', 'tour']
     .some(id => $(id) && !$(id).classList.contains('hidden'));
 }
 function hintergrundPruefen(){
@@ -2447,6 +2506,7 @@ document.addEventListener('keydown', e => {
   ebene('stamm', false); ebene('verwaltung', false); ebene('settings', false);
   ebene('freistrafe', false);
   if (!$('erfassung').classList.contains('hidden')){ ebene('erfassung', false); ERF = null; }
+  if (!$('tour').classList.contains('hidden')) tourBeenden();
 });
 window.addEventListener('online', () => { hinweisleiste(''); aktualisieren(); });
 
@@ -4348,6 +4408,301 @@ function meldungSchliessen(){ $('meldung').classList.add('hidden'); }
 
 $('meldungSpaeter').addEventListener('click', meldungSchliessen);
 $('meldungZeigen').addEventListener('click', () => { meldungSchliessen(); zeigeZiel(meldungZiel); });
+
+/* ================================================= Einführung (1.23) */
+/*
+   Drei Anlässe, eine Mechanik – eine Folge von Karten über der App:
+
+     1. Wer sich zum ersten Mal auf diesem Gerät anmeldet, bekommt die
+        Grundtour: was die App kann und wo es steht. Hat er dabei schon ein
+        Amt mit eigenen Funktionen, hängen dessen Karten hinten dran. Genau
+        das ist der Fall bei der Einführung im Verein – da ist für jeden
+        alles neu.
+     2. Wer später ein Amt dazubekommt, sieht NUR die Karten zu dem, was
+        neu freigeschaltet ist. Die Grundfunktionen kennt er ja.
+     3. Nach einer neuen Fassung: eine Karte "Was ist neu".
+
+   Der Merker liegt auf dem Gerät, wie bei "Verstanden" nach einer
+   Änderungsrunde. Ein neues Handy zeigt die Einführung deshalb noch einmal –
+   das ist gewollt, dort ist sie ja auch wieder nützlich.
+
+   Es läuft immer nur EINE Folge je Öffnen der App, in der Reihenfolge oben.
+   Drei Fenster hintereinander liest niemand.
+*/
+
+const TOUR_FASSUNG  = 1;                  // hochzählen, wenn alle die Grundtour neu sehen sollen
+const TOUR_GESEHEN  = 'kc-tour-gesehen';  // zuletzt gesehene Fassung der Grundtour
+const TOUR_BEREICHE = 'kc-tour-bereiche'; // Bereiche, deren Karten schon gezeigt wurden
+const TOUR_NEU      = 'kc-tour-neu';      // App-Fassung, deren Neuerungen schon gezeigt wurden
+
+/* Was in einer neuen Fassung dazugekommen ist. Oben steht das Neueste.
+   Wer die App zum ersten Mal öffnet, sieht das NICHT – für ihn ist alles neu,
+   er bekommt die Grundtour. */
+const NEUERUNGEN = [
+  { fassung: '1.23', punkte: [
+      'Diese Einführung – beim ersten Start, bei einem neuen Amt und nach jeder neuen Fassung.',
+      'Unter Verein › Historie stehen die vergangenen Kegeljahre mit Königen und Auszeichnungen.'
+    ] }
+];
+
+const TOUR_SYM = {
+  logo:   '<svg viewBox="0 0 24 24"><path d="M12 3.2 20 7v5.4c0 4-3.3 7-8 8.4-4.7-1.4-8-4.4-8-8.4V7z"/><path d="M9.4 12.1 11.2 14l3.5-3.7"/></svg>',
+  start:  '<svg viewBox="0 0 24 24"><path d="M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
+  liste:  '<svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h10"/><circle cx="19" cy="19" r="2.4"/></svg>',
+  geld:   '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="17" cy="15" r="1.3"/></svg>',
+  buch:   '<svg viewBox="0 0 24 24"><path d="M4 5.5A2 2 0 0 1 6 4h13v14H6a2 2 0 0 0-2 2z"/><path d="M8 8h7M8 11.5h7"/></svg>',
+  leute:  '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><path d="M16 6.5a3 3 0 0 1 0 5.6M18 20c0-2.4-.9-4-2.4-4.8"/></svg>',
+  funk:   '<svg viewBox="0 0 24 24"><path d="M4.5 9.5a10.5 10.5 0 0 1 15 0M7.7 12.8a6 6 0 0 1 8.6 0"/><circle cx="12" cy="17.5" r="1.4" fill="currentColor" stroke="none"/></svg>',
+  stift:  '<svg viewBox="0 0 24 24"><path d="M4 20h4L19.2 8.8a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 16z"/></svg>',
+  kalender:'<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
+  balken: '<svg viewBox="0 0 24 24"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"/></svg>',
+  zahnrad:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.1"/><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6"/></svg>',
+  orden:  '<svg viewBox="0 0 24 24"><path d="M8.4 3.2 10.7 9M15.6 3.2 13.3 9"/><circle cx="12" cy="15.2" r="5.9"/><circle cx="12" cy="15.2" r="2.1"/></svg>',
+  stern:  '<svg viewBox="0 0 24 24"><path d="m12 3.6 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.8l5.9-.9z"/></svg>'
+};
+
+/* Die Grundtour. Sie gilt für jeden Kegelbruder, unabhängig vom Amt. */
+function tourGrundKarten(){
+  return [
+    { sym:'logo', t:'Willkommen beim KC Knüppeldick',
+      x:'Die Kegelmappe fürs Handy: dein Stand, die Statuten, die Termine. '
+      + 'Angemeldet bist du mit deinem persönlichen Code – der gehört dir allein und '
+      + 'sollte nicht herumgereicht werden.',
+      k:'Das hier dauert keine Minute. Später wiederfinden kannst du es über das Zahnrad oben rechts.' },
+    { sym:'start', t:'Start – wo du stehst',
+      x:'Ganz oben steht, was bei dir offen ist. Daneben deine Fehltage nach §12 und der '
+      + 'nächste Termin. Darunter der Rückblick auf den letzten Abend mit Sonderwürfen und '
+      + 'dem, was er gekostet hat.' },
+    { sym:'liste', t:'Strafen – wie es dazu kam',
+      x:'Der zweite Reiter zeigt jede einzelne Strafe, nach Terminen sortiert – dazu deine '
+      + 'teuerste Strafart, die häufigste und den teuersten Abend.',
+      k:'Kommt dir etwas falsch vor: beim Schriftführer melden, nicht hier.' },
+    { sym:'geld', t:'So zahlst du',
+      x:'Unten auf der Startseite stehen Empfänger, IBAN, Betrag und Verwendungszweck. Ein Tipp '
+      + 'auf ein Feld legt den Wert in die Zwischenablage – von dort in die Banking-App.',
+      k:'Auf dem Konto sein muss es bis zum nächsten Kegeln (§4). Danach kommt der Zuschlag nach §20 dazu.' },
+    { sym:'buch', t:'Statuten und Rechner',
+      x:'Alle Paragraphen zum Nachlesen, mit Suche über Nummer, Bezeichnung und Text. '
+      + 'Daneben der Rechner: Strafen antippen und sehen, was ein Abend kosten würde – '
+      + 'reines Überschlagen, gespeichert wird dabei nichts.' },
+    { sym:'leute', t:'Verein',
+      x:'Die Warte mit allen Ämtern und wer sie hat, die Kegelbrüder, alle Termine der Saison '
+      + 'und die Historie mit den Königen der vergangenen Kegeljahre.' },
+    { sym:'funk', t:'Auf der Bahn und danach',
+      x:'Der Empfang in der Gaststätte ist dünn. Die App startet auch ohne Netz und zeigt dann '
+      + 'den zuletzt geladenen Stand – wann der war, steht unter deinem offenen Betrag.',
+      k:'Über das Zahnrad oben rechts: Benachrichtigungen einschalten, Darstellung ändern, Daten neu laden.' }
+  ];
+}
+
+/* Die Karten je Bereich. Ein Bereich ist das, was ein Amt in der App
+   freischaltet – nicht das Amt selbst. Wer zwei Ämter hat, bekommt beide. */
+function tourBereichKarten(bereich){
+  const i = (D && D.ich) || {};
+  if (bereich === 'erfassen'){
+    const k = [{ sym:'stift', t:'Strafen erfassen',
+      x:'Am Kegelabend steht auf der Startseite der Knopf „Strafen erfassen“. Du tippst den '
+      + 'Kegelbruder an und hakst seine Strafen ab. Für Zuspätkommen und Vergessenes gibt es '
+      + '„Mehrere auf einmal“: einmal die Strafart wählen, dann alle Betroffenen antippen.',
+      k:'Ohne Empfang wird gesammelt und später von allein nachgeschickt. Der Papierzettel bleibt trotzdem der Beleg.' }];
+    if (i.darfKorrektur) k.push({ sym:'liste', t:'Freie Strafe und Korrektur',
+      x:'Unter Verein › Termine legst du eine freie Strafe an – für alles, was zu keinem Abend '
+      + 'gehört. Und du kannst einen Eintrag korrigieren, wenn beim Erfassen etwas danebengegangen ist.' });
+    return k;
+  }
+  if (bereich === 'termine') return [{ sym:'kalender', t:'Termine anlegen',
+    x:'Unter Verein › Termine legst du Kegelabende und Veranstaltungen an: Datum, Beginn, Ort. '
+    + 'Alle Kegelbrüder sehen den Termin sofort und bekommen eine Nachricht.',
+    k:'Das Erfassen der Strafen zu einem Abend bleibt Sache des Schriftführers.' }];
+  if (bereich === 'kasse') return [{ sym:'geld', t:'Die Kasse',
+    x: i.darfKasse
+      ? 'Im Reiter „Kasse“ stehen die offenen Beträge nach Kegelbruder. Ist Geld eingegangen, '
+      + 'hakst du es ab – einzeln oder für alle Termine eines Kegelbruders auf einmal. Ein Haken '
+      + 'lässt sich zurücknehmen. Dazu Kontostand, Ausgaben und sonstige Einnahmen.'
+      : 'Im Reiter „Kasse“ stehen die offenen Beträge nach Kegelbruder, dazu Kontostand, Ausgaben '
+      + 'und sonstige Einnahmen.',
+    k: i.darfKasse
+      ? 'Alles, was du hier einträgst, gilt sofort.'
+      : 'Du hast als Vertreter Einsicht bekommen: ansehen ja, ändern nein.' }];
+  if (bereich === 'amt') return [{ sym:'balken', t:'Die Auswertung',
+    x:'Der Reiter „Amt“ zeigt die laufende Saison: 5 in die Vollen, alle 9, Pumpen, Anwesenheit, '
+    + 'Sonderwürfe, Strafen und Spenden – jeweils als Rangliste.',
+    k: i.nurLesenAmt
+      ? 'Du hast als Vertreter Einsicht bekommen: ansehen ja, ändern nein.'
+      : 'Königsfähig ist nach §23 nur, wer bei mindestens 60 % der Abende dabei war. Die Zahlen '
+      + 'sieht sonst niemand, solange du sie nicht freigibst.' }];
+  if (bereich === 'stammdaten') return [{ sym:'zahnrad', t:'Statuten, Ämter, Mitglieder',
+    x:'Über das Zahnrad › Stammdaten änderst du Beträge, Ämterbesetzungen und die Mitgliederliste. '
+    + 'Gedacht ist das für die Zeit nach der Generalversammlung.',
+    k:'Ein neuer Betrag gilt ab dem nächsten Abend – Abende, die schon waren, behalten ihren. '
+    + 'Zum Schluss „Änderungen abschließen“: erst dann erfahren es alle anderen.' }];
+  if (bereich === 'freigeben') return [{ sym:'orden', t:'Freigaben',
+    x:'Über das Zahnrad › Verwaltung gibst du frei, was andere sehen dürfen: den Kegelkönig, den '
+    + 'Kassenbericht und die Einsicht für deinen Vertreter.',
+    k:'Die Einsicht gehört in die Vorbereitung der Generalversammlung – wer ausgefallen ist, kann '
+    + 'den Schalter nicht mehr umlegen.' }];
+  return [];
+}
+
+/* Welche Bereiche stehen diesem Kegelbruder gerade offen?
+   Bewusst NICHT an den Amtsnamen gehängt: Was erklärt werden muss, ist die
+   Funktion. "kasse" zählt nur beim Kassenwart und seinem Vertreter – nicht bei
+   jedem, der den freigegebenen Kassenbericht sehen darf. */
+function tourBereicheJetzt(){
+  const i = (D && D.ich) || {};
+  const b = [];
+  if (i.darfErfassen) b.push('erfassen');
+  if (i.darfTermine) b.push('termine');
+  if (i.darfKasse || i.nurLesenKasse) b.push('kasse');
+  if (i.darfAmtSehen !== undefined ? i.darfAmtSehen : i.schriftfuehrer) b.push('amt');
+  if (i.darfStammdaten) b.push('stammdaten');
+  if (i.darfFreigeben) b.push('freigeben');
+  return b;
+}
+
+function tourGemerkteBereiche(){
+  try { const l = JSON.parse(speicher.lies(TOUR_BEREICHE) || '[]'); return Array.isArray(l) ? l : []; }
+  catch(e){ return []; }
+}
+
+/* Fassungen als Zahlenfolge vergleichen: "1.9" ist kleiner als "1.23". */
+function fassungKleiner(a, b){
+  const za = String(a || '0').split('.').map(Number), zb = String(b || '0').split('.').map(Number);
+  for (let n = 0; n < Math.max(za.length, zb.length); n++){
+    const x = za[n] || 0, y = zb[n] || 0;
+    if (x !== y) return x < y;
+  }
+  return false;
+}
+
+function tourNeuerungen(){
+  const gesehen = speicher.lies(TOUR_NEU) || '';
+  if (!gesehen) return [];                       // ohne Merker gibt es die Grundtour, nicht das hier
+  return NEUERUNGEN.filter(n => fassungKleiner(gesehen, n.fassung)
+                             && !fassungKleiner(APP_VERSION, n.fassung));
+}
+
+/* Alles auf den heutigen Stand setzen – am Ende einer Folge und beim Überspringen.
+   Auch beim Überspringen: Sonst steht dasselbe Fenster bei jedem Start wieder da. */
+function tourMerken(){
+  speicher.schreib(TOUR_GESEHEN, String(TOUR_FASSUNG));
+  speicher.schreib(TOUR_BEREICHE, JSON.stringify(tourBereicheJetzt()));
+  speicher.schreib(TOUR_NEU, APP_VERSION);
+}
+
+let tourFolge = [];
+let tourPos = 0;
+let tourGeprueft = false;     // je Öffnen der App nur einmal
+
+function tourStarten(karten){
+  if (!karten.length) return;
+  tourFolge = karten;
+  tourPos = 0;
+  ebene('tour', true);
+  tourZeichnen();
+}
+
+function tourZeichnen(){
+  const k = tourFolge[tourPos];
+  if (!k) return tourBeenden();
+  $('tourSym').innerHTML = TOUR_SYM[k.sym] || TOUR_SYM.logo;
+  $('tourTitel').textContent = k.t;
+  $('tourText').innerHTML = k.liste
+    ? '<ul>' + k.liste.map(z => '<li>' + esc(z) + '</li>').join('') + '</ul>'
+    : '<p>' + esc(k.x) + '</p>';
+  $('tourKlein').textContent = k.k || '';
+  $('tourKlein').classList.toggle('hidden', !k.k);
+  // Bei einer einzelnen Karte waere "Schritt 1 von 1" nur Beiwerk.
+  $('tourSchritt').textContent = tourFolge.length > 1
+    ? 'Schritt ' + (tourPos + 1) + ' von ' + tourFolge.length : '';
+  // Bei einer langen Folge (Grundtour plus Aemter) wird aus der Punktereihe ein
+  // Strichcode, den niemand mehr liest. Dann reicht "Schritt 3 von 13".
+  $('tourPunkte').innerHTML = (tourFolge.length > 9 || tourFolge.length < 2) ? '' : tourFolge.map((x, n) =>
+    '<i class="' + (n === tourPos ? 'an' : '') + '"></i>').join('');
+  $('tourZurueck').classList.toggle('hidden', tourPos === 0);
+  $('tourWeiter').textContent = tourPos === tourFolge.length - 1 ? 'Alles klar' : 'Weiter';
+  $('tourUeber').classList.toggle('hidden', tourPos === tourFolge.length - 1);
+  $('tour').scrollTop = 0;
+}
+
+function tourBeenden(){
+  ebene('tour', false);
+  tourFolge = [];
+  tourMerken();
+}
+
+/* Der Auslöser. Läuft am Ende von zeigeApp(), also nach jedem Datenabruf –
+   deshalb die Sperre: Sonst klappt das Fenster mitten in der Bedienung auf,
+   wenn im Hintergrund neue Daten ankommen. */
+function tourPruefen(){
+  if (tourGeprueft || !D || !D.ich) return;
+  if (ebenenOffen()) return;                    // nicht über eine offene Maske legen
+  tourGeprueft = true;
+
+  const jetzt = tourBereicheJetzt();
+
+  // 1. Erster Start auf diesem Gerät: Grundtour, und was er an Ämtern hat gleich dazu.
+  if (Number(speicher.lies(TOUR_GESEHEN) || 0) < TOUR_FASSUNG){
+    let karten = tourGrundKarten();
+    jetzt.forEach(b => { karten = karten.concat(tourBereichKarten(b)); });
+    return tourStarten(karten);
+  }
+
+  // 2. Ein Amt ist dazugekommen: nur das Neue.
+  const gemerkt = tourGemerkteBereiche();
+  const neu = jetzt.filter(b => gemerkt.indexOf(b) < 0);
+  if (neu.length){
+    const rollen = (D.ich.rollen || []).join(' · ');
+    let karten = [{ sym:'orden', t: rollen ? 'Neu für dich: ' + rollen : 'Du kannst jetzt mehr',
+      x:'In der App ist etwas dazugekommen, das vorher nicht für dich da war. '
+      + 'Die nächsten Karten zeigen kurz, was das ist und wo es steht.' }];
+    neu.forEach(b => { karten = karten.concat(tourBereichKarten(b)); });
+    return tourStarten(karten);
+  }
+
+  // Ein Amt ist weggefallen: still mitziehen, damit es beim nächsten Mal wieder erklärt wird.
+  if (gemerkt.some(b => jetzt.indexOf(b) < 0)) speicher.schreib(TOUR_BEREICHE, JSON.stringify(jetzt));
+
+  // 3. Eine neue Fassung der App.
+  const neuerungen = tourNeuerungen();
+  if (neuerungen.length){
+    const punkte = [];
+    neuerungen.forEach(n => n.punkte.forEach(p => punkte.push(p)));
+    return tourStarten([{ sym:'stern', t:'Was ist neu', liste: punkte,
+      k:'Die ganze Einführung findest du jederzeit über das Zahnrad oben rechts.' }]);
+  }
+}
+
+/* Von Hand aus den Einstellungen: immer die volle Runde, mit allem, was er darf. */
+function tourVonHand(){
+  ebene('settings', false);
+  let karten = tourGrundKarten();
+  tourBereicheJetzt().forEach(b => { karten = karten.concat(tourBereichKarten(b)); });
+  tourStarten(karten);
+}
+
+$('tourWeiter').addEventListener('click', () => {
+  if (tourPos >= tourFolge.length - 1) return tourBeenden();
+  tourPos++; tourZeichnen();
+});
+$('tourZurueck').addEventListener('click', () => { if (tourPos > 0){ tourPos--; tourZeichnen(); } });
+$('tourUeber').addEventListener('click', tourBeenden);
+$('openTour').addEventListener('click', tourVonHand);
+
+/* Wischen wie bei einer Bildergalerie – auf dem Handy erwartet man das. */
+(function(){
+  let x0 = null;
+  const el = $('tour');
+  el.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+  el.addEventListener('touchend', e => {
+    if (x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0;
+    x0 = null;
+    if (Math.abs(dx) < 55) return;
+    if (dx < 0) $('tourWeiter').click();
+    else if (tourPos > 0) $('tourZurueck').click();
+  }, { passive: true });
+})();
 
 /* --------------------------------------------------------- Deep-Link */
 /* Ein Ziel kann ankommen, bevor die Daten da sind (Tippen auf die Meldung
