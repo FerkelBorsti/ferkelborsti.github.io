@@ -186,6 +186,9 @@ h2.sec{font-family:'Archivo Black',sans-serif;font-size:15px;margin:4px 0 -6px;l
 .seg button{background:none;border:none;color:var(--muted);font-family:inherit;font-weight:700;font-size:13.5px;padding:9px 6px;border-radius:10px;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
 .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Vier Knöpfe statt drei: etwas kleiner und ohne Umbruch, sonst rutscht
+   "Die Warte" auf schmalen Handys in die zweite Zeile. */
+.seg.vier button{font-size:12px;padding:9px 2px;white-space:nowrap}
 
 .chips{display:flex;gap:7px;overflow-x:auto;padding:2px 18px 2px;margin:0 -18px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
@@ -260,6 +263,16 @@ svg.orden.big{width:19px;height:19px}
 .bw .nm{flex:1;font-weight:600}
 .bw .vl{font-family:'Archivo Black',sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap}
 .bw small{display:block;color:var(--muted);font-size:11.5px;margin-top:8px}
+.bw .leer{color:var(--muted);font-size:13px}
+
+/* Historie: Zusätze zum Jahres-Aufklapper */
+.jahr .qz{color:var(--muted);font-size:11.5px;margin-top:-4px;line-height:1.5}
+.jahr .luecke{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:99px;background:var(--line);color:var(--muted);flex:none}
+.jahr h5{margin:14px 0 2px;font-family:'Archivo Black',sans-serif;font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.jahr h5:first-child{margin-top:0}
+.jahr .kacheln{margin:0 -15px}
+.jahr .kacheln .bw{padding-left:0;padding-right:0;background:none}
+.jahr .fuss{color:var(--muted);font-size:11.5px;line-height:1.6;border-top:1px solid var(--line);padding-top:8px}
 
 /* Einstellungen */
 /* overscroll-behavior verhindert, dass die Wischgeste am Ende der Liste an die
@@ -460,10 +473,11 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
       </section>
 
       <section id="tab-verein" class="hidden">
-        <div class="seg" id="vereinSeg">
+        <div class="seg vier" id="vereinSeg">
           <button data-mode="warte" aria-pressed="true">Die Warte</button>
           <button data-mode="leute" aria-pressed="false">Kegelbrüder</button>
           <button data-mode="termine" aria-pressed="false">Termine</button>
+          <button data-mode="historie" aria-pressed="false">Historie</button>
         </div>
         <div id="modeWarte">
           <p class="note" style="margin-top:16px">Wer welches Amt hat und was dazugehört.
@@ -480,6 +494,11 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
           <button class="btn ghost small hidden" id="terminNeu" style="margin-top:16px">Termin anlegen</button>
           <div class="list" id="terminList" style="margin-top:16px"></div>
           <p class="note hidden" id="terminHinweis" style="margin-top:10px">Termine legt der Kegelvater an – das Erfassen der Strafen bleibt Sache des Schriftführers.</p>
+        </div>
+        <div id="modeHistorie" class="hidden">
+          <p class="note" style="margin-top:16px">Jedes Kegeljahr zum Aufklappen: Könige, Auszeichnungen
+            und die Werte des Jahres. Wo nichts steht, wurde damals nichts festgehalten.</p>
+          <div class="list" id="historieList" style="margin-top:16px"></div>
         </div>
       </section>
 
@@ -834,7 +853,12 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.21';
+const APP_VERSION = '1.22';
+
+/* Das laufende Kegeljahr. Es steht außerdem noch als fester Text in der
+   Überschrift "Auswertung 2026/27" im Reiter "Amt" – beim Saisonwechsel sind
+   also genau diese beiden Stellen anzufassen. */
+const SAISON_LAEUFT = '2026/27';
 
 const LOGOS = {
   standard: {
@@ -1462,13 +1486,13 @@ function zeichneStart(){
           <div class="list" style="margin-top:14px">${rueckblick(la)}</div>`;
   }
 
-  h += `<h2 class="sec" style="margin-top:24px">Kegelkönig 2026/27</h2>
+  h += `<h2 class="sec" style="margin-top:24px">Kegelkönig ${esc(SAISON_LAEUFT)}</h2>
         <div class="card vault ${D.gvFrei ? 'open' : ''}" style="margin-top:14px">${tresor()}</div>`;
 
-  if ((D.ehrentafel && D.ehrentafel.length) || D.gvFrei){
-    h += `<h2 class="sec" style="margin-top:24px">Ehrentafel</h2>
-          <div class="list" style="margin-top:14px">${ehrentafel()}</div>`;
-  }
+  /* Die Ehrentafel steht seit 1.22 vollständig unter "Verein · Historie" – dort
+     gehört sie hin, und die Startseite bleibt kurz. Hier nur der Weg dahin. */
+  h += `<p class="note" style="margin-top:14px">Wie die Jahre davor ausgegangen sind, steht in der Historie.</p>
+        <button class="btn ghost small" id="startZurHistorie" style="margin-top:10px">Zur Historie</button>`;
 
   h += aendHistorie();
 
@@ -1493,6 +1517,7 @@ function zeichneStart(){
     b.addEventListener('click', () => aendAnsehen(b.dataset.aend)));
   if ($('startErfassen')) $('startErfassen').addEventListener('click',
     () => erfassungOeffnen(D.naechsterTermin.datum, D.naechsterTermin.art));
+  if ($('startZurHistorie')) $('startZurHistorie').addEventListener('click', zeigeHistorie);
   const zf = $('zahlfelder');
   if (zf) zf.addEventListener('click', e => {
     const b = e.target.closest('button[data-kopie]'); if (!b) return;
@@ -1645,37 +1670,143 @@ function tresor(){
       verkündet – dann schaltet der Schriftführer sie hier frei.</div>
     <div class="countdown">noch ${tage} Tage</div>`;
 }
-function ehrentafel(){
-  const liste = (D.ehrentafel || []).slice();
-  if (D.gvFrei && D.koenige){
-    const eintrag = { s:'2026/27', aktuell:true,
-      kegel: D.koenige.kegel ? { n: D.koenige.kegel.n, v: zahlText(D.koenige.kegel.v) + ' Holz' } : null };
-    SONDERKOENIGE.forEach(([, feld, fmt]) => {
-      eintrag[feld] = D.koenige[feld] ? { n: D.koenige[feld].n, v: fmt(D.koenige[feld].v) } : null;
-    });
-    liste.unshift(eintrag);
+/* Die frühere Funktion ehrentafel() ist mit 1.22 entfallen: Die Jahresliste
+   steht jetzt vollständig unter "Verein · Historie" und kommt aus der eigenen
+   Ablage der Historie statt aus einem zweiten, parallel gepflegten Blatt. */
+/* ----------------------------------------------------------- Historie
+   Die vergangenen Kegeljahre. Sie kommen aus einer eigenen Ablage und werden
+   erst geholt, wenn jemand den Reiter aufschlägt – einmal im Jahr ändert sich
+   daran etwas, beim Start hätten sie nur Zeit gekostet.
+
+   Gerechnet wird nichts hier: Das Backend liefert je Kegeljahr fertig, wer
+   welchen Titel hatte und wer in welcher Kategorie bester und schlechtester
+   war. So rechnen laufende Saison und Historie garantiert gleich. */
+let historieDaten = null, historieLaedt = false;
+
+/** Springt aus der Startseite in die Historie. */
+function zeigeHistorie(){
+  const t = document.querySelector('#tabs button[data-tab="verein"]');
+  if (t) t.click();
+  const m = document.querySelector('#vereinSeg button[data-mode="historie"]');
+  if (m) m.click();
+}
+
+async function historieOeffnen(){
+  if (historieLaedt) return;
+  if (historieDaten){ zeichneHistorie(); return; }
+  historieLaedt = true;
+  $('historieList').innerHTML = `<div class="row"><div class="n">Die Kegeljahre werden geholt …</div></div>`;
+  try {
+    const r = await api('historie', { token: token }, API_VERSUCHE);
+    if (r.fehler){
+      $('historieList').innerHTML = `<div class="row"><div class="n">${esc(r.fehler)}</div></div>`;
+      return;
+    }
+    historieDaten = r.historie || [];
+    zeichneHistorie();
+  } catch (e) {
+    $('historieList').innerHTML = `<div class="row"><div class="n">Die Historie ließ sich nicht laden.</div>
+      <div class="m">${esc(fehlerGrund(e))}</div></div>`;
+  } finally {
+    historieLaedt = false;
   }
-  if (!liste.length) return `<div class="row"><div class="n">Noch keine Einträge.</div></div>`;
-  return liste.map(j => {
-    const z = (k,w) => w ? `<div class="tr"><span class="k">${esc(k)}</span><span class="w">${esc(w)}</span></div>` : '';
-    if (!j.kegel) return `<details class="jahr"><summary>
-        <div><div class="sais">${esc(j.s)}</div><div class="koenig">Werte noch nicht erfasst</div></div>
-        </summary><div class="body"><div class="leer">Für dieses Kegeljahr liegen noch keine
-        Auswertungsdaten vor.</div></div></details>`;
-    return `<details class="jahr"${j.aktuell ? ' open' : ''}><summary>
-        <div><div class="sais">${esc(j.s)}</div><div class="koenig">Kegelkönig: ${esc(j.kegel.n)}</div></div>
-        ${j.aktuell ? '<span class="aktuell">neu</span>' : ''}</summary>
-      <div class="body">
-        ${z('Kegelkönig', j.kegel.n + ' · ' + j.kegel.v)}
-        ${SONDERKOENIGE.map(([titel, feld]) => j[feld]
-          ? z(titel.replace(' · Urkunde',''), j[feld].n + ' · ' + j[feld].v) : '').join('')}
-        ${j.anwesend ? z('Beste Anwesenheit', j.anwesend.n + ' · ' + j.anwesend.v) : ''}
-        ${j.strafen ? z('Meiste Strafen', j.strafen.n + ' · ' + j.strafen.v) : ''}
-        ${z('Kassenstand zum Jahresende', j.kasse)}
-        ${z('Termine', j.termine)}
-        ${z('', j.bemerkung)}
-      </div></details>`;
+}
+
+/** Wert einer Dashboard-Zeile in Text. Die Anwesenheit bringt ihren eigenen
+ *  Text mit ("8 / 11"), alles andere wird nach Einheit formatiert. */
+function histWert(kat, seite){
+  if (seite.text) return seite.text;
+  if (kat.einheit === '€') return eur(seite.v);
+  return zahlText(seite.v) + (kat.einheit ? ' ' + kat.einheit : '');
+}
+
+const HIST_FUSS = {
+  vollen: 'Durchschnitt je Termin nach §23. Nicht nachgeholte Würfe zählen als 0 Holz.',
+  pumpen: 'Weniger ist besser. Pumpenkönig wird trotzdem, wer die meisten hat – das ist der Schlechteste hier.'
+};
+
+function histKategorie(kat){
+  if (!kat.bester){
+    return `<div class="bw"><h4>${esc(kat.label)}</h4>
+      <div class="leer">${esc(kat.hinweis || 'Keine Daten')}</div></div>`;
+  }
+  const fuss = HIST_FUSS[kat.k] || (kat.richtung === 'weniger' ? 'Weniger ist besser.' : '');
+  return `<div class="bw"><h4>${esc(kat.label)}</h4><div class="pair">
+    <div class="pr"><span class="tag best">Bester</span><span class="nm">${esc(kat.bester.n)}</span>
+      <span class="vl">${esc(histWert(kat, kat.bester))}</span></div>
+    <div class="pr"><span class="tag worst">Schlechtester</span><span class="nm">${esc(kat.schlechtester.n)}</span>
+      <span class="vl">${esc(histWert(kat, kat.schlechtester))}</span></div>
+    </div>${fuss ? `<small>${esc(fuss)}</small>` : ''}</div>`;
+}
+
+function histTitelZeilen(titel){
+  if (!titel.length) return '';
+  return titel.map(t => {
+    const wer = t.wer || '';
+    const wert = t.wert || '';
+    const rechts = wer ? (wer + (wert ? ' · ' + wert : '')) : (wert || '–');
+    // Woher der Titel stammt, gehört sichtbar dazu – sonst weiß in fünf Jahren
+    // niemand mehr, was belegt ist und was errechnet.
+    const unten = [t.quelle && t.quelle !== '—' ? t.quelle : '', t.bemerkung].filter(String).join(' · ');
+    return `<div class="tr"><span class="k">${esc(t.titel)}</span><span class="w">${esc(rechts)}</span></div>
+      ${unten ? `<div class="qz">${esc(unten)}</div>` : ''}`;
   }).join('');
+}
+
+function histJahr(j){
+  const titel = j.titel || [];
+  const kk = titel.filter(t => t.titel === 'Kegelkönig' && t.wer)[0];
+  const kopf = kk ? 'Kegelkönig: ' + kk.wer
+             : (j.hatDaten ? 'Kein Kegelkönig überliefert' : 'Keine Daten');
+  const marke = j.hatDaten ? '' : '<span class="luecke">ohne Daten</span>';
+  const zeit = [j.beginn, j.ende].filter(String).join(' – ');
+
+  const kopfzeilen = [
+    zeit ? `<div class="tr"><span class="k">Zeitraum</span><span class="w">${esc(zeit)}</span></div>` : '',
+    j.termine ? `<div class="tr"><span class="k">Termine</span><span class="w">${esc(
+        j.geplant ? j.termine + ' von ' + j.geplant : String(j.termine))}</span></div>` : ''
+  ].join('');
+
+  const kategorien = (j.kategorien || []).map(histKategorie).join('');
+
+  return `<details class="jahr"${j.aktuell ? ' open' : ''}>
+    <summary><div><div class="sais">${esc(j.s)}</div><div class="koenig">${esc(kopf)}</div></div>
+      ${j.aktuell ? '<span class="aktuell">läuft</span>' : marke}</summary>
+    <div class="body">
+      ${j.hinweis ? `<div class="leer">${esc(j.hinweis)}</div>` : ''}
+      ${kopfzeilen}
+      ${titel.length ? `<h5>Titel und Auszeichnungen</h5>${histTitelZeilen(titel)}` : ''}
+      ${kategorien ? `<h5>Das Jahr in Zahlen</h5><div class="kacheln">${kategorien}</div>` : ''}
+      ${j.fussnote ? `<div class="fuss">${esc(j.fussnote)}</div>` : ''}
+    </div></details>`;
+}
+
+/** Die laufende Saison steht oben – aber nur, wenn der Schriftführer die
+ *  Ergebnisse freigegeben hat. Vorher hat sie in einer Historie nichts zu
+ *  suchen, und der Tresor auf der Startseite bleibt der einzige Ort dafür. */
+function histLaufende(){
+  if (!D.gvFrei || !D.koenige) return null;
+  const t = [];
+  if (D.koenige.kegel) t.push({ titel:'Kegelkönig', wer: D.koenige.kegel.n,
+                                wert: zahlText(D.koenige.kegel.v) + ' Holz je Termin',
+                                quelle:'laufende Saison', bemerkung:'' });
+  SONDERKOENIGE.forEach(([name, feld, fmt]) => {
+    if (D.koenige[feld]) t.push({ titel: name.replace(' · Urkunde',''), wer: D.koenige[feld].n,
+                                  wert: fmt(D.koenige[feld].v), quelle:'laufende Saison', bemerkung:'' });
+  });
+  if (!t.length) return null;
+  return { s: SAISON_LAEUFT, aktuell: true, hatDaten: true, titel: t, kategorien: [],
+           hinweis: 'Die Saison läuft noch – die Werte können sich bis zur Generalversammlung ändern.',
+           beginn:'', ende:'', termine:0, geplant:'', fussnote:'' };
+}
+
+function zeichneHistorie(){
+  const liste = (historieDaten || []).slice();
+  const laeuft = histLaufende();
+  if (laeuft) liste.unshift(laeuft);
+  $('historieList').innerHTML = liste.length
+    ? liste.map(histJahr).join('')
+    : `<div class="row"><div class="n">Noch keine Kegeljahre hinterlegt.</div></div>`;
 }
 
 /* ------------------------------------------------------------ Strafen */
@@ -2256,11 +2387,14 @@ function segment(id, map){
     document.querySelectorAll('#'+id+' button').forEach(x => x.setAttribute('aria-pressed', x === b));
     Object.keys(map).forEach(mode => $(map[mode]).classList.toggle('hidden', mode !== b.dataset.mode));
     if (id === 'statSeg') rechnerLeiste();
+    // Die Historie wird erst geholt, wenn sie jemand aufschlägt – sie ändert
+    // sich einmal im Jahr und hätte beim Start nichts verloren.
+    if (id === 'vereinSeg' && b.dataset.mode === 'historie') historieOeffnen();
     window.scrollTo({top:0});
   });
 }
 segment('statSeg', {lesen:'modeLesen', rechnen:'modeRechnen'});
-segment('vereinSeg', {warte:'modeWarte', leute:'modeLeute', termine:'modeTermine'});
+segment('vereinSeg', {warte:'modeWarte', leute:'modeLeute', termine:'modeTermine', historie:'modeHistorie'});
 
 $('tabs').addEventListener('click', e => {
   const b = e.target.closest('button[data-tab]'); if (!b) return;
