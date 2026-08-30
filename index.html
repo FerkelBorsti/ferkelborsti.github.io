@@ -469,7 +469,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
           <p class="note" style="margin-top:16px">Wer welches Amt hat und was dazugehört.
             Zum Aufklappen antippen – der Erstgenannte hat das Amt, die anderen vertreten.</p>
           <p class="note ordenlegende"><svg class="orden big" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.4 3.2 10.7 9M15.6 3.2 13.3 9"/><circle cx="12" cy="15.2" r="5.9"/><circle cx="12" cy="15.2" r="2.1"/></svg>
-            <span>trägt einen Orden (§6) oder eine Medaille (§8). Wer sie nicht trägt, zahlt 5,00 €.</span></p>
+            <span id="ordenLegende">trägt einen Orden (§6) oder eine Medaille (§8).</span></p>
           <div class="list" id="warteList" style="margin-top:14px"></div>
         </div>
         <div id="modeLeute" class="hidden">
@@ -812,7 +812,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.18.5';
+const APP_VERSION = '1.20';
 
 const LOGOS = {
   standard: {
@@ -836,6 +836,55 @@ const $ = id => document.getElementById(id);
 const eur = n => (Number(n)||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
 const num = s => { const n = parseFloat(String(s).replace(/[^\d,.-]/g,'').replace(',','.')); return isNaN(n)?0:n; };
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ------------------------------------------------------------ Rechenwerte
+   Manche Zahlen in den Statuten sind keine Strafe, sondern eine Rechenregel:
+   die Aufrundung der Durchschnittsstrafe nach §17, die Mindest-Anwesenheit für
+   den Kegelkönig nach §23. Sie stehen – wie jeder andere Wert, der etwas
+   auslöst – an genau EINER Stelle: beim Paragraphen selbst. Hier steht deshalb
+   nur, wie so ein Wert HEISST und in welcher Einheit er zu lesen ist, nie die
+   Zahl. Wird sie in den Stammdaten geändert, ändert sich die App von allein. */
+const RECHENWERT_ART = {
+  '§17': { label: 'Aufrundung auf', kurz: 'Aufrundung', einheit: 'euro',
+           note: 'Der Durchschnitt für Abwesende wird auf dieses Vielfache aufgerundet. '
+               + 'Gilt ab dem nächsten Abend; Abende, die schon waren, behalten ihre Aufrundung.' },
+  '§23': { label: 'Mindest-Anwesenheit in Prozent', kurz: 'Mindest-Anwesenheit', einheit: 'prozent',
+           note: 'So viel Prozent aller Termine muss ein Kegelbruder anwesend gewesen sein, '
+               + 'um Kegelkönig werden zu können.' }
+};
+const rechenwertArt = p => RECHENWERT_ART[p]
+  || { label: 'Rechenwert', kurz: 'Rechenwert', einheit: 'zahl', note: '' };
+const prozentText = n => (Number(n)||0).toLocaleString('de-DE',{maximumFractionDigits:1}) + ' %';
+function rechenwertText(p, v){
+  const a = rechenwertArt(p);
+  return a.einheit === 'euro' ? eur(v) : a.einheit === 'prozent' ? prozentText(v) : String(v);
+}
+/* Die Zahl selbst – immer frisch aus den Statuten. Fehlt sie dort, kommt null
+   zurück; die Stellen, die sie brauchen, lassen den Satz dann einfach weg,
+   statt eine erfundene Zahl zu zeigen. */
+function rechenwert(p){
+  const s = (D.statuten || []).filter(x => x.p === p)[0];
+  const r = s && s.rechenwert;
+  return (typeof r === 'number' && r > 0) ? r : null;
+}
+
+/* Der Betrag einer Strafe – ebenfalls immer frisch aus den Statuten. Überall,
+   wo in der App ein Eurobetrag in einem Satz vorkommt, wird er hier geholt und
+   nicht im Text mitgeschrieben. Gesucht wird über Paragraph und, wo ein
+   Paragraph mehrere Sätze hat, zusätzlich über die Bezeichnung.
+
+   Findet sich nichts, kommt null zurück – der Satz lässt den Betrag dann weg.
+   Lieber eine Lücke als eine Zahl, die nicht mehr stimmt. */
+function strafBetrag(p, bezeichnung){
+  const norm = x => String(x == null ? '' : x).toLowerCase().replace(/\s+/g, ' ').trim();
+  const zp = norm(p), zt = bezeichnung ? norm(bezeichnung) : '';
+  const treffer = (D.preise || []).filter(x => norm(x.p) === zp && (!zt || norm(x.t) === zt))[0];
+  if (!treffer) return null;
+  const n = num(treffer.b);
+  return (isFinite(n) && n > 0) ? n : null;
+}
+/* "… zahlt 5,00 €" oder, wenn der Betrag fehlt, gar nichts. */
+const betragText = (p, t) => { const b = strafBetrag(p, t); return b === null ? '' : eur(b); };
 const dat = iso => { const t=String(iso||'').split('-'); return t.length===3 ? t[2]+'.'+t[1]+'.'+t[0] : String(iso||''); };
 const datKurz = iso => { const t=String(iso||'').split('-'); return t.length===3 ? t[2]+'.'+t[1]+'.' : ''; };
 const plural = (n, eins, viele) => n === 1 ? '1 ' + eins : n + ' ' + viele;
@@ -1370,7 +1419,8 @@ function zeichneStart(){
       <div class="action" style="margin-top:14px">
         <div><div class="when">${esc(wochentag(t.datum))}, ${dat(t.datum)}</div>
           <div class="sub">${esc([t.ort, t.beginn ? t.beginn + ' Uhr' : ''].filter(String).join(' · ') || 'Zeit folgt')}</div></div>
-        ${t.art === 'Kegelabend' ? `<div class="deadline">Abmeldung bis ${esc(uhrMinus(t.beginn))} Uhr – danach 10,00 € nach §2</div>` : ''}
+        ${t.art === 'Kegelabend' ? `<div class="deadline">Abmeldung bis ${esc(uhrMinus(t.beginn))} Uhr${
+          betragText('§2') ? ' – danach ' + esc(betragText('§2')) + ' nach §2' : ' nach §2'}</div>` : ''}
         <p class="note" style="margin:0">Abmeldung geht vorerst weiter über WhatsApp.</p>
         ${darfErfassen() && t.datum === D.heute
           ? `<button class="btn" id="startErfassen" style="margin-top:12px">Strafen erfassen</button>` : ''}
@@ -1507,7 +1557,8 @@ function rueckblick(la){
       <span>${la.anwesend ? la.anwesend + ' anwesend' : 'Anwesenheit nicht erfasst'}</span></div>`;
 
   const schnitt = typeof la.schnitt === 'number' && la.schnitt > 0
-    ? hl('Ø','Durchschnittsstrafe §17','Strafen der Anwesenden geteilt durch ihre Anzahl, aufgerundet auf 0,50 €', eur(la.schnitt))
+    ? hl('Ø','Durchschnittsstrafe §17','Strafen der Anwesenden geteilt durch ihre Anzahl'
+        + (rechenwert('§17') ? ', aufgerundet auf ' + eur(rechenwert('§17')) : ''), eur(la.schnitt))
     : '';
 
   if (D.ich.schriftfuehrer){
@@ -1692,7 +1743,7 @@ function zeichneStatuten(rows){
     <div class="body">${esc(s.d)}
       ${(s.items && s.items.length) || typeof s.rechenwert === 'number' ? `<div class="items">${
         (typeof s.rechenwert === 'number'
-          ? `<div>Aufrundung<span>${esc(eur(s.rechenwert))}</span></div>` : '')
+          ? `<div>${esc(rechenwertArt(s.p).kurz)}<span>${esc(rechenwertText(s.p, s.rechenwert))}</span></div>` : '')
         + (s.items || []).map(i =>
         `<div>${esc(i.t)}${neuPille(istGeaendert('Statuten', i.t))}<span>${
           istDurchmesser(i.b) ? DURCHMESSER_SVG : esc(preisText(i.b))}</span></div>`).join('')}</div>` : ''}
@@ -1810,7 +1861,20 @@ function ergaenzeMedaillen(ziel){
   });
 }
 
+/* §6 regelt den Orden, §8 die Medaille – zwei Paragraphen mit zwei
+   verschiedenen Beträgen. Beide werden hier aus den Statuten geholt. Fehlt
+   einer, wird er weggelassen; fehlen beide, bleibt der schlichte Satz stehen. */
+function ordenLegendeText(){
+  const o = betragText('§6', 'Orden vergessen');
+  const m = betragText('§8', 'Fahrradengel vergessen');
+  const teil = (was, par, b) => was + ' (' + par + (b ? ', ' + b : '') + ')';
+  const satz = 'trägt ' + teil('einen Orden', '§6', o) + ' oder ' + teil('eine Medaille', '§8', m) + '.';
+  return satz + ((o || m) ? ' Wer sie nicht trägt, zahlt den jeweiligen Betrag.' : '');
+}
+
 function zeichneWarte(){
+  const legende = $('ordenLegende');
+  if (legende) legende.textContent = ordenLegendeText();
   const orden = ordenListe();
   const traegt = (amt, i) => (orden[ORDEN_GLEICH[amtSchluessel(amt)] || amtSchluessel(amt)] || []).indexOf(i) >= 0;
   $('warteList').innerHTML = D.aemter.map(a => {
@@ -2005,16 +2069,29 @@ const gesamtSonder = r => r.kranz + r.koenig + r.acht + r.alle9;
 
 /* §23: Der Kegelkönig wird nicht über die Summe ermittelt, sondern über den
    individuellen Durchschnitt bei "5 in die Vollen" – nicht nachgeholte Würfe
-   zählen als 0 Holz. Und Kegelkönig kann nur werden, wer mindestens 60 %
-   anwesend war. Liefert das Backend den Durchschnitt noch nicht mit, wird er
+   zählen als 0 Holz. Und Kegelkönig kann nur werden, wer eine Mindest-Anwesenheit
+   erreicht. Wie hoch die ist, steht in §23 und NUR dort – hier wird sie gelesen,
+   nicht wiederholt. Liefert das Backend den Durchschnitt noch nicht mit, wird er
    hier aus Summe und Terminzahl gebildet. */
-const HUERDE = 0.6;
+const huerdeAnteil = () => {
+  const p = rechenwert('§23');
+  return p === null ? null : (p > 1 ? p / 100 : p);
+};
+const huerdeText = () => {
+  const p = rechenwert('§23');
+  return p === null ? '' : prozentText(p > 1 ? p : p * 100);
+};
 const vollenSchnitt = r => typeof r.vollenSchnitt === 'number'
   ? r.vollenSchnitt
   : (r.vollenTermine ? Math.round(r.vollen / r.vollenTermine * 100) / 100 : 0);
-const koenigsfaehig = r => typeof r.koenigsfaehig === 'boolean'
-  ? r.koenigsfaehig
-  : (r.termine ? r.da / r.termine >= HUERDE : false);
+const koenigsfaehig = r => {
+  if (typeof r.koenigsfaehig === 'boolean') return r.koenigsfaehig;
+  const h = huerdeAnteil();
+  // Ohne hinterlegte Hürde wird niemand ausgeschlossen – lieber alle in der
+  // Liste als ein Titel, der auf einer erfundenen Zahl beruht.
+  if (h === null || !r.termine) return true;
+  return r.da / r.termine >= h;
+};
 const quote = r => r.termine ? Math.round(r.da / r.termine * 100) : 0;
 
 function bwBlock(titel, key, mehrIstBesser, fmt, fuss){
@@ -2072,23 +2149,30 @@ const SICHTEN = {
     const l = A.sort((a,b) => vollenSchnitt(b) - vollenSchnitt(a));
     const koenig = l.filter(koenigsfaehig)[0];
     const holz = r => vollenSchnitt(r).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1}) + ' Holz';
+    const hT = huerdeText();
     return `<p class="note" style="margin-top:16px">Gewertet wird nach §23 der <strong style="color:var(--text)">Durchschnitt
         je Termin</strong>, nicht die Summe. Nicht nachgeholte Würfe zählen als 0 Holz.
-        Kegelkönig kann nur werden, wer mindestens 60 % anwesend war.</p>
+        ${hT ? 'Kegelkönig kann nur werden, wer mindestens ' + esc(hT) + ' anwesend war.' : ''}</p>
       ${koenig ? `<p class="note" style="margin-top:8px">Aktuell vorn und königsfähig:
         <strong style="color:var(--accent)">${esc(koenig.n)}</strong> mit ${holz(koenig)}.</p>` : ''}`
       + rangliste(l, vollenSchnitt, holz,
           r => (r.vollen || 0) + ' Holz aus ' + plural(r.vollenTermine || 0, 'Wurf', 'Würfen')
              + ' · ' + quote(r) + ' % anwesend'
-             + (koenigsfaehig(r) ? '' : ' · unter 60 %, nicht königsfähig'));
+             + (koenigsfaehig(r) ? '' : ' · unter ' + huerdeText() + ', nicht königsfähig'));
   },
   alle9(){
     const l = (D.auswertung||[]).slice().sort((a,b)=>b.alle9-a.alle9);
     if (!l.length) return `<p class="note" style="margin-top:16px">Noch keine Daten.</p>`;
+    // §4 "alle 9 (alle anderen zahlen)" – Satz UND Rechnung holen den Betrag
+    // von dort. Ohne hinterlegten Betrag wird nur gezählt, nicht gerechnet.
+    const satz = strafBetrag('§4', 'alle 9 (alle anderen zahlen)');
     return `<p class="note" style="margin-top:16px">Wer die meisten alle 9 geworfen hat.
-      Jeder Wurf kostet alle anderen 0,75 € – der Werfer selbst zahlt nichts.</p>`
+      ${satz === null ? 'Jeder Wurf kostet alle anderen etwas – der Werfer selbst zahlt nichts.'
+                      : 'Jeder Wurf kostet alle anderen ' + esc(eur(satz)) + ' – der Werfer selbst zahlt nichts.'}</p>`
       + rangliste(l, r=>r.alle9, r=>r.alle9+'×',
-          r=>r.alle9 ? 'kostete die anderen ' + eur(r.alle9 * 0.75) + ' je Kegelbruder' : 'noch keiner');
+          r => !r.alle9 ? 'noch keiner'
+             : satz === null ? 'kostete die anderen etwas'
+             : 'kostete die anderen ' + eur(r.alle9 * satz) + ' je Kegelbruder');
   },
   pumpen(){
     const l = (D.auswertung||[]).slice().sort((a,b)=>gesamtPumpen(b)-gesamtPumpen(a));
@@ -4016,7 +4100,7 @@ function stammStatutFinden(p, t){
   return null;
 }
 
-function stammStatutOeffnen(p, t){
+function stammStatutOeffnen(p, t, betragZeigen){
   const f = stammStatutFinden(p, t);
   if (!f) return;
   const e = f.e;
@@ -4028,6 +4112,17 @@ function stammStatutOeffnen(p, t){
      Durchschnitt hingehört. Deshalb wird der Wert hier nur angezeigt.
      (Aufgefallen Johannes, 29.08.2026.) */
   const zeichenBetrag = (e.zahl === null || e.zahl === undefined) && !!e.b;
+
+  /* Viele Paragraphen sind reine Regeln: §21 Generalversammlung, §23 Kegelkönig,
+     §30 Auflösung. Andere sind nur die Überschrift über ihren Strafen – §4, §6,
+     §8. In beiden Fällen gehört in die Betragsspalte nichts hinein, und ein
+     leeres Eingabefeld "Betrag in Euro" ist dort eine Falle: Eine Zahl darin
+     macht aus der Regel eine Strafe, und die App zeigt danach einen Eurobetrag
+     neben dem Paragraphen. Das Feld erscheint deshalb erst auf ausdrücklichen
+     Wunsch. (Aufgefallen Johannes, 30.08.2026.)
+     Für die Strafarten darunter ändert sich nichts – die haben immer einen. */
+  const ohneBetrag = f.para && !zeichenBetrag
+                  && (e.zahl === null || e.zahl === undefined) && !betragZeigen;
 
   const felder = [
     { art: 'info', label: 'Bezeichnung', wert: (f.para ? e.p + ' ' : '') + e.t,
@@ -4041,6 +4136,13 @@ function stammStatutOeffnen(p, t){
       note: 'Dieser Paragraph hat keinen festen Betrag – statt einer Zahl steht hier ein Zeichen. '
           + 'Es lässt sich deshalb hier nicht ändern: Eine Zahl an dieser Stelle würde aus der Regel '
           + 'eine feste Strafe machen. Was sich ändern lässt, steht in den Feldern darunter.' });
+  } else if (ohneBetrag) {
+    felder.push({ art: 'info', label: 'Betrag', wert: '–',
+      note: (e.items && e.items.length)
+        ? 'Dieser Paragraph selbst kostet nichts – die Beträge stehen bei den Strafen darunter.'
+        : 'Dieser Paragraph ist eine Regel ohne eigenen Betrag.' });
+    felder.push({ art: 'knopf', label: 'Betrag hinzufügen', id: 'stammBetragAn',
+      tun: () => stammStatutOeffnen(p, t, true) });
   } else {
     felder.push({ art: 'zahl', label: 'Betrag in Euro', id: 'stammBetrag',
       wert: (e.zahl !== null && e.zahl !== undefined) ? e.zahl : '',
@@ -4053,17 +4155,18 @@ function stammStatutOeffnen(p, t){
      Strafe ist – bisher nur die Aufrundung der Durchschnittsstrafe nach §17.
      Das Feld erscheint nur dort, wo wirklich einer hinterlegt ist. */
   const hatRechenwert = e.rechenwert !== null && e.rechenwert !== undefined;
+  const rwArt = rechenwertArt(e.p);
   if (hatRechenwert) felder.push({
-    art: 'zahl', label: 'Aufrundung auf', id: 'stammRechen', wert: e.rechenwert,
-    note: 'Der Durchschnitt für Abwesende wird auf dieses Vielfache aufgerundet. '
-        + 'Gilt ab dem nächsten Abend; Abende, die schon waren, behalten ihre Aufrundung.'
+    art: 'zahl', label: rwArt.label, id: 'stammRechen', wert: e.rechenwert,
+    note: rwArt.note
   });
 
   stammMaske(e.t, felder, 'Speichern', () => {
     const nutzlast = { p: e.p, t: e.t, beschreibung: stammWert('stammBeschr') };
     // Ohne Eingabefeld wird der Betrag auch nicht mitgeschickt – sonst würde das
-    // Zeichen beim Speichern der Beschreibung stillschweigend gelöscht.
-    if (!zeichenBetrag) {
+    // Zeichen beim Speichern der Beschreibung stillschweigend gelöscht, und ein
+    // Paragraph ohne Betrag bekäme still eine 0.
+    if (!zeichenBetrag && !ohneBetrag) {
       const b = stammZahl('stammBetrag', false);
       if (b.fehler) return stammFehler(b.fehler);
       nutzlast.betrag = b.wert;
