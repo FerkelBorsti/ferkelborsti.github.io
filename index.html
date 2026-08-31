@@ -148,7 +148,6 @@ html{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%}
 button,a,summary,input,.row,.calcrow{touch-action:manipulation}
 body{margin:0;background:var(--ink);color:var(--text);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
 .shell{max-width:var(--shell);margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--ink);padding-top:env(safe-area-inset-top)}
-.demo-bar{background:#ECA8C1;color:#2A0F1C;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;text-align:center;padding:7px 14px}
 /* Der Kopf reserviert oben Platz fuer Statusleiste/Selfie-Kamera (Safe Area).
    Das negative margin-top hebt die Safe-Area-Polsterung der .shell wieder auf,
    damit der Streifen nicht doppelt gezaehlt wird. */
@@ -298,7 +297,6 @@ svg.orden.big{width:19px;height:19px}
 .ordenlegende{display:flex;align-items:center;gap:7px;margin-top:10px}
 
 .action{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column;gap:12px}
-.action.done{border-color:var(--ok)}
 .action .when{font-family:'Archivo Black',sans-serif;font-size:19px}
 .deadline{font-size:12.5px;color:var(--muted);line-height:1.55}
 .deadline b{color:var(--text);font-weight:700}
@@ -309,7 +307,6 @@ svg.orden.big{width:19px;height:19px}
    Deshalb steht .frist an jeder Fristanzeige, aber nur bedingt gesetzt. */
 .frist,.deadline.frist,.deadline.frist b{color:var(--warn);font-weight:600}
 .row .m.frist,.kassepost .m.frist{color:var(--warn);font-weight:600}
-.okline{color:var(--ok);font-weight:700;font-size:14px}
 
 /* Bester / Schlechtester */
 .bw{background:var(--surface);border-bottom:1px solid var(--line);padding:13px 15px}
@@ -429,6 +426,10 @@ button.row.erfmann:focus-visible{outline:2px solid var(--accent);outline-offset:
 .linkrow:last-child{border-bottom:none}
 .linkrow svg{width:24px;height:24px;flex:none;stroke:var(--accent);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .linkrow .go{color:var(--muted);font-size:18px}
+/* Ein ausgefüllter Punkt in einem sonst gestrichelten Symbol: Ohne diese Regel
+   erbt fill die Textfarbe, während der Rahmen in der Akzentfarbe steht – das
+   Instagram-Zeichen war dadurch zweifarbig. */
+.linkrow svg .voll{fill:var(--accent);stroke:none}
 .version{text-align:center;color:var(--muted);font-size:11.5px}
 
 /* Logo-Lightbox */
@@ -499,8 +500,6 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
 .topbar{padding:calc(9px + env(safe-area-inset-top)) 16px 9px;margin-top:calc(-1 * env(safe-area-inset-top));text-align:center;font-size:12.5px;font-weight:600;background:var(--surface-2);color:var(--muted);border-bottom:1px solid var(--line);cursor:default}
 .topbar.warn{background:var(--warn);color:#1B141E}
 .topbar.neu{background:var(--accent);color:#fff;cursor:pointer}
-.login .logo{width:260px;max-width:78%;height:auto;display:block}
-
 </style>
 </head>
 <body>
@@ -604,7 +603,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
       </section>
 
       <section id="tab-amt" class="hidden">
-        <h2 class="sec">Auswertung 2026/27</h2>
+        <h2 class="sec" id="amtSaison">Auswertung</h2>
         <p class="note" id="amtHinweis">Nur für dich sichtbar, solange du die Ergebnisse nicht freigegeben hast.</p>
         <div class="chips" id="amtChips">
           <button data-view="dash" aria-pressed="true">Übersicht</button>
@@ -934,7 +933,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
           <button class="linkrow" id="openTour" style="width:100%;border:none;cursor:pointer;font-family:inherit;text-align:left;background:var(--surface)">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.8c0 1.7-2.4 2.1-2.4 3.6"/><circle cx="12" cy="17.2" r="1" fill="var(--accent)" stroke="none"/></svg>
             <div style="flex:1"><div class="lbl">Einführung ansehen</div>
-              <div class="dsc" id="tourInfo">Die wichtigsten Funktionen in einer Minute</div></div>
+              <div class="dsc">Die wichtigsten Funktionen in einer Minute</div></div>
             <span class="go">›</span>
           </button>
         </div>
@@ -965,7 +964,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
         <div class="eyebrow" style="margin-bottom:10px">Verein</div>
         <div class="list">
           <a class="linkrow" href="https://www.instagram.com/kc.knueppeldick/" target="_blank" rel="noopener noreferrer">
-            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none"/></svg>
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle class="voll" cx="17.4" cy="6.6" r="1.1"/></svg>
             <div style="flex:1"><div class="lbl">Instagram</div><div class="dsc">@kc.knueppeldick</div></div>
             <span class="go">›</span>
           </a>
@@ -999,12 +998,33 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.28';
+const APP_VERSION = '1.29';
 
-/* Das laufende Kegeljahr. Es steht außerdem noch als fester Text in der
-   Überschrift "Auswertung 2026/27" im Reiter "Amt" – beim Saisonwechsel sind
-   also genau diese beiden Stellen anzufassen. */
+/* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
+   Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
+   daraus gebildet; das Datum der Generalversammlung wird gerechnet, statt
+   dazustehen. Vorher waren es vier Stellen, und der Kommentar hier nannte
+   zwei – nach dem ersten Abschluss hätte die App weiter 2026/27 gezeigt. */
 const SAISON_LAEUFT = '2026/27';
+
+/* Ostersonntag nach Gauß. Wird nur für die Generalversammlung gebraucht: Sie
+   liegt 38 Tage nach Ostern, so rechnet auch das Backend. */
+function ostersonntag(j){
+  const a=j%19, b=Math.floor(j/100), c=j%100, d=Math.floor(b/4), e=b%4;
+  const f=Math.floor((b+8)/25), g=Math.floor((b-f+1)/3);
+  const h=(19*a+b-d-g+15)%30, i=Math.floor(c/4), k=c%4;
+  const l=(32+2*e+2*i-h-k)%7, m=Math.floor((a+11*h+22*l)/451);
+  const mo=Math.floor((h+l-7*m+114)/31), ta=((h+l-7*m+114)%31)+1;
+  return new Date(j, mo-1, ta, 12, 0, 0);
+}
+function generalversammlung(jahr){
+  const o = ostersonntag(jahr);
+  return new Date(o.getFullYear(), o.getMonth(), o.getDate()+38, 12, 0, 0);
+}
+/* Die Versammlung, die das laufende Kegeljahr beendet. */
+function gvDerSaison(saison){
+  return generalversammlung(parseInt(String(saison).slice(0,4),10) + 1);
+}
 
 const LOGOS = {
   standard: {
@@ -1088,7 +1108,6 @@ function strafBetrag(p, bezeichnung){
 /* "… zahlt 5,00 €" oder, wenn der Betrag fehlt, gar nichts. */
 const betragText = (p, t) => { const b = strafBetrag(p, t); return b === null ? '' : eur(b); };
 const dat = iso => { const t=String(iso||'').split('-'); return t.length===3 ? t[2]+'.'+t[1]+'.'+t[0] : String(iso||''); };
-const datKurz = iso => { const t=String(iso||'').split('-'); return t.length===3 ? t[2]+'.'+t[1]+'.' : ''; };
 const plural = (n, eins, viele) => n === 1 ? '1 ' + eins : n + ' ' + viele;
 // Zahlen immer deutsch: 19,5 statt 19.5
 /* Achtung: .filter(String) laesst undefined stehen – String(undefined) ist
@@ -1193,8 +1212,24 @@ function fehlerGrund(e){
   return e.message || 'unbekannt';
 }
 
+/* Aktionen, die etwas ANLEGEN und keine Kennung mitführen. Bei ihnen darf nie
+   nachgelegt werden: Ein Netzfehler tritt auch dann auf, wenn die Anfrage beim
+   Server ankam und nur die Antwort verlorenging – der zweite Anlauf legte die
+   Ausgabe, den Termin oder das Mitglied dann ein zweites Mal an, und die App
+   meldete "eingetragen". Seit Backend 1.29 fängt der Server das zusätzlich ab;
+   hier steht die zweite Sicherung. */
+const API_EINMALIG = [
+  'ausgabeAnlegen', 'umlageAnlegen', 'ausgabeAendern', 'umlageAendern',
+  'ausgabeLoeschen', 'umlageLoeschen', 'terminAnlegen', 'terminAendern',
+  'terminLoeschen', 'kategorieAnlegen', 'statutAnlegen', 'statutEntfernen',
+  'statutUmbenennen', 'statutSetzen', 'paragraphAnlegen', 'amtAnlegen',
+  'amtEntfernen', 'amtSetzen', 'mitgliedAnlegen', 'mitgliedSetzen',
+  'mitgliedUmbenennen', 'stammAbschliessen', 'neuerCode', 'bezahltSetzen',
+  'postenSetzen', 'kasseSetzen', 'erfassungAnlegen', 'freigabeSetzen'
+];
+
 async function api(aktion, extra, versuche){
-  const max = Math.max(1, versuche || 1);
+  const max = API_EINMALIG.indexOf(aktion) >= 0 ? 1 : Math.max(1, versuche || 1);
   let letzterFehler;
   for (let i = 1; i <= max; i++){
     const abbruch = new AbortController();
@@ -1254,15 +1289,30 @@ function standText(){
 let leistenUhr = null;
 const LEISTE_DAUER = 4000;
 
+/* Steht eine neue Fassung bereit, gehört die Leiste ihr. Bis 1.28 hat jede
+   Bestätigung ("Gespeichert.") das Angebot samt Klickziel gelöscht, und weil
+   updatefound längst durch war, kam es in dieser Sitzung nicht wieder – die
+   Geräte blieben auf der alten Fassung hängen. Jetzt wird eine kurze Meldung
+   angezeigt und danach das Angebot wiederhergestellt. */
+let neueFassungAnbieten = null;
+
 function hinweisleiste(text, art){
   const b = $('topbar');
   clearTimeout(leistenUhr);
-  if (!text){ b.classList.add('hidden'); return; }
+  if (!text){
+    if (neueFassungAnbieten) { neueFassungAnbieten(); return; }
+    b.classList.add('hidden'); return;
+  }
   b.className = 'topbar ' + (art || '');
   b.textContent = text;
   b.onclick = null;
   b.classList.remove('hidden');
-  if (!art) leistenUhr = setTimeout(() => b.classList.add('hidden'), LEISTE_DAUER);
+  if (!art || neueFassungAnbieten){
+    leistenUhr = setTimeout(() => {
+      if (neueFassungAnbieten) neueFassungAnbieten();
+      else b.classList.add('hidden');
+    }, LEISTE_DAUER);
+  }
 }
 
 /* ---------------------------------------------------------- Darstellung */
@@ -1347,11 +1397,21 @@ function urlaubFensterRechnen(termine){
 }
 function urlaubFensterMerken(){
   if (!D || !Array.isArray(D.termine)) return;
-  speicher.schreib(URLAUB_FENSTER_KEY, JSON.stringify(urlaubFensterRechnen(D.termine)));
+  const f = urlaubFensterRechnen(D.termine);
+  speicher.schreib(URLAUB_FENSTER_KEY, JSON.stringify(f));
+  urlaubFensterMemo = f;                 // der gemerkte Stand gehört mitgezogen
 }
+/* Einmal lesen, nicht bei jedem Aufruf. naechsterWechsel() fragt 400 Tage
+   durch, und jeder Tag ging vorher durch JSON.parse(localStorage…) – bei jedem
+   Themen- und Logowechsel und bei jedem Wechsel in den Vordergrund. */
+let urlaubFensterMemo = null;
 function urlaubFenster(){
-  try { const l = JSON.parse(speicher.lies(URLAUB_FENSTER_KEY) || '[]'); return Array.isArray(l) ? l : []; }
-  catch(e){ return []; }
+  if (urlaubFensterMemo) return urlaubFensterMemo;
+  try {
+    const l = JSON.parse(speicher.lies(URLAUB_FENSTER_KEY) || '[]');
+    urlaubFensterMemo = Array.isArray(l) ? l : [];
+  } catch(e){ urlaubFensterMemo = []; }
+  return urlaubFensterMemo;
 }
 function istUrlaub(d){
   const t = isoVon(d);
@@ -1363,7 +1423,6 @@ function saisonAm(d){
   if (istUrlaub(d))      return 'urlaub';
   return 'standard';
 }
-const saisonFuer = jetzt => saisonAm(jetzt);
 
 /* Der naechste Wechsel wird nicht aus Formeln geraten, sondern vorwaerts
    durchgezaehlt – ein Jahr weit. Das kostet nichts und stimmt auch dann noch,
@@ -1383,7 +1442,7 @@ function naechsterWechsel(jetzt){
 
 let logoWahl = speicher.lies('kc-logo') || 'auto';
 const aktivesLogoSet = () => {
-  const w = logoWahl === 'auto' ? saisonFuer(new Date()) : logoWahl;
+  const w = logoWahl === 'auto' ? saisonAm(new Date()) : logoWahl;
   return LOGOS[w] ? w : 'standard';
 };
 
@@ -1481,7 +1540,18 @@ async function start(){
 
   const zwischen = speicher.lies('kc-daten');
   if (zwischen){
-    try { D = ohneGaeste(JSON.parse(zwischen)); preiseMerken(); zeigeApp(); } catch(e){}
+    try {
+      D = ohneGaeste(JSON.parse(zwischen)); preiseMerken(); zeigeApp();
+    } catch(e){
+      /* Stammt der Zwischenspeicher aus einer älteren Fassung, in der ein Feld
+         fehlt, bricht zeigeApp() mitten im Zeichnen ab – vorher stand hier ein
+         leeres catch, und der Nutzer sah eine halb leere App ohne jede
+         Meldung. Jetzt wird der alte Stand verworfen und ganz normal geladen. */
+      console.warn('Gespeicherter Stand passt nicht mehr:', e);
+      speicher.loesch('kc-daten');
+      D = null;
+      zeigeAnsicht('view-laden');
+    }
   } else {
     zeigeAnsicht('view-laden');
   }
@@ -1551,9 +1621,20 @@ function zeigeApp(){
     : 'Nur für dich sichtbar, solange du die Ergebnisse nicht freigegeben hast.';
   $('standText').textContent = standText() + (letzterApiFehler ? ' · zuletzt: ' + letzterApiFehler : '');
   $('versionText').textContent = 'KC Knüppeldick · App ' + APP_VERSION + ' · Backend ' + (D.version||'?');
+  // Die Saison steht nur noch an einer Stelle im Code – hier wird sie eingesetzt.
+  if ($('amtSaison')) $('amtSaison').textContent = 'Auswertung ' + SAISON_LAEUFT;
+
+  /* Meldet das Backend ein fehlendes Blatt, wird das gesagt. Vorher rechnete
+     die App stillschweigend mit 0 weiter – so ist die Ehrentafel drei
+     Fassungen lang leer geblieben, ohne dass es jemandem auffiel. */
+  if (D.blattFehler && D.blattFehler.length){
+    hinweisleiste('In den Tabellen fehlt: ' + D.blattFehler.join(', ')
+                + '. Bitte beim Schriftführer melden – die Zahlen sind unvollständig.', 'warn');
+  }
+
   zeichneStart(); zeichneStrafen(); zeichneStatuten(D.statuten); zeichneRechner(rechnerZeilen());
   zeichneWarte(); zeichneMitglieder(); zeichneTermine();
-  if (darfKasseSehen()) zeichneKasse();
+  if (darfKasseSehen()) kasseFelderSichern(() => zeichneKasse());
   if (darfAmtSehen()) zeichneAmt(aktuelleAmtSicht);
   zeichneVerwaltung();
   zeichneStammEintrag();
@@ -1620,11 +1701,6 @@ function aendKarte(){
       <button class="btn ghost small" id="aendVerstanden">Verstanden</button>
     </div></div>`;
 }
-
-/* Die frühere Funktion aendHistorie() ist mit 1.24 entfallen: Die Chronik der
-   Änderungen steht jetzt unter "Verein · Historie" beim jeweiligen Kegeljahr,
-   statt als zweite lange Jahresliste am Fuß der Startseite. Der Weg dorthin
-   führt über den Knopf "Alle Änderungen" in der Karte oben. */
 
 /**
  * "Verstanden" nimmt die Runde zur Kenntnis: Karte weg, Markierungen weg. Der
@@ -1704,10 +1780,6 @@ function zeichneStart(){
   h += `<h2 class="sec" style="margin-top:24px">Kegelkönig ${esc(SAISON_LAEUFT)}</h2>
         <div class="card vault ${D.gvFrei ? 'open' : ''}" style="margin-top:14px">${tresor()}</div>`;
 
-  /* Seit 1.24 steht auf der Startseite nichts mehr zur Historie: weder der
-     Knopf dorthin noch die Chronik "Was sich geändert hat". Beides gehoert
-     unter "Verein · Historie" – die Startseite ist fuer das Jetzt da. Dass es
-     Aenderungen gab, meldet weiterhin die Karte ganz oben (aendKarte). */
   h += `<h2 class="sec" style="margin-top:24px">So zahlst du</h2>
     <p class="note">Überweise deine offenen Strafen an die Kegelkasse. Tippe ein Feld an,
       dann liegt der Wert in der Zwischenablage.</p>
@@ -1812,17 +1884,32 @@ function countdownText(iso){
 
 /* Ist die Abmeldefrist (eine Stunde vor Beginn) fuer heute schon verstrichen?
    Hier zaehlt die Uhr des Geraets – etwas anderes hat die App offline nicht. */
-function fristVorbei(beginn){
+/* Beginn minus eine Stunde, in Minuten seit Mitternacht. Kann negativ werden –
+   bei einem Beginn vor 01:00 liegt die Frist am Vortag. Bis 1.28 rechnete
+   ((h+23)%24) auf denselben Tag zurück: Bei Beginn 00:30 stand dort
+   "Abmeldung bis 23:30 Uhr" (gemeint war der Vortag), und die Frist galt an
+   diesem Tag praktisch nie als verstrichen. Bei den üblichen Anfangszeiten
+   ändert sich nichts. */
+function fristMinuten(beginn){
   const m = String(beginn || '').match(/^(\d{1,2}):(\d{2})/);
-  if (!m) return false;
+  if (!m) return null;
+  return (+m[1]) * 60 + (+m[2]) - 60;
+}
+
+function fristVorbei(beginn){
+  const f = fristMinuten(beginn);
+  if (f === null) return false;
+  if (f < 0) return true;               // die Frist lag schon am Vortag
   const jetzt = new Date();
-  return jetzt.getHours() * 60 + jetzt.getMinutes() >= ((+m[1] + 23) % 24) * 60 + (+m[2]);
+  return jetzt.getHours() * 60 + jetzt.getMinutes() >= f;
 }
 
 function uhrMinus(hhmm){
-  const m = String(hhmm||'').match(/^(\d{1,2}):(\d{2})/);
-  if (!m) return 'eine Stunde vor Beginn';
-  return ((+m[1] + 23) % 24) + ':' + m[2];
+  const f = fristMinuten(hhmm);
+  if (f === null) return 'eine Stunde vor Beginn';
+  // Ohne "Uhr" – das hängt die Aufrufstelle an.
+  if (f < 0) return ((f + 1440) / 60 | 0) + ':' + ('0' + ((f + 1440) % 60)).slice(-2) + ' des Vortags';
+  return (f / 60 | 0) + ':' + ('0' + (f % 60)).slice(-2);
 }
 
 function hl(ic, titel, text, wert){
@@ -1918,18 +2005,22 @@ function tresor(){
       <div class="sub">Kegelkönig${k ? ' mit ' + zahlText(k.v) + ' Holz' : ''}</div>
       ${weitere}`;
   }
-  const ziel = new Date('2027-05-05T00:00:00');
-  const tage = Math.max(0, Math.ceil((ziel - new Date()) / 86400000));
+  /* Datum und Countdown werden aus SAISON_LAEUFT gerechnet, nicht eingetippt.
+     Vorher stand der 05.05.2027 zweimal fest im Text; nach dem Jahreswechsel
+     hätte hier weiter das alte Datum gestanden und der Countdown wäre wegen
+     Math.max(0, …) dauerhaft auf "noch 0 Tage" hängen geblieben. */
+  const ziel = gvDerSaison(SAISON_LAEUFT);
+  const tage = Math.ceil((ziel - new Date()) / 86400000);
+  const wann = dat(ziel.getFullYear() + '-'
+    + ('0' + (ziel.getMonth() + 1)).slice(-2) + '-' + ('0' + ziel.getDate()).slice(-2));
   return `<svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/>
       <path d="M8 10V7a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.3"/></svg>
     <div class="big">Noch unter Verschluss</div>
-    <div class="sub">Die Auswertung wird auf der Generalversammlung am 05.05.2027
+    <div class="sub">Die Auswertung wird auf der Generalversammlung am ${esc(wann)}
       verkündet – dann schaltet der Schriftführer sie hier frei.</div>
-    <div class="countdown">noch ${tage} Tage</div>`;
+    ${tage > 0 ? `<div class="countdown">noch ${tage} Tage</div>`
+               : `<div class="countdown">Die Versammlung ist vorbei – der Schriftführer gibt frei.</div>`}`;
 }
-/* Die frühere Funktion ehrentafel() ist mit 1.22 entfallen: Die Jahresliste
-   steht jetzt vollständig unter "Verein · Historie" und kommt aus der eigenen
-   Ablage der Historie statt aus einem zweiten, parallel gepflegten Blatt. */
 /* ----------------------------------------------------------- Historie
    Die vergangenen Kegeljahre. Sie kommen aus einer eigenen Ablage und werden
    erst geholt, wenn jemand den Reiter aufschlägt – einmal im Jahr ändert sich
@@ -2331,8 +2422,8 @@ function zeichneStrafen(){
              ? 'Durchschnittstrafe ausgesetzt – du musst sie nicht zahlen'
              : 'Frist aufgehoben – kein Zahlungsziel'}</div></div></div>`
         : (t.faellig && !t.bezahlt ? `<div class="row"><div><div class="m${
-            t.faellig <= D.heute ? ' frist' : ''}">Fällig am ${dat(t.faellig)}${
-            t.faellig <= D.heute ? ' – Frist verstrichen, §20 greift' : ''}</div></div></div>` : '')}
+            t.faellig < D.heute ? ' frist' : ''}">Fällig am ${dat(t.faellig)}${
+            t.faellig < D.heute ? ' – Frist verstrichen, §20 greift' : ''}</div></div></div>` : '')}
     </div>`).join('');
   }
   $('tab-strafen').innerHTML = h;
@@ -2630,7 +2721,14 @@ function terminSheetSchliessen(){
    in der Vergangenheit liegt. */
 function termineUebernehmen(liste){
   D.termine = liste;
-  D.naechsterTermin = liste.filter(t => t.datum >= D.heute)[0] || null;
+  /* Sortiert, nicht auf die Reihenfolge des Blattes vertraut: Ein nachträglich
+     angelegter Termin hängt dort unten. Bis 1.28 stand dann ein Abend als
+     "nächster Termin" da, der weiter weg liegt – samt falschem Countdown,
+     falscher Abmeldefrist und dem Knopf "Strafen erfassen" am falschen Tag.
+     urlaubFensterRechnen sortiert dieselbe Liste seit jeher ausdrücklich. */
+  D.naechsterTermin = (liste || []).filter(t => t && t.datum >= D.heute)
+    .slice()
+    .sort((a, b) => String(a.datum).localeCompare(String(b.datum)))[0] || null;
   speicher.schreib('kc-daten', JSON.stringify(D));
   urlaubFensterMerken();       // eine neu angelegte Fahrt wirkt sofort aufs Logo
   logoJahreszeitPruefen();
@@ -2767,7 +2865,8 @@ const SICHTEN = {
     return `<div class="list" style="margin-top:16px">
       ${bwBlock('5 in die Vollen (Ø je Termin)', vollenSchnitt, true,
         r=>vollenSchnitt(r).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+' Holz',
-        'Nach §23 zählt der Durchschnitt, nicht die Summe. Kegelkönig wird nur, wer mindestens 60 % anwesend war.')}
+        'Nach §23 zählt der Durchschnitt, nicht die Summe. Kegelkönig wird nur, wer mindestens '
+        + (huerdeText() || '60 %') + ' anwesend war.')}
       ${bwBlock('Pumpen', gesamtPumpen, false, r=>gesamtPumpen(r).toLocaleString('de-DE'),
         'Weniger ist besser. Pumpenkönig wird trotzdem, wer die meisten hat – das ist der Schlechteste hier.')}
       ${bwBlock('Anwesenheit', r=>r.da, true, r=>r.da+' / '+r.termine)}
@@ -3026,15 +3125,36 @@ async function schlangeSenden(){
         w.push({ text: text, fehler: fehler, wann: Date.now() });
         abgelehnteSchreib(w);
       };
+      /* Ein abgelehnter Eintrag muss auch aus der Anzeige verschwinden. Bis
+         1.28 blieb der Wert im Bildschirm des Schriftführers stehen und wurde
+         obendrein als "gesendet" gezählt – am Ende fehlte die Strafe in der
+         Auswertung, obwohl sie den ganzen Abend sichtbar war. */
+      const zuruecknehmen = a => {
+        const e = a && a.nutzlast && a.nutzlast.eintrag;
+        if (!e || a.aktion !== 'erfassungBuchen') return;
+        if (!ERF || !ERF.werte || !ERF.werte[e.name]) return;
+        // Nur auf dem Abend zurücknehmen, zu dem der Eintrag gehört – sonst
+        // wird beim Wechsel auf einen anderen Abend am falschen Bildschirm
+        // abgezogen.
+        if (ERF.datum !== e.datum || ERF.art !== e.art) return;
+        const alt = Number(ERF.werte[e.name][e.zeile] || 0);
+        const neu = Math.round((alt - Number(e.delta || 0)) * 100) / 100;
+        if (neu > 0) ERF.werte[e.name][e.zeile] = neu;
+        else delete ERF.werte[e.name][e.zeile];
+      };
+
+      let abgewiesen = 0;
       if (antwort && antwort.fehler){
-        l.slice(0, anzahl).forEach(a => merke(a.text || a.aktion, antwort.fehler));
+        l.slice(0, anzahl).forEach(a => { merke(a.text || a.aktion, antwort.fehler); zuruecknehmen(a); });
+        abgewiesen = anzahl;
       } else if (antwort && antwort.ergebnisse){
         antwort.ergebnisse.forEach((r, i) => {
-          if (r && r.fehler) merke((l[i] || {}).text || 'Eintrag', r.fehler);
+          if (r && r.fehler){ merke((l[i] || {}).text || 'Eintrag', r.fehler); zuruecknehmen(l[i]); abgewiesen++; }
         });
       }
+      if (abgewiesen) erfZeichnen();
       schlangeSchreib(schlange().slice(anzahl));
-      erfGesendet += anzahl;
+      erfGesendet += anzahl - abgewiesen;   // abgewiesene sind nicht "gesendet"
       erfKopfZeichnen();
     }
   } finally {
@@ -3131,6 +3251,9 @@ function erfAnwesenheit(name, anwesend){
 /* ----------------------------------------------------------- Öffnen */
 async function erfassungOeffnen(datum, art){
   if (!darfErfassen()) return;
+  /* Der Zähler gehört zum Abend, nicht zur Sitzung. Bis 1.28 stand beim
+     zweiten Abend noch "17 Einträge gesendet" aus dem ersten im Kopf. */
+  if (!ERF || ERF.datum !== datum || ERF.art !== art) erfGesendet = 0;
   erfSicht = 'liste'; erfMann = ''; erfSammelZeile = ''; erfTippen = '';
   erfSyncStand = null; clearTimeout(erfSyncUhr);
   ebene('erfassung', true);
@@ -3269,7 +3392,7 @@ function erfListeZeichnen(){
     h += `<div class="list" style="margin-top:20px"><div class="setrow">
       <div><div class="lbl">§18: mangelnde Beteiligung</div>
         <div class="dsc">Vier Alkohol trinkende Kegelbrüder oder weniger. Deckelt die
-          Durchschnittsstrafe auf ${eur(50)} und erlaubt das Trinken auf Kosten der Kasse.</div></div>
+          Durchschnittsstrafe auf ${esc(betragText('§18') || 'den Höchstbetrag nach §18')} und erlaubt das Trinken auf Kosten der Kasse.</div></div>
       <button class="switch" role="switch" aria-checked="${!!ERF.p18}" id="erfP18" aria-label="§18"></button>
     </div></div>`;
   }
@@ -3652,6 +3775,7 @@ window.addEventListener('offline', () => hinweisleiste('Offline – ' + standTex
    mit: Ein zweiter Tipp auf denselben Knopf bucht nicht zweimal. */
 
 let FS = null;                  // Antwort von freiStrafeDaten
+let fsKennung = '';             // Kennung des laufenden Vorgangs, siehe fsZuruecksetzen
 let fsSicht = 'strafe';         // strafe | korrektur
 let fsSchritt = 'form';         // form | wahl | posten
 let fsMann = '';
@@ -3690,6 +3814,13 @@ function fsZuruecksetzen(){
   fsAbweichend = false; fsBetragText = ''; fsBezeichnung = ''; fsBezug = '';
   fsSuche = ''; fsPosten = null; fsFehlerText = '';
   fsDatum = (FS && FS.heute) || (D && D.heute) || '';
+  /* Neue Kennung für den nächsten Vorgang. Sie bleibt so lange dieselbe, bis
+     wirklich gebucht ist – nur dadurch kann das Backend einen zweiten Anlauf
+     als denselben Vorgang erkennen (journalKennt). Bis 1.28 entstand sie erst
+     im Moment des Absendens: Wer nach einer Zeitüberschreitung noch einmal auf
+     "Strafe eintragen" tippte, buchte zweimal, obwohl der Kommentar im Code das
+     Gegenteil versprach. */
+  fsKennung = kennung();
 }
 
 function fsOeffnen(sicht){
@@ -3732,6 +3863,37 @@ function fsSegZeichnen(){
 
 /* Textfelder werden vor jedem Neuzeichnen gesichert – sonst ist weg, was
    gerade getippt wurde. */
+/**
+ * Rettet, was gerade in der Kasse eingetippt ist, über ein Neuzeichnen hinweg.
+ *
+ * zeigeApp() läuft nach JEDEM Datenabruf – auch nach dem "online"-Ereignis und
+ * nach dem Runterziehen – und ersetzt kasseBody vollständig. Bis 1.28 war
+ * alles weg, was der Kassenwart gerade eingetippt hatte, wenn in dem Moment
+ * die Verbindung zurückkam. Für die freie Strafe gibt es fsFelderSichern()
+ * genau dafür; hier ist das Gegenstück.
+ */
+/* Die gewählte Kategorie steht in der Variablen ausgabeKategorie und übersteht
+   das Neuzeichnen von selbst – sie gehört deshalb nicht in diese Liste. */
+const KASSE_FELDER = ['ausgabeDatum', 'ausgabeBetrag', 'ausgabeNotiz',
+                      'umlageDatum', 'umlageBetrag', 'umlageNotiz'];
+function kasseFelderSichern(zeichnen){
+  const merk = {};
+  KASSE_FELDER.forEach(id => { const f = $(id); if (f) merk[id] = f.value; });
+  const aktiv = document.activeElement && document.activeElement.id;
+  const pos = (aktiv && merk[aktiv] !== undefined && document.activeElement.selectionStart) || null;
+
+  zeichnen();
+
+  KASSE_FELDER.forEach(id => {
+    const f = $(id);
+    if (f && merk[id] !== undefined && merk[id] !== '' && f.value !== merk[id]) f.value = merk[id];
+  });
+  if (aktiv && $(aktiv)){
+    const f = $(aktiv);
+    try { f.focus(); if (pos !== null && f.setSelectionRange) f.setSelectionRange(pos, pos); } catch (e) {}
+  }
+}
+
 function fsFelderSichern(){
   if ($('fsBetrag'))      fsBetragText  = $('fsBetrag').value;
   if ($('fsBezeichnung')) fsBezeichnung = $('fsBezeichnung').value;
@@ -3926,9 +4088,19 @@ function fsKorrekturZeichnen(){
       <div class="eyebrow" style="margin-bottom:10px">Betrag, der abgezogen wird</div>
       <div class="euro"><input class="search" id="fsBetrag" inputmode="decimal" placeholder="z. B. 7,50"
              value="${esc(fsBetragText)}" aria-label="Betrag"><span>€</span></div>
-      <p class="note" style="margin-top:8px">${fsPosten
-        ? 'Voreingetragen ist der ganze Posten. Für einen Teilbetrag überschreiben – es bleiben dann '
-          + eur(Math.max(0, rest)) + ' offen.'
+      <p class="note" style="margin-top:8px${rest < 0 ? ';color:var(--accent);font-weight:600' : ''}">${fsPosten
+        ? (rest < 0
+            /* Bis 1.28 stand hier Math.max(0, rest) – eine Korrektur über dem
+               Posten sah aus, als bliebe sie bei 0,00 € stehen. Tatsächlich wäre
+               ein Guthaben entstanden und der Posten spurlos verschwunden.
+               Das Backend weist es seit 1.29 ab; hier steht es vorher da. */
+            ? 'Das ist mehr als der Posten. Höchstens ' + eur(fsPosten.offen) + ' können abgezogen werden.'
+            : 'Voreingetragen ist der ganze Posten. Für einen Teilbetrag überschreiben – es bleiben dann '
+              + eur(rest) + ' offen.'
+           + (fsPosten.zuschlag > 0
+              ? ' Der Verspätungszuschlag von ' + eur(fsPosten.zuschlag)
+                + ' bleibt davon unberührt – er entsteht aus der Frist. Soll er weg, die Frist aufheben.'
+              : ''))
         : 'Wird eingetragen, sobald ein Posten gewählt ist.'}</p>
     </div>
 
@@ -4009,11 +4181,12 @@ async function fsSenden(knopf){
   }
   fsFehler('');
 
+  if (!fsKennung) fsKennung = kennung();
   const eintrag = korrektur
-    ? { id: kennung(), modus: 'korrektur', datum: fsPosten.datum, name: fsPosten.name,
+    ? { id: fsKennung, modus: 'korrektur', datum: fsPosten.datum, name: fsPosten.name,
         quelle: fsPosten.quelle, strafart: 'Korrektur: ' + fsBezug.trim(),
         betrag: -Math.abs(num(fsBetragText)), bezug: fsBezug.trim() }
-    : { id: kennung(), modus: 'strafe', datum: fsDatum, name: fsMann,
+    : { id: fsKennung, modus: 'strafe', datum: fsDatum, name: fsMann,
         strafart: fsStrafartText(), anzahl: fsAnzahl, bezug: fsBezug.trim(),
         betrag: (fsEigene || fsAbweichend) ? num(fsBetragText) : '' };
 
@@ -4039,7 +4212,14 @@ async function fsSenden(knopf){
     fsLaden();
     aktualisieren(true);
   } catch (e) {
-    fsFehler('Keine Verbindung – es wurde nichts gebucht. ' + fehlerGrund(e) + '.');
+    /* Bei einer Zeitüberschreitung rechnet Apps Script serverseitig WEITER –
+       "es wurde nichts gebucht" wäre dann schlicht falsch. Die Kennung bleibt
+       stehen: Ein zweiter Tipp schickt denselben Vorgang, und das Backend
+       erkennt ihn wieder. */
+    fsFehler(e && e.name === 'AbortError'
+      ? 'Das Backend hat nicht rechtzeitig geantwortet. Ob gebucht wurde, ist unklar – '
+        + 'du kannst es gleich noch einmal versuchen, doppelt wird dabei nichts.'
+      : 'Keine Verbindung – es wurde nichts gebucht. ' + fehlerGrund(e) + '.');
   } finally {
     knopf.disabled = false; knopf.textContent = alt;
   }
@@ -4120,7 +4300,9 @@ const kasseD = () => D.kasseDaten || { offene: [], ausgaben: [], umlage: [], kat
 const darfKasseAendern = () => !!(D.ich && D.ich.darfKasse);
 const darfKasseSehen   = () => !!(D.ich && (D.ich.darfKasseSehen !== undefined ? D.ich.darfKasseSehen : D.ich.darfKasse))
                             || !!D.kassenbericht;
-const darfAmtSehen     = () => !!(D.ich && (D.ich.darfAmtSehen !== undefined ? D.ich.darfAmtSehen : D.ich.schriftfuehrer));
+// Auch gegen ein fehlendes D abgesichert: tourBereicheJetzt() fragt schon,
+// bevor Daten da sind.
+const darfAmtSehen     = () => !!(D && D.ich && (D.ich.darfAmtSehen !== undefined ? D.ich.darfAmtSehen : D.ich.schriftfuehrer));
 
 /* num() kennt den deutschen Tausenderpunkt nicht: aus "1.234,56 €" wird dort
    1,234. Für den Kontostand ist das ein Faktor 1000 – deshalb ein eigener
@@ -4152,7 +4334,13 @@ function offenNachMann(){
     const rest = Math.round((o.offen || 0) * 100) / 100;
     if (rest <= 0 && !postenMarke(o)) return;
     if (!map[o.name]) map[o.name] = { name: o.name, summe: 0, posten: [] };
-    if (rest > 0) map[o.name].summe += rest;
+    /* Ausgesetzte Posten zählen NICHT in die Summe. Sie stehen in der Liste –
+       dafür ist die Marke da –, aber sie werden nie kassiert. Bis 1.28 waren
+       sie hier drin, während echteForderungen() sie herauslässt: "Offen
+       gesamt" war zu hoch, die Zahlungsmaske schlug einen zu hohen Betrag vor,
+       und die Differenz wurde beim Abhaken als Spende gebucht – für Geld, das
+       nie geflossen ist. */
+    if (rest > 0 && !postenRuht(o)) map[o.name].summe += rest;
     map[o.name].posten.push(o);
   });
   return Object.keys(map).map(k => {
@@ -4229,7 +4417,8 @@ function kassePostenMaske(p){
       }, $('stammSpeichern'), 'Zahlung buchen', 'stammFormFehler');
       if (!r) return;
       ebene('stammForm', false);
-      hinweisleiste(r.spende > 0 ? 'Gebucht – ' + eur(r.spende) + ' davon als Spende vermerkt.'
+      hinweisleiste(r.doppelt ? 'War schon gebucht – es wurde nichts doppelt vermerkt.'
+                  : r.spende > 0 ? 'Gebucht – ' + eur(r.spende) + ' davon als Spende vermerkt.'
                                  : 'Als bezahlt vermerkt.');
     });
 }
@@ -4253,7 +4442,8 @@ function kasseZahlungMaske(titel, posten, summe){
     }, $('stammSpeichern'), 'Zahlung buchen', 'stammFormFehler');
     if (!r) return;
     ebene('stammForm', false);
-    hinweisleiste(r.spende > 0 ? 'Gebucht – ' + eur(r.spende) + ' davon als Spende vermerkt.'
+    hinweisleiste(r.doppelt ? 'War schon gebucht – es wurde nichts doppelt vermerkt.'
+                : r.spende > 0 ? 'Gebucht – ' + eur(r.spende) + ' davon als Spende vermerkt.'
                                : 'Als bezahlt vermerkt.');
   });
 }
@@ -4465,7 +4655,11 @@ const KASSE_SICHTEN = {
       const ruhend = g.posten.filter(postenRuht).length;
       const offeneP = echteForderungen(g);
       const naechste = offeneP.map(x => x.faellig).filter(Boolean).sort()[0] || '';
-      const ueber = offeneP.some(x => x.zuschlag > 0 || (x.faellig && x.faellig <= D.heute));
+      /* Echt kleiner: Am Fälligkeitstag selbst darf noch gezahlt werden, der
+         §20-Zuschlag beginnt am Tag danach. So rechnet es die Formel im Blatt
+         ("IF(TODAY()<=E;0;…)") und so führt es auch das Backend. Bis 1.28 stand
+         hier <=, und die App meldete einen Tag zu früh "überfällig". */
+      const ueber = offeneP.some(x => x.zuschlag > 0 || (x.faellig && x.faellig < D.heute));
 
       const zeilen = g.posten.map(x => {
         const nr = kassePosten.push(x) - 1;
@@ -4476,7 +4670,7 @@ const KASSE_SICHTEN = {
             ? 'Frist aufgehoben – kein Zahlungsziel, kein Zuschlag'
             : 'fällig ' + (x.faellig ? dat(x.faellig) : '–')
               + (x.zuschlag > 0 ? ' · Zuschlag ' + eur(x.zuschlag) : '');
-        const gelb = !marke && (x.zuschlag > 0 || (x.faellig && x.faellig <= D.heute));
+        const gelb = !marke && (x.zuschlag > 0 || (x.faellig && x.faellig < D.heute));
         return `<div class="row kasserow" data-posten="${nr}">
           <div><div class="n">${dat(x.datum)}${x.quelle ? ' · ' + esc(x.quelle) : ''}</div>
             <div class="m${gelb ? ' frist' : ''}">${esc(unten)}</div></div>
@@ -4737,7 +4931,9 @@ $('kasseBody').addEventListener('click', async e => {
       posten: echteForderungen(mann).map(p => ({ datum: p.datum, name: p.name, quelle: p.quelle })),
       bezahlt: true
     }, alle, 'Alles bezahlt');
-    if (r) hinweisleiste(esc(mann.name) + ': ' + plural(r.geaendert || 0, 'Posten', 'Posten') + ' abgehakt.');
+    // hinweisleiste schreibt über textContent – ein zweites esc() machte aus
+    // einem "&" im Namen ein "&amp;".
+    if (r) hinweisleiste(mann.name + ': ' + plural(r.geaendert || 0, 'Posten', 'Posten') + ' abgehakt.');
     return;
   }
 
@@ -4781,7 +4977,11 @@ $('kasseBody').addEventListener('click', async e => {
       ausgabe: { datum: $('ausgabeDatum').value, betrag: $('ausgabeBetrag').value,
                  kategorie: ausgabeKategorie, notiz: $('ausgabeNotiz').value }
     }, $('ausgabeSpeichern'), 'Ausgabe eintragen', 'ausgabeFehler');
-    if (r){ ausgabeKategorie = ''; zeichneKasse(); hinweisleiste('Ausgabe eingetragen.'); }
+    if (r){
+      ausgabeKategorie = ''; zeichneKasse();
+      hinweisleiste(r.doppelt ? 'Diese Ausgabe stand schon in der Liste – nichts doppelt angelegt.'
+                              : 'Ausgabe eingetragen.');
+    }
     return;
   }
 
@@ -4794,7 +4994,8 @@ $('kasseBody').addEventListener('click', async e => {
     const r = await kasseSenden('umlageAnlegen', {
       umlage: { datum: $('umlageDatum').value, betrag: $('umlageBetrag').value, notiz: $('umlageNotiz').value }
     }, $('umlageSpeichern'), 'Einnahme eintragen', 'umlageFehler');
-    if (r) hinweisleiste('Einnahme eingetragen.');
+    if (r) hinweisleiste(r.doppelt ? 'Diese Einnahme stand schon in der Liste – nichts doppelt angelegt.'
+                                   : 'Einnahme eingetragen.');
   }
 });
 
@@ -5072,7 +5273,15 @@ async function pushEinschalten(){
   }
   if (!geraet) return { fehler: 'Dieses Gerät konnte nicht angemeldet werden.' };
 
-  const r = await api('pushAnmelden', { token: token, geraet: geraet }, API_VERSUCHE);
+  /* Ohne try flog die Ausnahme bei Netzausfall aus dem Klick-Handler heraus:
+     keine Meldung, kein Neuzeichnen – der Schalter blieb auf "an" stehen,
+     obwohl das Gerät nicht angemeldet war. */
+  let r;
+  try {
+    r = await api('pushAnmelden', { token: token, geraet: geraet }, API_VERSUCHE);
+  } catch (e){
+    return { fehler: 'Keine Verbindung – das Gerät ist nicht angemeldet. ' + fehlerGrund(e) + '.' };
+  }
   if (r.fehler) return r;
   speicher.schreib('kc-push', geraet);
   pushEmpfangVorbereiten();
@@ -5081,11 +5290,21 @@ async function pushEinschalten(){
 
 async function pushAusschalten(){
   const geraet = pushGeraet();
+  /* Erst beim Server abmelden, dann den Merker im Gerät löschen. Andersherum –
+     so stand es bis 1.28 – war der Merker weg, das Backend erfuhr nichts, und
+     das Handy bekam weiter Meldungen, während die App "aus" zeigte. */
+  if (geraet){
+    try {
+      await api('pushAbmelden', { token: token, geraet: geraet }, API_VERSUCHE);
+    } catch (e){
+      return { fehler: 'Keine Verbindung – das Gerät bekommt vorerst weiter Meldungen. '
+                     + fehlerGrund(e) + '.' };
+    }
+  }
   speicher.loesch('kc-push');
   try {
     if (await firebaseLaden()) await firebase.messaging().deleteToken();
   } catch (e){ /* schon weg ist auch in Ordnung */ }
-  if (geraet) await api('pushAbmelden', { token: token, geraet: geraet }, API_VERSUCHE);
   return { ok: true };
 }
 
@@ -5104,19 +5323,33 @@ async function pushEmpfangVorbereiten(){
   });
 }
 
+let pushLaeuft = false;
 $('pushSwitch').addEventListener('click', async () => {
+  // Zweimal schnell tippen startete zwei überlappende An-/Abmeldungen.
+  if (pushLaeuft) return;
+  pushLaeuft = true;
   const sw = $('pushSwitch');
   const ziel = sw.getAttribute('aria-checked') !== 'true';
   sw.setAttribute('aria-checked', ziel);
-  const r = ziel ? await pushEinschalten() : await pushAusschalten();
-  if (r && r.fehler){
+  sw.setAttribute('aria-busy', 'true');
+  try {
+    const r = ziel ? await pushEinschalten() : await pushAusschalten();
+    if (r && r.fehler){
+      sw.setAttribute('aria-checked', !ziel);
+      $('pushHinweis').textContent = r.fehler;
+      $('pushHinweis').classList.remove('hidden');
+    } else {
+      hinweisleiste(ziel ? 'Benachrichtigungen sind an.' : 'Benachrichtigungen sind aus.');
+    }
+  } catch (e){
     sw.setAttribute('aria-checked', !ziel);
-    $('pushHinweis').textContent = r.fehler;
+    $('pushHinweis').textContent = 'Das hat nicht geklappt: ' + fehlerGrund(e) + '.';
     $('pushHinweis').classList.remove('hidden');
-  } else {
-    hinweisleiste(ziel ? 'Benachrichtigungen sind an.' : 'Benachrichtigungen sind aus.');
+  } finally {
+    sw.removeAttribute('aria-busy');
+    pushLaeuft = false;
+    zeichnePush();
   }
-  zeichnePush();
 });
 
 /* ------------------------------------------------- Meldung in der App */
@@ -5168,6 +5401,21 @@ const TOUR_NEU      = 'kc-tour-neu';      // App-Fassung, deren Neuerungen schon
    Wer die App zum ersten Mal öffnet, sieht das NICHT – für ihn ist alles neu,
    er bekommt die Grundtour. */
 const NEUERUNGEN = [
+  { fassung: '1.29', punkte: [
+      'Zahlen und Fristen sind durchgesehen: Eine Zahlung wird nicht mehr doppelt gebucht, wenn das Netz im Keller zickt, und der §20-Zuschlag beginnt erst am Tag NACH der Frist – nicht schon am Fälligkeitstag.',
+      'In der Kasse zählen ausgesetzte Durchschnittstrafen nicht mehr in „Offen gesamt" mit. Sie stehen weiter in der Liste, mit ihrer Marke.',
+      'Eine Korrektur kann einen Posten nicht mehr über seinen Betrag hinaus abziehen.',
+      'Der Hinweis auf eine neue Fassung verschwindet nicht mehr, sobald irgendetwas gespeichert wird.'
+    ] },
+  /* Der ganze Kasse-Ausbau vom 30./31.08. hatte hier nie einen Eintrag – kein
+     Chat hat ihn angelegt. Er wird unter 1.25 nachgetragen, damit die
+     Kegelbrüder überhaupt von diesen Funktionen erfahren. */
+  { fassung: '1.25', punkte: [
+      'Die Kasse kann jetzt alles, was vorher nur in der Tabelle ging: Ausgaben und Einnahmen ändern und löschen, eine neue Ausgaben-Kategorie anlegen, das Fälligkeitsdatum eines Postens ändern.',
+      'Beim Abhaken einer Zahlung wird eingetragen, was wirklich überwiesen wurde. Ist es mehr, wandert die Differenz automatisch in die Spende.',
+      'Zwei Vermerke des Kassenwarts: „Frist aufheben" nimmt das Zahlungsziel, „Durchschnittstrafe aussetzen" stellt sie still. Der Posten bleibt sichtbar, mit Marke.',
+      'Die offenen Beträge stehen jetzt als Karten je Kegelbruder – die Knopfzeilen liefen auf dem iPhone rechts aus dem Bild.'
+    ] },
   { fassung: '1.28', punkte: [
       'Das Kegeljahr lässt sich jetzt in der App abschließen – vorher ging das nur in der Tabelle.',
       'Der Schriftführer startet, der Kegelvater bestätigt. Zusammen sind es fünf Klicks, einzutragen ist nichts.',
@@ -5200,7 +5448,6 @@ const TOUR_SYM = {
   start:  '<svg viewBox="0 0 24 24"><path d="M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
   liste:  '<svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h10"/><circle cx="19" cy="19" r="2.4"/></svg>',
   geld:   '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="17" cy="15" r="1.3"/></svg>',
-  buch:   '<svg viewBox="0 0 24 24"><path d="M4 5.5A2 2 0 0 1 6 4h13v14H6a2 2 0 0 0-2 2z"/><path d="M8 8h7M8 11.5h7"/></svg>',
   /* Kein SVG, sondern das Zeichen selbst - wie unten in der Reiterleiste. */
   paragraf: '<span class="parag-gross" aria-hidden="true">\u00a7</span>',
   leute:  '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><path d="M16 6.5a3 3 0 0 1 0 5.6M18 20c0-2.4-.9-4-2.4-4.8"/></svg>',
@@ -5208,7 +5455,6 @@ const TOUR_SYM = {
   stift:  '<svg viewBox="0 0 24 24"><path d="M4 20h4L19.2 8.8a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 16z"/></svg>',
   kalender:'<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
   balken: '<svg viewBox="0 0 24 24"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"/></svg>',
-  zahnrad:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.1"/><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6"/></svg>',
   orden:  '<svg viewBox="0 0 24 24"><path d="M8.4 3.2 10.7 9M15.6 3.2 13.3 9"/><circle cx="12" cy="15.2" r="5.9"/><circle cx="12" cy="15.2" r="2.1"/></svg>',
   teilen: '<svg viewBox="0 0 24 24"><path d="M12 3.4v11.2"/><path d="m8.3 7.1 3.7-3.7 3.7 3.7"/><path d="M7.6 10.6H6.2A2.2 2.2 0 0 0 4 12.8v5.6a2.2 2.2 0 0 0 2.2 2.2h11.6a2.2 2.2 0 0 0 2.2-2.2v-5.6a2.2 2.2 0 0 0-2.2-2.2h-1.4"/></svg>',
   stamm:  '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="18.5" cy="18" r="2.5"/></svg>',
@@ -5284,7 +5530,7 @@ function tourBereichKarten(bereich){
     + 'Sonderwürfe, Strafen und Spenden – jeweils als Rangliste.',
     k: i.nurLesenAmt
       ? 'Du hast als Vertreter Einsicht bekommen: ansehen ja, ändern nein.'
-      : 'Königsfähig ist nach §23 nur, wer bei mindestens 60 % der Abende dabei war. Die Zahlen '
+      : 'Königsfähig ist nach §23 nur, wer bei mindestens ' + (huerdeText() || '60 %') + ' der Abende dabei war. Die Zahlen '
       + 'sieht sonst niemand, solange du sie nicht freigibst.' }];
   if (bereich === 'stammdaten') return [{ sym:'stamm', t:'Statuten, Ämter, Mitglieder',
     x:'Über das Zahnrad › Stammdaten änderst du Beträge, Ämterbesetzungen und die Mitgliederliste. '
@@ -5308,7 +5554,7 @@ function tourBereicheJetzt(){
   if (i.darfErfassen) b.push('erfassen');
   if (i.darfTermine) b.push('termine');
   if (i.darfKasse || i.nurLesenKasse) b.push('kasse');
-  if (i.darfAmtSehen !== undefined ? i.darfAmtSehen : i.schriftfuehrer) b.push('amt');
+  if (darfAmtSehen()) b.push('amt');   // dieselbe Regel wie überall, nicht nachgebaut
   if (i.darfStammdaten) b.push('stammdaten');
   if (i.darfFreigeben) b.push('freigeben');
   return b;
@@ -5769,8 +6015,9 @@ async function absStarten(){
       const t = await api('abschlussTitel', { token: token, titel: ABS.titel }, 2);
       if (t.antrag) a.antrag = t.antrag;
     }
+    eigeneSchreibung();
     ABS.antrag = a.antrag;
-    ABS.titel  = a.antrag.titel;
+    ABS.titel  = a.antrag && a.antrag.titel ? a.antrag.titel : ABS.titel;
     ABS.darfBestaetigen = false;
     hinweisleiste(a.hinweis || 'Angemeldet.');
     zeichneAbschluss();
@@ -5797,13 +6044,23 @@ async function absBestaetigen(){
       absLaeuft = false;
       return;
     }
+    /* Ohne diese Zeile konnte eine noch laufende Datenabfrage mit ihrem alten
+       Stand antworten und die abgeschlossene Saison wieder als laufend
+       zeichnen – ausgerechnet beim folgenreichsten Vorgang der App. */
+    eigeneSchreibung();
+    /* Die Historie wird einmal geholt und danach im Speicher gehalten. Nach dem
+       Abschluss ist sie überholt – und ausgerechnet dort fordert der Text auf,
+       gleich nachzusehen. */
+    historieDaten = null;
     absBericht(a);
     aktualisieren(true);
   } catch (e) {
     $('absAktion').innerHTML = `<p class="note" style="color:var(--accent);font-weight:600">
       Die Verbindung ist abgerissen (${esc(fehlerGrund(e))}). Der Abschluss kann trotzdem
       durchgelaufen sein – schließ den Bildschirm, lade die Daten neu und sieh nach, ob das
-      Kegeljahr in der Historie steht. Ein zweiter Lauf wäre gefahrlos.</p>`;
+      Kegeljahr in der Historie steht. Steht es noch nicht da, bestätige einfach noch einmal:
+      Seit Backend 1.29 merkt sich der Abschluss, wie weit er gekommen ist, und macht genau
+      dort weiter.</p>`;
   }
   absLaeuft = false;
 }
@@ -5811,6 +6068,7 @@ async function absBestaetigen(){
 async function absAbbrechen(){
   try {
     await api('abschlussAbbrechen', { token: token }, 2);
+    eigeneSchreibung();
     hinweisleiste('Zurückgezogen.');
     ebene('abschluss', false);
     aktualisieren();
@@ -5943,14 +6201,19 @@ if ('serviceWorker' in navigator){
 
       const anbieten = neu => {
         if (!neu || !navigator.serviceWorker.controller) return;
-        const b = $('topbar');
-        b.className = 'topbar neu';
-        b.textContent = 'Neue Version verfügbar – tippen zum Laden';
-        b.classList.remove('hidden');
-        b.onclick = () => {
-          b.textContent = 'Wird geladen …';
-          neu.postMessage('uebernehmen');   // Neuladen passiert oben bei controllerchange
+        /* Als Funktion merken, damit hinweisleiste() das Angebot nach jeder
+           Zwischenmeldung wiederherstellen kann. */
+        neueFassungAnbieten = () => {
+          const b = $('topbar');
+          b.className = 'topbar neu';
+          b.textContent = 'Neue Version verfügbar – tippen zum Laden';
+          b.classList.remove('hidden');
+          b.onclick = () => {
+            b.textContent = 'Wird geladen …';
+            neu.postMessage('uebernehmen');   // Neuladen passiert oben bei controllerchange
+          };
         };
+        neueFassungAnbieten();
       };
 
       // Fall 1: Eine neue Fassung wartet schon, weil die App beim letzten Mal
