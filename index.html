@@ -998,7 +998,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.29';
+const APP_VERSION = '1.30';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -2224,25 +2224,103 @@ function histAendZeilen(eintraege){
    dafuer jedes Jahr einzeln aufklappen. Gezaehlt wird aus genau denselben
    Titel-Zeilen, die weiter unten im jeweiligen Jahr stehen; eine zweite
    Quelle gibt es bewusst nicht. */
-const EHREN_TITEL = ['Kegelkönig', 'Pumpenkönig', 'Anwesenheits-Looser'];
+/* Die festen Titel, in der Reihenfolge, in der sie auf der Tafel stehen.
+   Sie werden auch dann gezeigt, wenn es noch keinen Träger gibt – der 9er
+   König ist seit 2026/27 in den Statuten und gehört auf die Tafel, auch wenn
+   ihn noch niemand geholt hat. */
+const EHREN_TITEL = [
+  { name: 'Kegelkönig' },
+  { name: 'Pumpenkönig' },
+  /* Die laufende Saison schreibt denselben Titel anders (SONDERKOENIGE) –
+     deshalb die Zweitnamen. Ohne sie stünde auf der Tafel weiter "noch nicht
+     vergeben", während die Jahreskarte darunter schon einen Träger nennt. */
+  { name: '9er König', auch: ['König der alle 9'], leer: 'noch nicht vergeben' }
+];
+
+/* Der Anwesenheits-Looser steht am Ende, hinter den Auszeichnungen: Er ist
+   keine Ehrung, sondern das Gegenteil. */
+const EHREN_SCHLUSS = [{ name: 'Anwesenheits-Looser' }];
+
+/* Zeilen mit diesem Titel tragen die eigentliche Ehrung nicht im Titel,
+   sondern im Wert: "Kranz", "ADAC Fahrradengel". Sie bekommen je Wert einen
+   eigenen Block – so entsteht jede künftige Auszeichnung von selbst, ohne dass
+   jemand die Historie umbauen oder hier eine Zeile ergänzen muss. */
+const EHREN_SAMMELTITEL = 'Auszeichnung';
+
+/* Auch diese Titel sind Auszeichnungen – so heißen sie in der laufenden Saison,
+   bevor der Jahresabschluss sie unter "Auszeichnung" ablegt. */
+const EHREN_ALS_AUSZEICHNUNG = {
+  'kranzkönig':             'Kranz',
+  'könig 8 ums vordereck':  '8 ums Vordereck',
+  'könig aus den vollen':   'König aus den Vollen'
+};
+
+/** Welche Auszeichnung ist das? '' wenn die Zeile keine ist.
+ *  Der Jahresabschluss hängt die Anzahl an den Wert ("Kranz (3 ×)"). Die muss
+ *  weg, sonst bekäme jede Saison ihren eigenen Block und die Tafel zählte
+ *  nichts mehr zusammen. */
+function ehrenArt(t){
+  const k = String(t.titel || '').trim().toLowerCase();
+  if (EHREN_ALS_AUSZEICHNUNG[k]) return EHREN_ALS_AUSZEICHNUNG[k];
+  if (k !== EHREN_SAMMELTITEL.toLowerCase()) return '';
+  const w = String(t.wert || '').trim().replace(/\s*\(\s*[\d.,]+\s*×?\s*\)\s*$/, '').trim();
+  return w || EHREN_SAMMELTITEL;
+}
+
+/** Trägt die Zeile einen der festen Titel? */
+function ehrenPasst(t, eintrag){
+  const k = String(t.titel || '').trim().toLowerCase();
+  if (k === eintrag.name.toLowerCase()) return true;
+  return (eintrag.auch || []).some(a => a.toLowerCase() === k);
+}
+
+/** Träger eines Titels, älteste Saison zuerst, nach Anzahl sortiert. */
+function ehrenTraeger(liste, passt){
+  const nach = {}, reihenfolge = [];
+  liste.slice().reverse().forEach(j => (j.titel || []).forEach(t => {
+    if (!passt(t)) return;
+    const wer = String(t.wer || '').trim();
+    if (!wer) return;
+    if (!nach[wer]){ nach[wer] = []; reihenfolge.push(wer); }
+    nach[wer].push(j.s);
+  }));
+  reihenfolge.sort((a, b) => nach[b].length - nach[a].length);
+  return reihenfolge.map(w => ({ wer: w, saisons: nach[w] }));
+}
+
+function ehrenBlock(kopf, traeger, leerText){
+  if (!traeger.length){
+    return leerText ? histBlock(kopf, '', histZeile(leerText, '', '–', true), '') : '';
+  }
+  return histBlock(kopf, '', traeger.map(t =>
+    histZeile(t.wer, t.saisons.join(' · '), t.saisons.length + '×')).join(''), '');
+}
 
 function histEhrentafel(liste){
-  const bloecke = EHREN_TITEL.map(name => {
-    const nach = {}, reihenfolge = [];
-    // aelteste Saison zuerst, damit die Jahreszahlen aufsteigend dastehen
-    liste.slice().reverse().forEach(j => (j.titel || []).forEach(t => {
-      if (String(t.titel || '').trim().toLowerCase() !== name.toLowerCase()) return;
-      const wer = String(t.wer || '').trim();
-      if (!wer) return;
-      if (!nach[wer]){ nach[wer] = []; reihenfolge.push(wer); }
-      nach[wer].push(j.s);
-    }));
-    if (!reihenfolge.length) return '';
-    reihenfolge.sort((a, b) => nach[b].length - nach[a].length);
-    return histBlock(name, '', reihenfolge.map(w =>
-      histZeile(w, nach[w].join(' · '), nach[w].length + '×')).join(''), '');
-  }).filter(String).join('');
+  const gleich = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
 
+  /* Der Leertext steht nur dort, wo er gewollt ist: beim 9er König, der seit
+     2026/27 in den Statuten steht und noch keinen Träger hat. Bekäme ihn jeder
+     feste Titel, stünde bei leerer Historie eine Ehrentafel aus drei
+     Leermeldungen da. */
+  const fest = EHREN_TITEL.map(e =>
+    ehrenBlock(e.name, ehrenTraeger(liste, t => ehrenPasst(t, e)), e.leer || ''));
+
+  /* Welche Auszeichnungen kommen überhaupt vor? Reihenfolge nach dem ersten
+     Auftreten, damit sie nicht bei jedem Laden springen. */
+  const arten = [];
+  liste.slice().reverse().forEach(j => (j.titel || []).forEach(t => {
+    if (!String(t.wer || '').trim()) return;
+    const art = ehrenArt(t);
+    if (art && !arten.some(a => gleich(a, art))) arten.push(art);
+  }));
+  const auszeichnungen = arten.map(art =>
+    ehrenBlock(art, ehrenTraeger(liste, t => gleich(ehrenArt(t), art)), ''));
+
+  const schluss = EHREN_SCHLUSS.map(e =>
+    ehrenBlock(e.name, ehrenTraeger(liste, t => ehrenPasst(t, e)), ''));
+
+  const bloecke = fest.concat(auszeichnungen).concat(schluss).filter(String).join('');
   if (!bloecke) return '';
   return `<h2 class="sec">Ehrentafel</h2>
     <p class="note" style="margin-top:6px">Wer wie oft – über alle überlieferten Kegeljahre.</p>
@@ -4332,7 +4410,12 @@ function offenNachMann(){
   kasseD().offene.forEach(o => {
     if (o.bezahlt) return;
     const rest = Math.round((o.offen || 0) * 100) / 100;
-    if (rest <= 0 && !postenMarke(o)) return;
+    /* Ein Posten mit Betrag verschwindet NIE stillschweigend. Ausgeblendet wird
+       nur, was wirklich nichts mehr fordert – also weder einen offenen Betrag
+       noch einen Vermerk noch einen Betrag hat. Bis 1.29 reichte ein kurzzeitig
+       auf 0 stehendes "Effektiv offen" (die Tabellenformel rechnet nach einem
+       gesetzten Haken einen Moment nach), und die Zeile war weg. */
+    if (rest <= 0 && !postenMarke(o) && !((o.betrag || 0) > 0)) return;
     if (!map[o.name]) map[o.name] = { name: o.name, summe: 0, posten: [] };
     /* Ausgesetzte Posten zählen NICHT in die Summe. Sie stehen in der Liste –
        dafür ist die Marke da –, aber sie werden nie kassiert. Bis 1.28 waren
@@ -4678,9 +4761,28 @@ const KASSE_SICHTEN = {
         </div>`;
       }).join('');
 
-      const knoepfe = offeneP.length ? `<div class="hblock"><div class="kassetun">
-          <button class="btn ghost" data-zahlung="${esc(g.name)}">Zahlung buchen …</button>
-          <button class="btn ghost" data-alle="${esc(g.name)}">Alles bezahlt</button>
+      /* Ausgesetzte Posten brauchen einen eigenen Knopf auf der Karte.
+         Das Zurücknehmen steckte bis 1.29 ausschließlich in der Maske hinter
+         der angetippten Zeile – und dort hat es niemand gesucht: Beim
+         ausgesetzten Posten fällt "Zahlung buchen" weg, die Maske sieht
+         deshalb aus, als könne man dort nichts tun. Der erste Kassenwart, der
+         eine Aussetzung zurücknehmen wollte, hat sie stattdessen von Hand in
+         der Tabelle entfernt. */
+      /* Der Knopf öffnet EINEN Posten. Gibt es mehrere ausgesetzte, steht das
+         Datum dabei – sonst verspräche die Beschriftung mehr, als sie einlöst;
+         die übrigen gehen weiter über ihre Zeile. */
+      const ruhendeListe = g.posten.filter(postenRuht);
+      const ersterRuhende = ruhendeListe[0];
+      const nrRuhend = ersterRuhende ? kassePosten.indexOf(ersterRuhende) : -1;
+      const ruhendText = 'Aussetzung zurücknehmen'
+        + (ruhendeListe.length > 1 ? ' · ' + dat(ersterRuhende.datum) : '') + ' …';
+
+      const knoepfe = (offeneP.length || nrRuhend >= 0) ? `<div class="hblock"><div class="kassetun">
+          ${offeneP.length ? `<button class="btn ghost" data-zahlung="${esc(g.name)}">Zahlung buchen …</button>
+          <button class="btn ghost" data-alle="${esc(g.name)}">Alles bezahlt</button>` : ''}
+          ${nrRuhend >= 0 && darfVermerk()
+            ? `<button class="btn ghost" data-posten="${nrRuhend}">${esc(ruhendText)}</button>`
+            : ''}
         </div></div>` : '';
 
       return `<details class="jahrkarte"><summary>
