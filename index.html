@@ -333,8 +333,8 @@ details.jahrkarte[open] .teaser{display:none}
 .hblock .fuss b{color:var(--text);font-weight:700}
 /* Zahl rechts, Einheit klein darunter – ohne Einheit liest sich "82,29" wie ein
    Widerspruch zu "7,48 je Termin" drei Zeilen hoeher. */
-.row .v .u{display:block;font-family:'Archivo',sans-serif;font-weight:400;
-  font-size:10.5px;color:var(--muted);letter-spacing:.01em;margin-top:1px}
+.row .v .u{font-family:'Archivo',sans-serif;font-weight:400;font-size:12px;
+  color:var(--muted);letter-spacing:.01em}
 .row .v.blass{font-family:'Archivo',sans-serif;font-weight:600;font-size:12px;color:var(--muted)}
 /* Woher ein Titel stammt: eine Marke statt eines grauen Satzes unter jeder
    Zeile. Was die Marken bedeuten, steht einmal am Fuss des Blocks. */
@@ -940,7 +940,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.24';
+const APP_VERSION = '1.24.1';
 
 /* Das laufende Kegeljahr. Es steht außerdem noch als fester Text in der
    Überschrift "Auswertung 2026/27" im Reiter "Amt" – beim Saisonwechsel sind
@@ -1893,10 +1893,33 @@ function histEinheitKurz(einheit){
   return /holz/i.test(einheit) ? einheit.replace(/\s*je\s+(termin|abend)\s*$/i, '').trim() : einheit;
 }
 
+/* Beim Pumpenkönig zählt allein die Gesamtzahl der Pumpen, nicht der Schnitt.
+   In der Titel-Ablage steht dort teilweise noch ein Wert "je Termin". Statt
+   daran herumzurechnen, wird die Zahl aus der Kategorie "Pumpen" desselben
+   Jahres geholt – dieselbe Quelle, die auch "Das Jahr in Zahlen" speist, und
+   dort steht die Gesamtzahl. Findet sich dort nichts (Jahre ohne Datengrund-
+   lage), bleibt der Text der Ablage unveraendert stehen. */
+function histTitelTeile(t, j){
+  const teile = histTeile(t.wert);
+  if (!/pumpenkönig/i.test(String(t.titel || ''))) return teile;
+  const kat = ((j && j.kategorien) || []).filter(k => k.k === 'pumpen')[0];
+  if (!kat) return teile;
+  const wer = String(t.wer || '').trim().toLowerCase();
+  const seite = [kat.schlechtester, kat.bester]
+    .filter(x => x && String(x.n || '').trim().toLowerCase() === wer)[0];
+  if (!seite || seite.text == null && seite.v == null) return teile;
+  if (seite.text) return { zahl:'', einheit:'', text: seite.text, zusatz: teile.zusatz };
+  return { zahl: zahlText(seite.v), einheit: kat.einheit || HIST_EINHEIT.pumpen,
+           text: '', zusatz: teile.zusatz };
+}
+
 const histWertRechts = teile => teile.zahl
   ? `<div class="v">${esc(teile.zahl)}${teile.einheit
-      ? `<span class="u">${esc(histEinheitKurz(teile.einheit))}</span>` : ''}</div>`
+      ? `<span class="u"> ${esc(histEinheitKurz(teile.einheit))}</span>` : ''}</div>`
   : `<div class="v blass">${esc(teile.text || 'kein Wert')}</div>`;
+
+/* Die Einheit steht in derselben Zeile wie die Zahl – gestapelt war sie bei
+   laengeren Einheiten breiter als der Wert und die Spalte lief aus. */
 
 /* -------------------------------------------------------- Bausteine
    Kopfleiste und Zeilen sind dieselben wie bei "Deine Strafen": ein
@@ -1928,8 +1951,8 @@ function histKategorie(kat){
 }
 
 /** Eine Titelzeile: die Sache links, die Zahl rechts – wie jede Strafenzeile. */
-function histTitelZeile(t){
-  const teile = histTeile(t.wert);
+function histTitelZeile(t, j){
+  const teile = histTitelTeile(t, j);
   const marke = histQuelle(t.quelle);
   const unten = [t.wer, teile.zusatz, t.bemerkung].filter(nichtLeer).join(' · ');
   return `<div class="row"><div><div class="n">${esc(t.titel)}${
@@ -2010,7 +2033,7 @@ function histJahr(j, aendZeilen){
   const koenige = titel.filter(t => /könig/i.test(String(t.titel || '')) && String(t.wer || '').trim());
   const teaser = koenige.length
     ? koenige.slice(0, 2).map(t => {
-        const teile = histTeile(t.wert);
+        const teile = histTitelTeile(t, j);
         return `<div class="row"><div><div class="n">${esc(t.wer)}</div>
           <div class="m">${esc(t.titel)}</div></div>${histWertRechts(teile)}</div>`;
       }).join('')
@@ -2031,7 +2054,7 @@ function histJahr(j, aendZeilen){
 
   const koerper =
       histBlock('Eckdaten', '', eck, j.hinweis ? esc(j.hinweis) : '')
-    + histBlock('Titel und Auszeichnungen', '', titel.map(histTitelZeile).join(''), legende)
+    + histBlock('Titel und Auszeichnungen', '', titel.map(t => histTitelZeile(t, j)).join(''), legende)
     + (j.hatDaten && kategorien
         ? histBlock('Das Jahr in Zahlen', '', `<div class="kacheln">${kategorien}</div>`,
                     j.fussnote ? esc(j.fussnote) : '')
