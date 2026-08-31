@@ -79,13 +79,6 @@
   display:flex;align-items:center;justify-content:center}
 .tour-sym svg{width:24px;height:24px;stroke:var(--accent);fill:none;stroke-width:1.9;
   stroke-linecap:round;stroke-linejoin:round}
-/* Das Vereinslogo braucht keine getönte Kachel hinter sich - es bringt seinen
-   eigenen Grund mit. */
-.tour-sym.blank{background:none;width:54px;height:54px;border-radius:0}
-.tour-sym .tour-logo{width:54px;height:54px;object-fit:contain}
-/* Das Paragraphenzeichen wie in der Reiterleiste, nur größer. */
-.tour-sym .parag-gross{font-family:'Archivo',system-ui,sans-serif;font-weight:400;font-size:24px;
-  line-height:1;color:var(--accent);display:block}
 .tour h3{font-family:'Archivo Black',sans-serif;font-size:19px;margin:0;line-height:1.25}
 .tour p{margin:0;font-size:14px;line-height:1.6;color:var(--text)}
 .tour p.klein{font-size:12.5px;color:var(--muted);line-height:1.55}
@@ -182,6 +175,15 @@ main{flex:1;padding:20px 18px calc(112px + env(safe-area-inset-bottom));display:
 .tworow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
 .stat b{display:block;font-family:'Archivo Black',sans-serif;font-size:24px;margin-top:5px;font-variant-numeric:tabular-nums}
+/* Eine einzelne Kachel ueber die volle Breite: Beschriftung links, Zahl rechts.
+   Hochkant wirkte sie neben der leeren Haelfte wie ein Fehler. */
+.stat.breit{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.stat.breit b{margin-top:0}
+/* Countdown an einer Abschnittsueberschrift. */
+h2.sec.mitchip{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.chip{font-family:'Archivo',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--accent);background:var(--accent-tint);
+  border-radius:99px;padding:3px 9px;white-space:nowrap}
 h2.sec{font-family:'Archivo Black',sans-serif;font-size:15px;margin:4px 0 -6px;letter-spacing:.02em}
 
 .list{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
@@ -193,6 +195,7 @@ h2.sec{font-family:'Archivo Black',sans-serif;font-size:15px;margin:4px 0 -6px;l
 .pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:.03em}
 .pill.open{background:var(--accent-tint);color:var(--accent)}
 .pill.paid{background:var(--ok-tint);color:var(--ok)}
+.pill.grau{background:var(--line);color:var(--muted)}
 .search{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);color:var(--text);padding:13px 15px;font-size:15px;font-family:inherit}
 .search:focus{outline:2px solid var(--accent);outline-offset:2px;border-color:transparent}
 .rank{display:flex;align-items:center;gap:12px;background:var(--surface);padding:12px 15px}
@@ -282,7 +285,15 @@ svg.orden.big{width:19px;height:19px}
 .action{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column;gap:12px}
 .action.done{border-color:var(--ok)}
 .action .when{font-family:'Archivo Black',sans-serif;font-size:19px}
-.deadline{font-size:12.5px;color:var(--warn);font-weight:600}
+.deadline{font-size:12.5px;color:var(--muted);line-height:1.55}
+.deadline b{color:var(--text);font-weight:700}
+/* Fusszeile einer Karte: gehoert zum Block darueber, ist aber abgesetzt. */
+.kartenfuss{border-top:1px solid var(--line);padding-top:10px}
+/* Gelb heisst in der ganzen App genau eine Sache: eine Frist laeuft JETZT ab.
+   Nicht "hier steht eine Frist" – sonst ist die Farbe nach drei Tagen Tapete.
+   Deshalb steht .frist an jeder Fristanzeige, aber nur bedingt gesetzt. */
+.frist,.deadline.frist,.deadline.frist b{color:var(--warn);font-weight:600}
+.row .m.frist,.kassepost .m.frist{color:var(--warn);font-weight:600}
 .okline{color:var(--ok);font-weight:700;font-size:14px}
 
 /* Bester / Schlechtester */
@@ -299,15 +310,41 @@ svg.orden.big{width:19px;height:19px}
 .bw small{display:block;color:var(--muted);font-size:11.5px;margin-top:8px}
 .bw .leer{color:var(--muted);font-size:13px}
 
-/* Historie: Zusätze zum Jahres-Aufklapper */
-.jahr .qz{color:var(--muted);font-size:11.5px;margin-top:-4px;line-height:1.5}
-.jahr .luecke{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:99px;background:var(--line);color:var(--muted);flex:none}
-.jahr h5{margin:14px 0 2px;font-family:'Archivo Black',sans-serif;font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
-.jahr h5:first-child{margin-top:0}
-.jahr .kacheln .bw{padding:12px 0;background:none;border-bottom:1px solid var(--line)}
-.jahr .kacheln .bw:last-child{border-bottom:none;padding-bottom:0}
-.jahr .kacheln .bw h4{font-size:12.5px;margin-bottom:8px}
-.jahr .fuss{color:var(--muted);font-size:11.5px;line-height:1.6;border-top:1px solid var(--line);padding-top:8px}
+/* ---------------------------------------------------------------- Historie
+   Ein Kegeljahr ist gebaut wie ein Kegelabend unter "Deine Strafen": eine
+   Karte, oben eine graue Kopfleiste mit Pille, darin Zeilen. Innerhalb des
+   Jahres bekommt jeder Abschnitt wieder eine eigene Kopfleiste – so hat jeder
+   Block einen sichtbaren Anfang und ein Ende. */
+.jahrkarte{background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
+.jahrkarte .hblock:first-child{border-top:none}
+details.jahrkarte summary{list-style:none;cursor:pointer;display:block}
+details.jahrkarte summary::-webkit-details-marker{display:none}
+details.jahrkarte summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+details.jahrkarte[open] > summary .group-head{color:var(--accent)}
+/* Zugeklappt zeigt die Karte die Koenige. Aufgeklappt stehen sie ausfuehrlich
+   im Titel-Block – zweimal dasselbe waere Ballast. */
+details.jahrkarte[open] .teaser{display:none}
+.teaser .kein{background:var(--surface);padding:13px 15px;color:var(--muted);font-size:12.5px;line-height:1.55}
+.hblock{border-top:1px solid var(--line)}
+.hblock .row + .row{border-top:1px solid var(--line)}
+.hblock .fuss{background:var(--surface);border-top:1px solid var(--line);padding:10px 15px;
+  color:var(--muted);font-size:11.5px;line-height:1.55}
+.hblock .fuss b{color:var(--text);font-weight:700}
+/* Zahl rechts, Einheit klein darunter – ohne Einheit liest sich "82,29" wie ein
+   Widerspruch zu "7,48 je Termin" drei Zeilen hoeher. */
+.row .v .u{display:block;font-family:'Archivo',sans-serif;font-weight:400;
+  font-size:10.5px;color:var(--muted);letter-spacing:.01em;margin-top:1px}
+.row .v.blass{font-family:'Archivo',sans-serif;font-weight:600;font-size:12px;color:var(--muted)}
+/* Woher ein Titel stammt: eine Marke statt eines grauen Satzes unter jeder
+   Zeile. Was die Marken bedeuten, steht einmal am Fuss des Blocks. */
+.quelle{display:inline-block;margin-left:7px;padding:1px 6px;border-radius:5px;
+  font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  background:var(--surface-2);color:var(--muted);border:1px solid var(--line);vertical-align:2px}
+.quelle.belegt{background:var(--ok-tint);color:var(--ok);border-color:transparent}
+.hblock .kacheln .bw{padding:12px 15px;background:var(--surface);border-bottom:1px solid var(--line)}
+.hblock .kacheln .bw:last-child{border-bottom:none}
+.hblock .kacheln .bw h4{font-size:12.5px;margin-bottom:8px}
 
 /* Einstellungen */
 /* overscroll-behavior verhindert, dass die Wischgeste am Ende der Liste an die
@@ -421,22 +458,6 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
 .aendkarte .txt{color:var(--muted);font-size:13px;line-height:1.6;margin-top:6px}
 .aendkarte .knoepfe{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 
-/* Ehrentafel */
-details.jahr{background:var(--surface);border-bottom:1px solid var(--line)}
-details.jahr:last-child{border-bottom:none}
-details.jahr summary{list-style:none;cursor:pointer;padding:13px 15px;display:flex;gap:12px;align-items:center;justify-content:space-between}
-details.jahr summary::-webkit-details-marker{display:none}
-details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-.jahr .sais{font-family:'Archivo Black',sans-serif;font-size:14.5px;font-variant-numeric:tabular-nums}
-.jahr .koenig{color:var(--muted);font-size:12.5px;margin-top:2px}
-.jahr[open] .sais{color:var(--accent)}
-.jahr .body{padding:0 15px 14px;display:flex;flex-direction:column;gap:8px}
-.jahr .tr{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;align-items:baseline;border-top:1px solid var(--line);padding-top:8px}
-.jahr .tr:first-child{border-top:none;padding-top:0}
-.jahr .tr .k{color:var(--muted);flex:none}
-.jahr .tr .w{font-weight:600;text-align:right;flex:1}
-.jahr .leer{color:var(--muted);font-size:13px;line-height:1.6;padding-top:4px}
-.jahr .aktuell{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:99px;background:var(--accent-tint);color:var(--accent);flex:none}
 
 .ziehen{position:fixed;top:0;left:0;right:0;max-width:var(--shell);margin:0 auto;z-index:8;
   display:flex;align-items:flex-end;justify-content:center;pointer-events:none;
@@ -533,7 +554,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
         <div id="modeHistorie" class="hidden">
           <p class="note" style="margin-top:16px">Jedes Kegeljahr zum Aufklappen: Könige, Auszeichnungen
             und die Werte des Jahres. Wo nichts steht, wurde damals nichts festgehalten.</p>
-          <div class="list" id="historieList" style="margin-top:16px"></div>
+          <div id="historieList" style="margin-top:16px"></div>
         </div>
       </section>
 
@@ -919,7 +940,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.26';
+const APP_VERSION = '1.24';
 
 /* Das laufende Kegeljahr. Es steht außerdem noch als fester Text in der
    Überschrift "Auswertung 2026/27" im Reiter "Amt" – beim Saisonwechsel sind
@@ -1001,6 +1022,10 @@ const dat = iso => { const t=String(iso||'').split('-'); return t.length===3 ? t
 const datKurz = iso => { const t=String(iso||'').split('-'); return t.length===3 ? t[2]+'.'+t[1]+'.' : ''; };
 const plural = (n, eins, viele) => n === 1 ? '1 ' + eins : n + ' ' + viele;
 // Zahlen immer deutsch: 19,5 statt 19.5
+/* Achtung: .filter(String) laesst undefined stehen – String(undefined) ist
+   "undefined" und damit wahr. Fuer "nur die Felder, die wirklich etwas
+   enthalten" braucht es diese Pruefung. */
+const nichtLeer = x => x != null && String(x).trim() !== '';
 const zahlText = n => (Number(n)||0).toLocaleString('de-DE',{maximumFractionDigits:2});
 
 /* Datumszellen aus der Tabelle kommen als roher JavaScript-Text an, wenn das
@@ -1452,35 +1477,15 @@ function aendKarte(){
       hervorgehoben, bis du sie zur Kenntnis genommen hast.</div>
     <div class="knoepfe">
       ${bereiche.map(b => `<button class="btn ghost small" data-aend="${esc(b)}">${esc(b)} ansehen</button>`).join('')}
+      <button class="btn ghost small" id="aendAlle">Alle Änderungen</button>
       <button class="btn ghost small" id="aendVerstanden">Verstanden</button>
     </div></div>`;
 }
 
-/** Die Änderungen vergangener Jahre – für alle Kegelbrüder, nach Kegeljahr. */
-function aendHistorie(){
-  const liste = ((aendStand() || {}).eintraege || []);
-  if (!liste.length) return '';
-  const jahre = [];
-  const nach = {};
-  liste.forEach(e => {
-    const j = e.jahr || '–';
-    if (!nach[j]) { nach[j] = []; jahre.push(j); }
-    nach[j].push(e);
-  });
-  jahre.sort().reverse();
-  const zeile = e => `<div class="tr"><span class="k">${esc(e.bereich)}${
-      e.betrifft ? ' · ' + esc(e.betrifft) : ''}</span><span class="w">${esc(e.was || '')}${
-      e.vorher || e.nachher ? '<br><span style="font-weight:400;color:var(--muted)">'
-        + esc([e.vorher, e.nachher].filter(String).join(' → ')) + '</span>' : ''}</span></div>`;
-  return `<h2 class="sec" style="margin-top:24px">Was sich geändert hat</h2>
-    <p class="note">Alle Änderungen an Statuten, Ämtern und der Mitgliederliste –
-      nach Kegeljahr. Wer wann was geändert hat, steht dabei.</p>
-    <div class="list" style="margin-top:14px">${jahre.map((j, i) => `
-      <details class="jahr"${i === 0 ? ' open' : ''}><summary>
-        <div><div class="sais">${esc(j)}</div>
-          <div class="koenig">${nach[j].length === 1 ? 'eine Änderung' : nach[j].length + ' Änderungen'}</div></div>
-      </summary><div class="body">${nach[j].map(zeile).join('')}</div></details>`).join('')}</div>`;
-}
+/* Die frühere Funktion aendHistorie() ist mit 1.24 entfallen: Die Chronik der
+   Änderungen steht jetzt unter "Verein · Historie" beim jeweiligen Kegeljahr,
+   statt als zweite lange Jahresliste am Fuß der Startseite. Der Weg dorthin
+   führt über den Knopf "Alle Änderungen" in der Karte oben. */
 
 /**
  * "Verstanden" nimmt die Runde zur Kenntnis: Karte weg, Markierungen weg. Der
@@ -1519,22 +1524,24 @@ function zeichneStart(){
 
     ${aendKarte()}
 
-    <div class="tworow" style="margin-top:20px">
-      <div class="stat"><div class="eyebrow">Fehltage §12</div><b>${D.punkte}</b>
-        <div class="sub">Punkte für Abwesenheit</div></div>
-      <div class="stat"><div class="eyebrow">Nächster Termin</div>
-        <b>${t ? datKurz(t.datum) : '–'}</b>
-        <div class="sub">${t ? esc(wochentag(t.datum) + (t.beginn ? ', ' + t.beginn : '')) : 'keiner geplant'}</div></div>
+    <div class="stat breit" style="margin-top:20px">
+      <div><div class="eyebrow">Fehltage §12</div>
+        <div class="sub" style="margin-top:3px">Punkte für Abwesenheit</div></div>
+      <b>${D.punkte}</b>
     </div>`;
 
   if (t){
-    h += `<h2 class="sec" style="margin-top:24px">${esc(t.art)}${t.bezeichnung ? ' · ' + esc(t.bezeichnung) : ''}</h2>
+    /* Das Datum stand frueher zusaetzlich in einer eigenen Kachel darueber –
+       zweimal dasselbe, 40 Pixel auseinander. Jetzt steht es nur hier, und die
+       Ueberschrift traegt stattdessen den Countdown. */
+    const cd = countdownText(t.datum);
+    h += `<h2 class="sec mitchip" style="margin-top:24px">
+        <span>${esc(t.art)}${t.bezeichnung ? ' · ' + esc(t.bezeichnung) : ''}</span>
+        ${cd ? `<span class="chip">${esc(cd)}</span>` : ''}</h2>
       <div class="action" style="margin-top:14px">
         <div><div class="when">${esc(wochentag(t.datum))}, ${dat(t.datum)}</div>
           <div class="sub">${esc([t.ort, t.beginn ? t.beginn + ' Uhr' : ''].filter(String).join(' · ') || 'Zeit folgt')}</div></div>
-        ${t.art === 'Kegelabend' ? `<div class="deadline">Abmeldung bis ${esc(uhrMinus(t.beginn))} Uhr${
-          betragText('§2') ? ' – danach ' + esc(betragText('§2')) + ' nach §2' : ' nach §2'}</div>` : ''}
-        <p class="note" style="margin:0">Abmeldung geht vorerst weiter über WhatsApp.</p>
+        ${t.art === 'Kegelabend' ? abmeldeFuss(t) : ''}
         ${darfErfassen() && t.datum === D.heute
           ? `<button class="btn" id="startErfassen" style="margin-top:12px">Strafen erfassen</button>` : ''}
       </div>`;
@@ -1556,13 +1563,10 @@ function zeichneStart(){
   h += `<h2 class="sec" style="margin-top:24px">Kegelkönig ${esc(SAISON_LAEUFT)}</h2>
         <div class="card vault ${D.gvFrei ? 'open' : ''}" style="margin-top:14px">${tresor()}</div>`;
 
-  /* Die Ehrentafel steht seit 1.22 vollständig unter "Verein · Historie" – dort
-     gehört sie hin, und die Startseite bleibt kurz. Hier nur der Weg dahin. */
-  h += `<p class="note" style="margin-top:14px">Wie die Jahre davor ausgegangen sind, steht in der Historie.</p>
-        <button class="btn ghost small" id="startZurHistorie" style="margin-top:10px">Zur Historie</button>`;
-
-  h += aendHistorie();
-
+  /* Seit 1.24 steht auf der Startseite nichts mehr zur Historie: weder der
+     Knopf dorthin noch die Chronik "Was sich geändert hat". Beides gehoert
+     unter "Verein · Historie" – die Startseite ist fuer das Jetzt da. Dass es
+     Aenderungen gab, meldet weiterhin die Karte ganz oben (aendKarte). */
   h += `<h2 class="sec" style="margin-top:24px">So zahlst du</h2>
     <p class="note">Überweise deine offenen Strafen an die Kegelkasse. Tippe ein Feld an,
       dann liegt der Wert in der Zwischenablage.</p>
@@ -1580,16 +1584,33 @@ function zeichneStart(){
   // Karte "Es hat sich etwas geändert": ansehen oder zur Kenntnis nehmen
   const verstanden = $('aendVerstanden');
   if (verstanden) verstanden.addEventListener('click', aendZurKenntnis);
+  if ($('aendAlle')) $('aendAlle').addEventListener('click', zeigeHistorie);
   $('tab-start').querySelectorAll('button[data-aend]').forEach(b =>
     b.addEventListener('click', () => aendAnsehen(b.dataset.aend)));
   if ($('startErfassen')) $('startErfassen').addEventListener('click',
     () => erfassungOeffnen(D.naechsterTermin.datum, D.naechsterTermin.art));
-  if ($('startZurHistorie')) $('startZurHistorie').addEventListener('click', zeigeHistorie);
   const zf = $('zahlfelder');
   if (zf) zf.addEventListener('click', e => {
     const b = e.target.closest('button[data-kopie]'); if (!b) return;
     kopiere(b.dataset.kopie, b);
   });
+}
+
+/* Die Abmeldefrist ist die Fusszeile der Terminkarte – zusammen mit dem
+   WhatsApp-Hinweis, denn beides ist dieselbe Sache. Grau, solange die Frist in
+   der Zukunft liegt; gelb erst am Kegeltag, wenn sie wirklich laeuft. So heisst
+   Gelb in der ganzen App dasselbe: jetzt wird es teuer. */
+function abmeldeFuss(t){
+  const strafe = betragText('§2');
+  const heute  = t.datum === D.heute;
+  const vorbei = heute && fristVorbei(t.beginn);
+  const kern = vorbei
+    ? `Die Abmeldefrist ist verstrichen – eine Abmeldung kostet jetzt ${
+        strafe ? esc(strafe) : 'den Zuschlag'} nach §2.`
+    : `Abmeldung bis <b>${esc(uhrMinus(t.beginn))} Uhr</b>${
+        strafe ? ' – danach ' + esc(strafe) + ' nach §2' : ' nach §2'}.`;
+  return `<div class="deadline kartenfuss${heute ? ' frist' : ''}">${kern}
+    Abmelden geht vorerst weiter über WhatsApp.</div>`;
 }
 
 /* Empfaenger, IBAN, Betrag, Verwendungszweck – jedes Feld einzeln antippbar. */
@@ -1627,6 +1648,33 @@ function notfallKopie(text, fertig){
   document.body.appendChild(f); f.select();
   try { document.execCommand('copy'); fertig(); } catch(e){}
   document.body.removeChild(f);
+}
+
+/* Kalendertage bis zu einem Datum. Bewusst ohne Uhrzeit: "in 12 Tagen" soll
+   sich um Mitternacht aendern, nicht mitten am Nachmittag. Gerechnet wird gegen
+   D.heute (Datum des Backends), damit ein falsch gestelltes Handy die Anzeige
+   nicht verschiebt. */
+function tageBis(iso){
+  const ziel = new Date(String(iso || '') + 'T12:00:00');
+  const heute = new Date(String(D.heute || '') + 'T12:00:00');
+  if (isNaN(ziel) || isNaN(heute)) return null;
+  return Math.round((ziel - heute) / 86400000);
+}
+
+/** "in 12 Tagen", "morgen", "heute" – oder nichts, wenn das Datum unklar ist. */
+function countdownText(iso){
+  const n = tageBis(iso);
+  if (n === null || n < 0) return '';
+  return n === 0 ? 'heute' : n === 1 ? 'morgen' : 'in ' + n + ' Tagen';
+}
+
+/* Ist die Abmeldefrist (eine Stunde vor Beginn) fuer heute schon verstrichen?
+   Hier zaehlt die Uhr des Geraets – etwas anderes hat die App offline nicht. */
+function fristVorbei(beginn){
+  const m = String(beginn || '').match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return false;
+  const jetzt = new Date();
+  return jetzt.getHours() * 60 + jetzt.getMinutes() >= ((+m[1] + 23) % 24) * 60 + (+m[2]);
 }
 
 function uhrMinus(hhmm){
@@ -1762,35 +1810,108 @@ async function historieOeffnen(){
   if (historieLaedt) return;
   if (historieDaten){ zeichneHistorie(); return; }
   historieLaedt = true;
-  $('historieList').innerHTML = `<div class="row"><div class="n">Die Kegeljahre werden geholt …</div></div>`;
+  $('historieList').innerHTML = `<div class="list"><div class="row">
+    <div class="n">Die Kegeljahre werden geholt …</div></div></div>`;
   try {
     const r = await api('historie', { token: token }, API_VERSUCHE);
     if (r.fehler){
-      $('historieList').innerHTML = `<div class="row"><div class="n">${esc(r.fehler)}</div></div>`;
+      $('historieList').innerHTML = `<div class="list"><div class="row">
+        <div class="n">${esc(r.fehler)}</div></div></div>`;
       return;
     }
     historieDaten = r.historie || [];
     zeichneHistorie();
   } catch (e) {
-    $('historieList').innerHTML = `<div class="row"><div class="n">Die Historie ließ sich nicht laden.</div>
-      <div class="m">${esc(fehlerGrund(e))}</div></div>`;
+    $('historieList').innerHTML = `<div class="list"><div class="row">
+      <div><div class="n">Die Historie ließ sich nicht laden.</div>
+      <div class="m">${esc(fehlerGrund(e))}</div></div></div></div>`;
   } finally {
     historieLaedt = false;
   }
 }
 
+/* Einheiten, die das Backend bei manchen Kategorien nicht mitliefert. Ohne sie
+   steht bei den Pumpen eine blanke 82,29 neben einem "7,48 Pumpen je Termin"
+   drei Zeilen hoeher – dieselbe Zahl mal elf, sieht aber aus wie ein
+   Widerspruch. Eine Zahl ohne Einheit ist in der Historie ein Fehler. */
+const HIST_EINHEIT = { vollen: 'Holz', pumpen: 'Pumpen' };
+
 /** Wert einer Dashboard-Zeile in Text. Die Anwesenheit bringt ihren eigenen
  *  Text mit ("8 / 11"), alles andere wird nach Einheit formatiert. */
 function histWert(kat, seite){
   if (seite.text) return seite.text;
-  if (kat.einheit === '€') return eur(seite.v);
-  return zahlText(seite.v) + (kat.einheit ? ' ' + kat.einheit : '');
+  const einheit = kat.einheit || HIST_EINHEIT[kat.k] || '';
+  if (einheit === '€') return eur(seite.v);
+  return zahlText(seite.v) + (einheit ? ' ' + einheit : '');
 }
 
 const HIST_FUSS = {
-  vollen: 'Durchschnitt je Termin nach §23. Nicht nachgeholte Würfe zählen als 0 Holz.',
-  pumpen: 'Weniger ist besser. Pumpenkönig wird trotzdem, wer die meisten hat – das ist der Schlechteste hier.'
+  vollen: 'Durchschnitt je Termin nach §23, gerechnet über die tatsächlich gekegelten Abende. Nicht nachgeholte Würfe zählen als 0 Holz.',
+  pumpen: 'Gesamtzahl der Pumpen der Saison. Weniger ist besser – Pumpenkönig wird trotzdem, wer die meisten hat.'
 };
+
+/* ---------------------------------------------------- Herkunft der Titel
+   Aus "überliefert + nachgerechnet" wird die Marke "belegt". Vorher stand
+   unter fast jeder Titelzeile ein grauer Satz, der laenger war als der Titel
+   selbst. Der volle Wortlaut haengt jetzt als Titel-Attribut am Element, und
+   was die Marken bedeuten, steht einmal am Fuss des Blocks. */
+const HIST_LEGENDE = {
+  'belegt':    'in den Unterlagen des Vereins vermerkt',
+  'erzählt':   'nur mündlich überliefert',
+  'gerechnet': 'aus den Ereignissen der Saison ermittelt',
+  'läuft':     'laufende Saison, noch nicht abgeschlossen'
+};
+
+function histQuelle(q){
+  const t = String(q || '').trim().toLowerCase();
+  if (!t || t === '—' || t === '-') return '';
+  if (t.indexOf('mündlich')      >= 0) return 'erzählt';
+  if (t.indexOf('laufende')      >= 0) return 'läuft';
+  if (t.indexOf('überliefert')   >= 0) return 'belegt';
+  if (t.indexOf('nachgerechnet') >= 0) return 'gerechnet';
+  return '';
+}
+
+/* Zerlegt "28,20 Holz je Termin · 73 % anwesend" in Zahl, Einheit und Zusatz.
+   Steht vorne keine Zahl ("nicht gekürt"), wandert der ganze Text als blasse
+   Bemerkung nach rechts – gross gesetzt saehe er aus wie ein Messwert. */
+function histTeile(wert){
+  const stuecke = String(wert || '').split('·').map(x => x.trim()).filter(String);
+  const kopf = stuecke.shift() || '';
+  const m = kopf.match(/^(-?[\d.,]+\s*%?)\s*(.*)$/);
+  return { zahl:    m ? m[1].replace(/\s+/g, ' ').trim() : '',
+           einheit: m ? m[2].trim() : '',
+           text:    m ? '' : kopf,
+           zusatz:  stuecke.join(' · ') };
+}
+
+/* Beim Kegelkönig ist der Wert per Definition der Schnitt je Termin (§23) –
+   die Einheit heisst deshalb schlicht "Holz", und die Erklaerung steht in der
+   Fussnote der Kategorie. Bei den Pumpen zaehlt dagegen die Gesamtzahl; dort
+   darf ein "je Termin" nicht stillschweigend verschwinden. */
+function histEinheitKurz(einheit){
+  return /holz/i.test(einheit) ? einheit.replace(/\s*je\s+(termin|abend)\s*$/i, '').trim() : einheit;
+}
+
+const histWertRechts = teile => teile.zahl
+  ? `<div class="v">${esc(teile.zahl)}${teile.einheit
+      ? `<span class="u">${esc(histEinheitKurz(teile.einheit))}</span>` : ''}</div>`
+  : `<div class="v blass">${esc(teile.text || 'kein Wert')}</div>`;
+
+/* -------------------------------------------------------- Bausteine
+   Kopfleiste und Zeilen sind dieselben wie bei "Deine Strafen": ein
+   Kegelabend dort, ein Kegeljahr hier. */
+function histBlock(kopf, pille, inhalt, fuss){
+  if (!inhalt && !fuss) return '';
+  return `<div class="hblock"><div class="group-head"><span>${esc(kopf)}</span>${pille || ''}</div>
+    ${inhalt || ''}${fuss ? `<div class="fuss">${fuss}</div>` : ''}</div>`;
+}
+
+function histZeile(n, m, v, blass){
+  return `<div class="row"><div><div class="n">${esc(n)}</div>${
+      m ? `<div class="m">${esc(m)}</div>` : ''}</div>
+    <div class="v${blass ? ' blass' : ''}">${esc(v)}</div></div>`;
+}
 
 function histKategorie(kat){
   if (!kat.bester){
@@ -1806,47 +1927,138 @@ function histKategorie(kat){
     </div>${fuss ? `<small>${esc(fuss)}</small>` : ''}</div>`;
 }
 
-function histTitelZeilen(titel){
-  if (!titel.length) return '';
-  return titel.map(t => {
-    const wer = t.wer || '';
-    const wert = t.wert || '';
-    const rechts = wer ? (wer + (wert ? ' · ' + wert : '')) : (wert || '–');
-    // Woher der Titel stammt, gehört sichtbar dazu – sonst weiß in fünf Jahren
-    // niemand mehr, was belegt ist und was errechnet.
-    const unten = [t.quelle && t.quelle !== '—' ? t.quelle : '', t.bemerkung].filter(String).join(' · ');
-    return `<div class="tr"><span class="k">${esc(t.titel)}</span><span class="w">${esc(rechts)}</span></div>
-      ${unten ? `<div class="qz">${esc(unten)}</div>` : ''}`;
+/** Eine Titelzeile: die Sache links, die Zahl rechts – wie jede Strafenzeile. */
+function histTitelZeile(t){
+  const teile = histTeile(t.wert);
+  const marke = histQuelle(t.quelle);
+  const unten = [t.wer, teile.zusatz, t.bemerkung].filter(nichtLeer).join(' · ');
+  return `<div class="row"><div><div class="n">${esc(t.titel)}${
+      marke ? `<span class="quelle${marke === 'belegt' ? ' belegt' : ''}" title="${
+        esc(t.quelle || '')}">${esc(marke)}</span>` : ''}</div>${
+      unten ? `<div class="m">${esc(unten)}</div>` : ''}</div>${histWertRechts(teile)}</div>`;
+}
+
+/* --------------------------------------------- Was sich geändert hat
+   Die Chronik der Stammdaten-Aenderungen. Sie stand bis 1.23 auf der
+   Startseite und war dort eine zweite, lange Jahresliste neben dieser hier.
+   Dass es ueberhaupt Aenderungen gab, meldet weiterhin die Karte oben auf der
+   Startseite – hier steht nur, was frueher einmal war. */
+function histAendNachJahr(){
+  const nach = {};
+  ((aendStand() || {}).eintraege || []).forEach(e => {
+    const j = String(e.jahr || '').trim() || '–';
+    (nach[j] = nach[j] || []).push(e);
+  });
+  return nach;
+}
+
+function histAendZeilen(eintraege){
+  return (eintraege || []).map(e => {
+    const unten = [e.was || 'geändert', e.datum ? dat(e.datum) : '', e.wer].filter(nichtLeer).join(' · ');
+    const wert = [e.vorher, e.nachher].filter(nichtLeer).join(' → ');
+    return `<div class="row"><div><div class="n">${esc(e.bereich || 'Änderung')}${
+        e.betrifft ? ' · ' + esc(e.betrifft) : ''}</div>
+      <div class="m">${esc(unten)}</div></div>${
+      wert ? `<div class="v blass">${esc(wert)}</div>` : ''}</div>`;
   }).join('');
 }
 
-function histJahr(j){
-  const titel = j.titel || [];
-  /* Unter der Jahreszahl steht bewusst nichts weiter: Wer König war, steht drei
-     Zeilen tiefer im Titelblock, und zweimal derselbe Name direkt untereinander
-     liest sich wie ein Fehler. Fehlt einem Jahr die Datengrundlage, sagt das
-     die graue Marke rechts. */
-  const marke = j.hatDaten ? '' : '<span class="luecke">ohne Daten</span>';
-  const zeit = [j.beginn, j.ende].filter(String).join(' – ');
+/* ------------------------------------------------------- Ehrentafel
+   Wer wie oft. Das ist die erste Frage an eine Historie – bis 1.23 musste man
+   dafuer jedes Jahr einzeln aufklappen. Gezaehlt wird aus genau denselben
+   Titel-Zeilen, die weiter unten im jeweiligen Jahr stehen; eine zweite
+   Quelle gibt es bewusst nicht. */
+const EHREN_TITEL = ['Kegelkönig', 'Pumpenkönig', 'Anwesenheits-Looser'];
 
-  const kopfzeilen = [
-    zeit ? `<div class="tr"><span class="k">Zeitraum</span><span class="w">${esc(zeit)}</span></div>` : '',
-    j.termine ? `<div class="tr"><span class="k">Termine</span><span class="w">${esc(
-        j.geplant ? j.termine + ' von ' + j.geplant : String(j.termine))}</span></div>` : ''
+function histEhrentafel(liste){
+  const bloecke = EHREN_TITEL.map(name => {
+    const nach = {}, reihenfolge = [];
+    // aelteste Saison zuerst, damit die Jahreszahlen aufsteigend dastehen
+    liste.slice().reverse().forEach(j => (j.titel || []).forEach(t => {
+      if (String(t.titel || '').trim().toLowerCase() !== name.toLowerCase()) return;
+      const wer = String(t.wer || '').trim();
+      if (!wer) return;
+      if (!nach[wer]){ nach[wer] = []; reihenfolge.push(wer); }
+      nach[wer].push(j.s);
+    }));
+    if (!reihenfolge.length) return '';
+    reihenfolge.sort((a, b) => nach[b].length - nach[a].length);
+    return histBlock(name, '', reihenfolge.map(w =>
+      histZeile(w, nach[w].join(' · '), nach[w].length + '×')).join(''), '');
+  }).filter(String).join('');
+
+  if (!bloecke) return '';
+  return `<h2 class="sec">Ehrentafel</h2>
+    <p class="note" style="margin-top:6px">Wer wie oft – über alle überlieferten Kegeljahre.</p>
+    <div class="jahrkarte" style="margin-top:12px">${bloecke}</div>`;
+}
+
+/* ------------------------------------------------------ Ein Kegeljahr
+   Zugeklappt sagt die Karte, wer König war. Aufgeklappt zerfaellt das Jahr in
+   Bloecke mit eigener Kopfleiste, damit jeder Abschnitt einen sichtbaren
+   Anfang und ein Ende hat. */
+function histJahr(j, aendZeilen){
+  const titel = j.titel || [];
+  const zeit  = [j.beginn, j.ende].filter(nichtLeer).join(' – ');
+
+  const pille = j.aktuell ? '<span class="pill open">läuft</span>'
+    : j.hatDaten ? `<span class="pill paid">${esc(j.geplant ? j.termine + ' von ' + j.geplant
+        : (j.termine ? j.termine + ' Termine' : 'erfasst'))}</span>`
+    : titel.length ? '<span class="pill grau">nur überliefert</span>'
+                   : '<span class="pill grau">ohne Daten</span>';
+
+  const koenige = titel.filter(t => /könig/i.test(String(t.titel || '')) && String(t.wer || '').trim());
+  const teaser = koenige.length
+    ? koenige.slice(0, 2).map(t => {
+        const teile = histTeile(t.wert);
+        return `<div class="row"><div><div class="n">${esc(t.wer)}</div>
+          <div class="m">${esc(t.titel)}</div></div>${histWertRechts(teile)}</div>`;
+      }).join('')
+    : `<div class="kein">${esc(j.hinweis || 'Für dieses Kegeljahr ist nichts überliefert.')}</div>`;
+
+  // Legende nur mit den Marken, die in diesem Jahr wirklich vorkommen
+  const marken = [];
+  titel.forEach(t => { const m = histQuelle(t.quelle); if (m && marken.indexOf(m) < 0) marken.push(m); });
+  const legende = marken.map(m => `<b>${esc(m)}</b> – ${esc(HIST_LEGENDE[m] || '')}`).join(' · ');
+
+  const eck = [
+    zeit ? histZeile('Zeitraum', '', zeit, true) : '',
+    j.termine ? histZeile('Termine gekegelt', j.geplant ? 'von ' + j.geplant + ' geplanten' : '',
+                          String(j.termine)) : ''
   ].join('');
 
   const kategorien = (j.kategorien || []).map(histKategorie).join('');
 
-  return `<details class="jahr"${j.aktuell ? ' open' : ''}>
-    <summary><div><div class="sais">${esc(j.s)}</div></div>
-      ${j.aktuell ? '<span class="aktuell">läuft</span>' : marke}</summary>
-    <div class="body">
-      ${j.hinweis ? `<div class="leer">${esc(j.hinweis)}</div>` : ''}
-      ${kopfzeilen}
-      ${titel.length ? `<h5>Titel und Auszeichnungen</h5>${histTitelZeilen(titel)}` : ''}
-      ${j.hatDaten && kategorien ? `<h5>Das Jahr in Zahlen</h5><div class="kacheln">${kategorien}</div>` : ''}
-      ${j.fussnote ? `<div class="fuss">${esc(j.fussnote)}</div>` : ''}
-    </div></details>`;
+  const koerper =
+      histBlock('Eckdaten', '', eck, j.hinweis ? esc(j.hinweis) : '')
+    + histBlock('Titel und Auszeichnungen', '', titel.map(histTitelZeile).join(''), legende)
+    + (j.hatDaten && kategorien
+        ? histBlock('Das Jahr in Zahlen', '', `<div class="kacheln">${kategorien}</div>`,
+                    j.fussnote ? esc(j.fussnote) : '')
+        : '')
+    + (aendZeilen && aendZeilen.length
+        ? histBlock('Was sich geändert hat', `<span class="pill open">${aendZeilen.length}</span>`,
+                    histAendZeilen(aendZeilen), '')
+        : '');
+
+  return `<details class="jahrkarte"${j.aktuell ? ' open' : ''}><summary>
+      <div class="group-head"><span>Kegeljahr ${esc(j.s)}</span>${pille}</div>
+      <div class="teaser">${teaser}</div>
+    </summary>${koerper}</details>`;
+}
+
+/* Jahre ohne jede Ueberlieferung stehen gebuendelt am Ende. Einzeln nehmen sie
+   so viel Platz ein wie ein volles Jahr und sagen dabei nichts. */
+function histLeerJahre(leer){
+  return `<details class="jahrkarte"><summary>
+      <div class="group-head"><span>Jahre ohne Daten</span>
+        <span class="pill grau">${leer.length}</span></div>
+      <div class="teaser"><div class="kein">${esc(leer.map(j => j.s).join(', '))} –
+        weder Zahlen noch Titel überliefert.</div></div>
+    </summary>
+    <div class="hblock">${leer.map(j => histZeile(j.s, j.hinweis || '', 'keine Daten', true)).join('')}
+      <div class="fuss">Wenn sich jemand erinnert, wer in diesen Jahren König war: beim
+        Schriftführer melden – dann steht es hier.</div></div></details>`;
 }
 
 /** Die laufende Saison steht oben – aber nur, wenn der Schriftführer die
@@ -1856,7 +2068,7 @@ function histLaufende(){
   if (!D.gvFrei || !D.koenige) return null;
   const t = [];
   if (D.koenige.kegel) t.push({ titel:'Kegelkönig', wer: D.koenige.kegel.n,
-                                wert: zahlText(D.koenige.kegel.v) + ' Holz je Termin',
+                                wert: zahlText(D.koenige.kegel.v) + ' Holz',
                                 quelle:'laufende Saison', bemerkung:'' });
   SONDERKOENIGE.forEach(([name, feld, fmt]) => {
     if (D.koenige[feld]) t.push({ titel: name.replace(' · Urkunde',''), wer: D.koenige[feld].n,
@@ -1872,9 +2084,41 @@ function zeichneHistorie(){
   const liste = (historieDaten || []).slice();
   const laeuft = histLaufende();
   if (laeuft) liste.unshift(laeuft);
-  $('historieList').innerHTML = liste.length
-    ? liste.map(histJahr).join('')
-    : `<div class="row"><div class="n">Noch keine Kegeljahre hinterlegt.</div></div>`;
+
+  if (!liste.length){
+    $('historieList').innerHTML = `<div class="list"><div class="row">
+      <div class="n">Noch keine Kegeljahre hinterlegt.</div></div></div>`;
+    return;
+  }
+
+  const aend = histAendNachJahr();
+  const voll = liste.filter(j => j.hatDaten || (j.titel || []).length);
+  const leer = liste.filter(j => !(j.hatDaten || (j.titel || []).length));
+
+  let h = histEhrentafel(liste);
+  h += `<h2 class="sec" style="margin-top:24px">Die Kegeljahre</h2>
+        <div style="margin-top:14px">`;
+  h += voll.map(j => {
+    const e = aend[j.s];
+    delete aend[j.s];
+    return histJahr(j, e);
+  }).join('');
+  if (leer.length) h += histLeerJahre(leer);
+
+  /* Aenderungen, deren Kegeljahr in der Historie noch nicht steht – etwa die
+     laufende Saison vor der Freigabe. Sie duerfen nicht verschwinden, nur weil
+     es zu ihrem Jahr noch keinen Eintrag gibt. */
+  Object.keys(aend).sort().reverse().forEach(jahr => {
+    h += `<details class="jahrkarte"><summary>
+        <div class="group-head"><span>Kegeljahr ${esc(jahr)}</span>
+          <span class="pill open">${aend[jahr].length}</span></div>
+        <div class="teaser"><div class="kein">Bisher nur Änderungen an Statuten, Ämtern und
+          Mitgliedern – die Auswertung folgt nach der Generalversammlung.</div></div>
+      </summary>${histBlock('Was sich geändert hat', '', histAendZeilen(aend[jahr]), '')}</details>`;
+  });
+
+  h += `</div>`;
+  $('historieList').innerHTML = h;
 }
 
 /* ------------------------------------------------------------ Strafen */
@@ -1917,11 +2161,9 @@ function zeichneStrafen(){
         <span class="pill ${t.bezahlt?'paid':'open'}">${t.bezahlt?'bezahlt':eur(t.summe)}</span></div>
       ${fasseZusammen(t.eintraege).map(x => `<div class="row"><div><div class="n">${esc(x.t)}</div>
         <div class="m">${x.n} × ${eur(x.summe/x.n)}</div></div><div class="v">${eur(x.summe)}</div></div>`).join('')}
-      ${!t.bezahlt && (t.ausgesetzt || t.frist)
-        ? `<div class="row"><div><div class="m">${t.ausgesetzt
-             ? 'Durchschnittstrafe ausgesetzt – du musst sie nicht zahlen'
-             : 'Frist aufgehoben – kein Zahlungsziel'}</div></div></div>`
-        : (t.faellig && !t.bezahlt ? `<div class="row"><div><div class="m">Fällig am ${dat(t.faellig)}</div></div></div>` : '')}
+      ${t.faellig && !t.bezahlt ? `<div class="row"><div><div class="m${
+        t.faellig <= D.heute ? ' frist' : ''}">Fällig am ${dat(t.faellig)}${
+        t.faellig <= D.heute ? ' – Frist verstrichen, §20 greift' : ''}</div></div></div>` : ''}
     </div>`).join('');
   }
   $('tab-strafen').innerHTML = h;
@@ -3723,26 +3965,14 @@ const isoAusDeutsch = t => {
   return m ? m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2) : '';
 };
 
-/* Ein ausgesetzter Posten hat 0,00 € offen und trotzdem keinen Bezahlt-Haken.
-   Bis 1.23 fiel er hier heraus und war in der App nirgends mehr zu sehen –
-   genau die Dokumentation, für die es die eigene Spalte gibt, fehlte damit.
-   Jetzt bleibt er stehen, mit Marke und ohne in die Summe zu zählen. */
-const postenMarke = o => o.ausgesetzt ? 'Durchschnittstrafe ausgesetzt'
-                       : (o.frist ? 'Frist aufgehoben' : '');
-
-/* Wichtiger Unterschied: Eine aufgehobene Frist nimmt nur das Zahlungsziel –
-   das Geld schuldet der Kegelbruder weiterhin und kann es jederzeit bezahlen.
-   Eine ausgesetzte Durchschnittstrafe wird dagegen nie kassiert. */
-const postenRuht = o => o.ausgesetzt === true;
-
 function offenNachMann(){
   const map = {};
   kasseD().offene.forEach(o => {
     if (o.bezahlt) return;
     const rest = Math.round((o.offen || 0) * 100) / 100;
-    if (rest <= 0 && !postenMarke(o)) return;   // wirklich erledigt: raus
+    if (rest <= 0) return;
     if (!map[o.name]) map[o.name] = { name: o.name, summe: 0, posten: [] };
-    if (rest > 0) map[o.name].summe += rest;
+    map[o.name].summe += rest;
     map[o.name].posten.push(o);
   });
   return Object.keys(map).map(k => {
@@ -3753,192 +3983,6 @@ function offenNachMann(){
   }).sort((a, b) => b.summe - a.summe || (a.name < b.name ? -1 : 1));
 }
 
-/* "Alles bezahlt" darf nur echte Forderungen abhaken – ein ausgesetzter Posten
-   ist nicht bezahlt worden und soll auch nicht so aussehen. */
-const echteForderungen = mann => mann.posten.filter(p => !postenRuht(p) && (p.offen || 0) > 0);
-
-/* Frist aufheben und Durchschnittstrafe aussetzen darf der Kassenwart und der
-   Schriftführer. Der Rückfall greift bei einem Backend älter als 1.25. */
-const darfVermerk = () => !!(D.ich && (D.ich.darfVermerk !== undefined ? D.ich.darfVermerk
-                                                                       : D.ich.darfKasse));
-
-function vermerkKnopf(p, was, an, text){
-  return `<button class="btn ghost small" data-vermerk="${was}" data-an="${an ? 'ja' : 'nein'}"
-            data-datum="${esc(p.datum)}" data-name="${esc(p.name)}"
-            data-quelle="${esc(p.quelle || '')}">${text}</button>`;
-}
-
-function postenZeile(p){
-  const marke = postenMarke(p);
-  const unten = marke
-    ? marke + (p.ausgesetzt ? ' · ' + eur(p.betrag) + ' bleiben stehen' : ' · keine Frist, kein Zuschlag')
-    : 'fällig ' + (p.faellig ? dat(p.faellig) : '–')
-      + (p.zuschlag > 0 ? ' · Zuschlag ' + eur(p.zuschlag) : '');
-
-  /* Zwei Schalter, aber nie beide gleichzeitig zum Setzen: Ist die
-     Durchschnittstrafe ausgesetzt, ist die Frist ohnehin gegenstandslos. */
-  let knoepfe = '';
-  if (darfVermerk()){
-    if (p.ausgesetzt){
-      knoepfe = vermerkKnopf(p, 'ausgesetzt', false, 'Aussetzung zurücknehmen');
-    } else {
-      /* Fällt ein Kegelabend aus oder wird verschoben, stimmt das errechnete
-         Datum nicht mehr – dafür dieser Knopf. */
-      knoepfe += `<button class="btn ghost small" data-faellig="1"
-            data-datum="${esc(p.datum)}" data-name="${esc(p.name)}"
-            data-quelle="${esc(p.quelle || '')}">Fällig …</button>`;
-      if (p.frist) knoepfe += vermerkKnopf(p, 'frist', false, 'Frist wieder setzen');
-      else         knoepfe += vermerkKnopf(p, 'frist', true,  'Frist aufheben');
-      if (p.oe)    knoepfe += vermerkKnopf(p, 'ausgesetzt', true, 'Aussetzen');
-    }
-  }
-
-  return `<div class="kassepost">
-      <div><div>${dat(p.datum)}${p.quelle ? ' · ' + esc(p.quelle) : ''}</div>
-        <div class="m">${esc(unten)}</div></div>
-      <div style="display:flex;align-items:center;gap:10px;flex:none">
-        <span class="summe"${postenRuht(p) ? ' style="opacity:.55"' : ''}>${eur(p.offen)}</span>
-        ${postenRuht(p) ? '' : `<button class="btn ghost small" data-zahlungp="1"
-                  data-datum="${esc(p.datum)}" data-name="${esc(p.name)}"
-                  data-quelle="${esc(p.quelle || '')}">Betrag …</button>
-                <button class="btn ghost small" data-bezahlt="ja"
-                  data-datum="${esc(p.datum)}" data-name="${esc(p.name)}"
-                  data-quelle="${esc(p.quelle || '')}">Bezahlt</button>`}
-      </div>
-    </div>${knoepfe ? `<div class="kassepost" style="padding-top:0;justify-content:flex-end;gap:8px;flex-wrap:wrap">${knoepfe}</div>` : ''}`;
-}
-
-/* ------------------------------------------------- Masken der Kasse */
-/* Benutzt dieselbe Eingabemaske wie die Stammdaten – eine Maske für alles,
-   damit sich in der App nicht zwei verschiedene Formulare gegenüberstehen. */
-
-/**
- * Zahlung mit Betrag buchen. Der Überschuss zum offenen Betrag wird im Backend
- * als Spende vermerkt – deshalb steht er hier nicht als eigenes Feld: Zwei
- * Zahlen, die zusammenpassen müssen, sind eine Fehlerquelle mehr als eine.
- */
-function kasseZahlungMaske(titel, posten, summe){
-  stammMaske(titel, [
-    { art: 'info', label: 'Offen', wert: eur(summe),
-      note: 'Trag ein, was wirklich überwiesen wurde. Ist es mehr, wird die Differenz '
-          + 'als Spende vermerkt. Weniger geht nicht – dann hake bitte nur die Posten ab, '
-          + 'die er bezahlt hat.' },
-    { art: 'zahl', label: 'Gezahlt', id: 'kasseGezahlt',
-      wert: betragFuerFeld(summe), platzhalter: 'z. B. 20,00' }
-  ], 'Zahlung buchen', async () => {
-    kasseFehler('stammFormFehler', '');
-    const z = stammZahl('kasseGezahlt', true);
-    if (z.fehler){ kasseFehler('stammFormFehler', z.fehler); return; }
-    const r = await kasseSenden('bezahltSetzen', {
-      posten: posten.map(p => ({ datum: p.datum, name: p.name, quelle: p.quelle })),
-      bezahlt: true, gezahlt: z.wert
-    }, $('stammSpeichern'), 'Zahlung buchen', 'stammFormFehler');
-    if (!r) return;
-    ebene('stammForm', false);
-    hinweisleiste(r.spende > 0
-      ? 'Gebucht – ' + eur(r.spende) + ' davon als Spende vermerkt.'
-      : 'Als bezahlt vermerkt.');
-  });
-}
-
-/**
- * Fälligkeitsdatum eines Postens. Gebraucht wird das, wenn ein Kegelabend
- * ausfällt oder verschoben wird: Die Automatik rechnet stur alle vier Wochen
- * weiter und weiß davon nichts.
- */
-function kasseFaelligMaske(p){
-  stammMaske(esc(p.name) + ' · ' + dat(p.datum), [
-    { art: 'info', label: 'Bisher fällig', wert: p.faellig ? dat(p.faellig) : 'keine Frist gesetzt',
-      note: 'Ab dem Tag nach diesem Datum wächst der Zuschlag nach §20. '
-          + 'Ein neues Datum nimmt einen gesetzten Vermerk „Frist aufgehoben" zurück.' },
-    { art: 'datum', label: 'Neu fällig am', id: 'kasseFaellig', wert: p.faellig || '' }
-  ], 'Speichern', async () => {
-    kasseFehler('stammFormFehler', '');
-    const d = stammWert('kasseFaellig');
-    if (!d){ kasseFehler('stammFormFehler', 'Bitte ein Datum wählen.'); return; }
-    const r = await kasseSenden('postenSetzen', {
-      posten: { datum: p.datum, name: p.name, quelle: p.quelle || '' },
-      was: 'faellig', wert: d
-    }, $('stammSpeichern'), 'Speichern', 'stammFormFehler');
-    if (!r) return;
-    ebene('stammForm', false);
-    hinweisleiste('Neue Frist: ' + dat(d) + '.');
-  });
-}
-
-/** Eine neue Ausgaben-Kategorie. Entfernen geht bewusst nicht – siehe Backend. */
-function kasseKategorieMaske(){
-  stammMaske('Neue Kategorie', [
-    { art: 'text', label: 'Name', id: 'kasseKat', wert: '', max: 60,
-      platzhalter: 'z. B. Bahnmiete',
-      note: 'Steht danach in der Auswahl. Bestehende Kategorien lassen sich nicht löschen – '
-          + 'an ihnen hängen alte Ausgaben.' }
-  ], 'Anlegen', async () => {
-    kasseFehler('stammFormFehler', '');
-    const name = stammWert('kasseKat');
-    if (name.length < 2){ kasseFehler('stammFormFehler', 'Bitte einen Namen mit mindestens zwei Zeichen angeben.'); return; }
-    const r = await kasseSenden('kategorieAnlegen', { name: name },
-                                $('stammSpeichern'), 'Anlegen', 'stammFormFehler');
-    if (!r) return;
-    ausgabeKategorie = r.neu || name;   // gleich ausgewählt, sonst tippt man zweimal
-    ebene('stammForm', false);
-    zeichneKasse();
-    hinweisleiste('Kategorie angelegt.');
-  });
-}
-
-/** Eine Ausgabe oder eine sonstige Einnahme ändern – oder löschen. */
-function kasseBuchungMaske(art, e){
-  const istAusgabe = art === 'ausgabe';
-  /* Mitgeschickt wird, was die App angezeigt hat. Das Backend vergleicht es mit
-     der Zeile im Blatt und rührt nichts an, wenn sich dort etwas geändert hat. */
-  const alt = { zeile: e.zeile, datum: e.datum, betrag: e.betrag,
-                kategorie: e.kategorie || '', notiz: e.notiz || '' };
-
-  const kats = (kasseD().kategorien || []).slice();
-  if (istAusgabe && e.kategorie && kats.indexOf(e.kategorie) < 0) kats.unshift(e.kategorie);
-
-  const felder = [
-    { art: 'datum', label: 'Datum',  id: 'kbDatum',  wert: e.datum || '' },
-    { art: 'zahl',  label: 'Betrag', id: 'kbBetrag', wert: betragFuerFeld(e.betrag) }
-  ];
-  if (istAusgabe){
-    felder.push({ art: 'auswahl', label: 'Kategorie', id: 'kbKat', wert: e.kategorie || '',
-                  optionen: kats.map(k => ({ wert: k, text: k })) });
-  }
-  felder.push({ art: 'text', label: 'Notiz', id: 'kbNotiz', wert: e.notiz || '', max: 120,
-                note: istAusgabe ? 'freiwillig'
-                                 : 'Pflicht – sonst lässt sich die Einnahme später nicht zuordnen.' });
-
-  const senden = async (aktion, nutzlast, knopf, text) => {
-    const r = await kasseSenden(aktion, nutzlast, knopf, text, 'stammFormFehler');
-    if (!r) return null;
-    ebene('stammForm', false);
-    return r;
-  };
-
-  stammMaske(istAusgabe ? 'Ausgabe bearbeiten' : 'Einnahme bearbeiten', felder, 'Speichern',
-    async () => {
-      kasseFehler('stammFormFehler', '');
-      const z = stammZahl('kbBetrag', true);
-      if (z.fehler){ kasseFehler('stammFormFehler', z.fehler); return; }
-      const eintrag = { zeile: e.zeile, datum: stammWert('kbDatum'), betrag: z.wert,
-                        notiz: stammWert('kbNotiz'), alt: alt };
-      if (istAusgabe) eintrag.kategorie = stammWert('kbKat');
-      const r = await senden(istAusgabe ? 'ausgabeAendern' : 'umlageAendern',
-                             { eintrag: eintrag }, $('stammSpeichern'), 'Speichern');
-      if (r) hinweisleiste('Geändert.');
-    },
-    { text: istAusgabe ? 'Ausgabe löschen' : 'Einnahme löschen',
-      tun: async () => {
-        kasseFehler('stammFormFehler', '');
-        const r = await senden(istAusgabe ? 'ausgabeLoeschen' : 'umlageLoeschen',
-                               { eintrag: { zeile: e.zeile, alt: alt } },
-                               $('stammGefahr'), istAusgabe ? 'Ausgabe löschen' : 'Einnahme löschen');
-        if (r) hinweisleiste('Gelöscht.');
-      } });
-}
-
 const KASSE_SICHTEN = {
 
   uebersicht(){
@@ -3947,7 +3991,7 @@ const KASSE_SICHTEN = {
 
     const zeile = (titel, unter, wert, betont) => `<div class="row">
       <div><div class="n">${titel}</div>${unter ? `<div class="m">${unter}</div>` : ''}</div>
-      <div class="summe"${betont ? ' style="color:var(--accent)"' : ''}>${wert}</div></div>`;
+      <div class="summe"${betont ? ' style="color:var(--warn)"' : ''}>${wert}</div></div>`;
 
     return `
       <div class="list" style="margin-top:16px">
@@ -3957,7 +4001,9 @@ const KASSE_SICHTEN = {
                   : 'alles beglichen',
                 eur(b.offen))}
         ${zeile('Davon überfällig',
-                b.ueberfaellig > 0 ? 'Frist verstrichen – §20 greift' : 'nichts überfällig',
+                b.ueberfaellig > 0
+                  ? '<span class="frist">Frist verstrichen – §20 greift</span>'
+                  : 'nichts überfällig',
                 eur(b.ueberfaellig), b.ueberfaellig > 0)}
         ${zeile('Nächste Fälligkeit', b.naechsteFaelligkeit ? 'für offene Posten' : 'keine offene Frist',
                 b.naechsteFaelligkeit ? dat(b.naechsteFaelligkeit) : '–')}
@@ -4011,17 +4057,24 @@ const KASSE_SICHTEN = {
       <details class="kasse">
         <summary>
           <div><div class="n">${esc(g.name)}</div>
-            <div class="m">${plural(g.posten.length, 'Posten', 'Posten')}${
-              g.posten.filter(postenRuht).length
-                ? ' · ' + g.posten.filter(postenRuht).length + ' ausgesetzt' : ''}</div></div>
+            <div class="m">${plural(g.posten.length, 'Posten', 'Posten')}</div></div>
           <div style="display:flex;align-items:center;gap:10px;flex:none">
             <span class="summe">${eur(g.summe)}</span>
-            ${echteForderungen(g).length ? `
-              <button class="btn ghost small" data-zahlung="${esc(g.name)}">Betrag …</button>
-              <button class="btn ghost small" data-alle="${esc(g.name)}">Alles bezahlt</button>` : ''}
+            <button class="btn ghost small" data-alle="${esc(g.name)}">Alles bezahlt</button>
           </div>
         </summary>
-        <div class="body">${g.posten.map(p => postenZeile(p)).join('')}</div>
+        <div class="body">${g.posten.map(p => `
+          <div class="kassepost">
+            <div><div>${dat(p.datum)}${p.quelle ? ' · ' + esc(p.quelle) : ''}</div>
+              <div class="m${p.zuschlag > 0 || (p.faellig && p.faellig <= D.heute) ? ' frist' : ''}">fällig ${
+                p.faellig ? dat(p.faellig) : '–'}${p.zuschlag > 0 ? ' · Zuschlag ' + eur(p.zuschlag) : ''}</div></div>
+            <div style="display:flex;align-items:center;gap:10px;flex:none">
+              <span class="summe">${eur(p.offen)}</span>
+              <button class="btn ghost small" data-bezahlt="ja"
+                      data-datum="${esc(p.datum)}" data-name="${esc(p.name)}"
+                      data-quelle="${esc(p.quelle || '')}">Bezahlt</button>
+            </div>
+          </div>`).join('')}</div>
       </details>`).join('')}</div>`
       : '<p class="note" style="margin-top:14px">Alles bezahlt – nichts mehr offen.</p>';
 
@@ -4083,9 +4136,9 @@ const KASSE_SICHTEN = {
       <div class="kassefeld">
         <div class="eyebrow">Kategorie</div>
         <div class="chips" id="ausgabeKats" style="margin:0;padding:2px 0">${
-          kategorien.map(k => `<button data-kat="${esc(k)}" aria-pressed="${k === ausgabeKategorie}">${esc(k)}</button>`).join('')
-          + (darfKasseAendern() ? '<button data-neuekat="1" aria-pressed="false">+ Neue Kategorie</button>' : '')
-          || '<span class="note">Es sind noch keine Kategorien hinterlegt.</span>'}</div>
+          kategorien.length
+            ? kategorien.map(k => `<button data-kat="${esc(k)}" aria-pressed="${k === ausgabeKategorie}">${esc(k)}</button>`).join('')
+            : '<span class="note">Es sind noch keine Kategorien hinterlegt.</span>'}</div>
       </div>
       <div class="kassefeld">
         <div class="eyebrow">Notiz</div>
@@ -4098,13 +4151,9 @@ const KASSE_SICHTEN = {
         <div><div class="n">Ausgaben gesamt</div><div class="m">${plural(liste.length, 'Eintrag', 'Einträge')}</div></div>
         <div class="summe">${eur(summe)}</div></div></div>
       ${liste.length ? `<div class="list" style="margin-top:12px">${liste.slice(0, 20).map(a => `
-        <div class="row"${a.zeile && darfKasseAendern() ? ` data-buchung="ausgabe" data-zeile="${a.zeile}" style="cursor:pointer"` : ''}>
-          <div><div class="n">${esc(a.kategorie || '–')}</div>
+        <div class="row"><div><div class="n">${esc(a.kategorie || '–')}</div>
           <div class="m">${dat(a.datum)}${a.notiz ? ' · ' + esc(a.notiz) : ''}</div></div>
-          <div style="display:flex;align-items:center;gap:8px;flex:none">
-            <span class="summe">${eur(a.betrag)}</span>
-            ${a.zeile && darfKasseAendern() ? '<span class="go">›</span>' : ''}</div></div>`).join('')}</div>
-        ${darfKasseAendern() ? '<p class="note" style="margin-top:8px">Zum Ändern oder Löschen einen Eintrag antippen.</p>' : ''}` : ''}`;
+          <div class="summe">${eur(a.betrag)}</div></div>`).join('')}</div>` : ''}`;
   },
 
   umlage(){
@@ -4132,13 +4181,9 @@ const KASSE_SICHTEN = {
         <div><div class="n">Einnahmen gesamt</div><div class="m">${plural(liste.length, 'Eintrag', 'Einträge')}</div></div>
         <div class="summe">${eur(summe)}</div></div></div>
       ${liste.length ? `<div class="list" style="margin-top:12px">${liste.slice(0, 20).map(u => `
-        <div class="row"${u.zeile && darfKasseAendern() ? ` data-buchung="umlage" data-zeile="${u.zeile}" style="cursor:pointer"` : ''}>
-          <div><div class="n">${esc(u.notiz || 'ohne Notiz')}</div>
+        <div class="row"><div><div class="n">${esc(u.notiz || 'ohne Notiz')}</div>
           <div class="m">${dat(u.datum)}</div></div>
-          <div style="display:flex;align-items:center;gap:8px;flex:none">
-            <span class="summe">${eur(u.betrag)}</span>
-            ${u.zeile && darfKasseAendern() ? '<span class="go">›</span>' : ''}</div></div>`).join('')}</div>
-        ${darfKasseAendern() ? '<p class="note" style="margin-top:8px">Zum Ändern oder Löschen einen Eintrag antippen.</p>' : ''}` : ''}`;
+          <div class="summe">${eur(u.betrag)}</div></div>`).join('')}</div>` : ''}`;
   }
 };
 
@@ -4167,9 +4212,6 @@ function kasseFehler(id, text){
   const e = $(id); if (!e) return;
   e.textContent = text || '';
   e.style.color = 'var(--accent)';
-  // Das Fehlerfeld der Eingabemaske ist standardmäßig ausgeblendet – ohne das
-  // hier stünde der Text zwar drin, sichtbar wäre er nicht.
-  e.classList.toggle('hidden', !text);
 }
 
 /* Nach jedem Schreibvorgang schickt der Server den frischen Stand zurück –
@@ -4188,7 +4230,6 @@ async function kasseSenden(aktion, nutzlast, knopf, beschriftung, fehlerFeld){
     if (r.offene)   D.kasseDaten.offene   = r.offene;
     if (r.ausgaben) D.kasseDaten.ausgaben = r.ausgaben;
     if (r.umlage)   D.kasseDaten.umlage   = r.umlage;
-    if (r.kategorien) D.kasseDaten.kategorien = r.kategorien;
     if (r.kasse)    D.kasse = r.kasse;
     if (typeof r.offenSumme === 'number') D.offen = r.offenSumme;
     speicher.schreib('kc-daten', JSON.stringify(D));
@@ -4232,79 +4273,13 @@ $('kasseBody').addEventListener('click', async e => {
     return;
   }
 
-  const zahlungP = e.target.closest('button[data-zahlungp]');
-  if (zahlungP){
-    e.preventDefault(); e.stopPropagation();
-    const p = kasseD().offene.filter(x => x.datum === zahlungP.dataset.datum
-      && x.name === zahlungP.dataset.name
-      && (x.quelle || '') === (zahlungP.dataset.quelle || ''))[0];
-    if (p) kasseZahlungMaske(p.name + ' · ' + dat(p.datum), [p], p.offen);
-    return;
-  }
-
-  const zahlung = e.target.closest('button[data-zahlung]');
-  if (zahlung){
-    e.preventDefault(); e.stopPropagation();
-    const mann = offenNachMann().filter(g => g.name === zahlung.dataset.zahlung)[0];
-    if (mann) kasseZahlungMaske(mann.name, echteForderungen(mann), mann.summe);
-    return;
-  }
-
-  const faellig = e.target.closest('button[data-faellig]');
-  if (faellig){
-    e.preventDefault(); e.stopPropagation();
-    const p = kasseD().offene.filter(x => x.datum === faellig.dataset.datum
-      && x.name === faellig.dataset.name
-      && (x.quelle || '') === (faellig.dataset.quelle || ''))[0];
-    if (p) kasseFaelligMaske(p);
-    return;
-  }
-
-  if (e.target.closest('button[data-neuekat]')){
-    e.preventDefault(); e.stopPropagation();
-    kasseKategorieMaske();
-    return;
-  }
-
-  const buchung = e.target.closest('[data-buchung]');
-  if (buchung){
-    e.preventDefault(); e.stopPropagation();
-    const art = buchung.dataset.buchung;
-    const zeile = Number(buchung.dataset.zeile);
-    const eintrag = (art === 'ausgabe' ? kasseD().ausgaben : kasseD().umlage)
-                      .filter(x => x.zeile === zeile)[0];
-    if (eintrag) kasseBuchungMaske(art, eintrag);
-    return;
-  }
-
-  const vermerk = e.target.closest('button[data-vermerk]');
-  if (vermerk){
-    e.preventDefault(); e.stopPropagation();
-    const an = vermerk.dataset.an === 'ja';
-    const was = vermerk.dataset.vermerk;
-    const r = await kasseSenden('postenSetzen', {
-      posten: { datum: vermerk.dataset.datum, name: vermerk.dataset.name,
-                quelle: vermerk.dataset.quelle || '' },
-      was: was, wert: an
-    }, vermerk, vermerk.textContent);
-    if (r){
-      hinweisleiste(was === 'frist'
-        ? (an ? 'Frist aufgehoben – dieser Posten hat kein Zahlungsziel mehr.'
-              : 'Frist wieder gesetzt.')
-        : (an ? 'Durchschnittstrafe ausgesetzt – der Betrag bleibt zur Dokumentation stehen.'
-              : 'Aussetzung zurückgenommen.'));
-    }
-    return;
-  }
-
   const alle = e.target.closest('button[data-alle]');
   if (alle){
     e.preventDefault(); e.stopPropagation();
     const mann = offenNachMann().filter(g => g.name === alle.dataset.alle)[0];
     if (!mann) return;
     const r = await kasseSenden('bezahltSetzen', {
-      posten: echteForderungen(mann).map(p => ({ datum: p.datum, name: p.name, quelle: p.quelle })),
-      bezahlt: true
+      posten: mann.posten.map(p => ({ datum: p.datum, name: p.name, quelle: p.quelle })), bezahlt: true
     }, alle, 'Alles bezahlt');
     if (r) hinweisleiste(esc(mann.name) + ': ' + plural(r.geaendert || 0, 'Posten', 'Posten') + ' abgehakt.');
     return;
@@ -4720,6 +4695,12 @@ const TOUR_NEU      = 'kc-tour-neu';      // App-Fassung, deren Neuerungen schon
    Wer die App zum ersten Mal öffnet, sieht das NICHT – für ihn ist alles neu,
    er bekommt die Grundtour. */
 const NEUERUNGEN = [
+  { fassung: '1.24', punkte: [
+      'Die Startseite ist kürzer: Der nächste Termin steht nur noch einmal da, mit Countdown an der Überschrift.',
+      'Gelb heißt jetzt überall dasselbe – eine Frist läuft gerade ab. Die Abmeldefrist wird erst am Kegeltag gelb.',
+      'Die Historie ist neu sortiert: oben die Ehrentafel, darunter jedes Kegeljahr als eigene Karte.',
+      'Was sich an Statuten, Ämtern und Mitgliedern geändert hat, steht jetzt in der Historie beim Kegeljahr.'
+    ] },
   { fassung: '1.23', punkte: [
       'Diese Einführung – beim ersten Start, bei einem neuen Amt und nach jeder neuen Fassung.',
       'Unter Verein › Historie stehen die vergangenen Kegeljahre mit Königen und Auszeichnungen.'
@@ -4727,13 +4708,11 @@ const NEUERUNGEN = [
 ];
 
 const TOUR_SYM = {
-  /* Nicht als Pfad, sondern das echte Vereinslogo - immer die Standard-Fassung,
-     auch wenn gerade das Weihnachtslogo im Kopf steht. */
-  logo:   '',
+  logo:   '<svg viewBox="0 0 24 24"><path d="M12 3.2 20 7v5.4c0 4-3.3 7-8 8.4-4.7-1.4-8-4.4-8-8.4V7z"/><path d="M9.4 12.1 11.2 14l3.5-3.7"/></svg>',
   start:  '<svg viewBox="0 0 24 24"><path d="M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
   liste:  '<svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h10"/><circle cx="19" cy="19" r="2.4"/></svg>',
   geld:   '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="17" cy="15" r="1.3"/></svg>',
-  paragraf: '<span class="parag-gross" aria-hidden="true">§</span>',
+  buch:   '<svg viewBox="0 0 24 24"><path d="M4 5.5A2 2 0 0 1 6 4h13v14H6a2 2 0 0 0-2 2z"/><path d="M8 8h7M8 11.5h7"/></svg>',
   leute:  '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><path d="M16 6.5a3 3 0 0 1 0 5.6M18 20c0-2.4-.9-4-2.4-4.8"/></svg>',
   funk:   '<svg viewBox="0 0 24 24"><path d="M4.5 9.5a10.5 10.5 0 0 1 15 0M7.7 12.8a6 6 0 0 1 8.6 0"/><circle cx="12" cy="17.5" r="1.4" fill="currentColor" stroke="none"/></svg>',
   stift:  '<svg viewBox="0 0 24 24"><path d="M4 20h4L19.2 8.8a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 16z"/></svg>',
@@ -4741,7 +4720,6 @@ const TOUR_SYM = {
   balken: '<svg viewBox="0 0 24 24"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"/></svg>',
   zahnrad:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.1"/><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6"/></svg>',
   orden:  '<svg viewBox="0 0 24 24"><path d="M8.4 3.2 10.7 9M15.6 3.2 13.3 9"/><circle cx="12" cy="15.2" r="5.9"/><circle cx="12" cy="15.2" r="2.1"/></svg>',
-  teilen: '<svg viewBox="0 0 24 24"><path d="M12 3.4v11.2"/><path d="m8.3 7.1 3.7-3.7 3.7 3.7"/><path d="M7.6 10.6H6.2A2.2 2.2 0 0 0 4 12.8v5.6a2.2 2.2 0 0 0 2.2 2.2h11.6a2.2 2.2 0 0 0 2.2-2.2v-5.6a2.2 2.2 0 0 0-2.2-2.2h-1.4"/></svg>',
   stern:  '<svg viewBox="0 0 24 24"><path d="m12 3.6 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.8l5.9-.9z"/></svg>'
 };
 
@@ -4753,19 +4731,20 @@ function tourGrundKarten(){
       + 'Angemeldet bist du mit deinem persönlichen Code – der gehört dir allein und '
       + 'sollte nicht herumgereicht werden.',
       k:'Das hier dauert keine Minute. Später wiederfinden kannst du es über das Zahnrad oben rechts.' },
-    { sym:'start', t:'Start – was dort steht',
-      x:'Ganz oben steht, was du der Kegelkasse noch zu zahlen hast – alle Strafen, die noch '
-      + 'nicht überwiesen sind. Daneben deine Fehltage nach §12 und der '
-      + 'nächste Termin. Darunter der Rückblick auf den letzten Abend mit Sonderwürfen und '
-      + 'dem, was er gekostet hat.' },
+    { sym:'start', t:'Start – wo du stehst',
+      x:'Ganz oben steht, was bei dir offen ist, darunter deine Fehltage nach §12 und der '
+      + 'nächste Kegelabend mit der Abmeldefrist. Danach der Rückblick auf den letzten Abend '
+      + 'mit Sonderwürfen und dem, was er gekostet hat.',
+      k:'Wird eine Frist gelb, läuft sie gerade ab – dann wird es teuer.' },
     { sym:'liste', t:'Strafen – wie es dazu kam',
       x:'Der zweite Reiter zeigt jede einzelne Strafe, nach Terminen sortiert – dazu deine '
-      + 'teuerste Strafart, die häufigste und den teuersten Abend.' },
+      + 'teuerste Strafart, die häufigste und den teuersten Abend.',
+      k:'Kommt dir etwas falsch vor: beim Schriftführer melden, nicht hier.' },
     { sym:'geld', t:'So zahlst du',
       x:'Unten auf der Startseite stehen Empfänger, IBAN, Betrag und Verwendungszweck. Ein Tipp '
       + 'auf ein Feld legt den Wert in die Zwischenablage – von dort in die Banking-App.',
       k:'Auf dem Konto sein muss es bis zum nächsten Kegeln (§4). Danach kommt der Zuschlag nach §20 dazu.' },
-    { sym:'paragraf', t:'Statuten und Rechner',
+    { sym:'buch', t:'Statuten und Rechner',
       x:'Alle Paragraphen zum Nachlesen, mit Suche über Nummer, Bezeichnung und Text. '
       + 'Daneben der Rechner: Strafen antippen und sehen, was ein Abend kosten würde – '
       + 'reines Überschlagen, gespeichert wird dabei nichts.' },
@@ -4820,10 +4799,11 @@ function tourBereichKarten(bereich){
     + 'Gedacht ist das für die Zeit nach der Generalversammlung.',
     k:'Ein neuer Betrag gilt ab dem nächsten Abend – Abende, die schon waren, behalten ihren. '
     + 'Zum Schluss „Änderungen abschließen“: erst dann erfahren es alle anderen.' }];
-  if (bereich === 'freigeben') return [{ sym:'teilen', t:'Freigaben',
+  if (bereich === 'freigeben') return [{ sym:'orden', t:'Freigaben',
     x:'Über das Zahnrad › Verwaltung gibst du frei, was andere sehen dürfen: den Kegelkönig, den '
     + 'Kassenbericht und die Einsicht für deinen Vertreter.',
-    k:'Die Einsicht gehört in die Vorbereitung der Generalversammlung.' }];
+    k:'Die Einsicht gehört in die Vorbereitung der Generalversammlung – wer ausgefallen ist, kann '
+    + 'den Schalter nicht mehr umlegen.' }];
   return [];
 }
 
@@ -4888,15 +4868,7 @@ function tourStarten(karten){
 function tourZeichnen(){
   const k = tourFolge[tourPos];
   if (!k) return tourBeenden();
-  if (k.sym === 'logo'){
-    // Immer das Standard-Logo, passend zum eingestellten Design.
-    const hell = istHell(speicher.lies('kc-theme') || 'auto');
-    $('tourSym').innerHTML = '<img src="' + LOGOS.standard[hell ? 'light' : 'dark'].mark
-      + '" alt="" class="tour-logo">';
-  } else {
-    $('tourSym').innerHTML = TOUR_SYM[k.sym] || '';
-  }
-  $('tourSym').classList.toggle('blank', k.sym === 'logo');
+  $('tourSym').innerHTML = TOUR_SYM[k.sym] || TOUR_SYM.logo;
   $('tourTitel').textContent = k.t;
   $('tourText').innerHTML = k.liste
     ? '<ul>' + k.liste.map(z => '<li>' + esc(z) + '</li>').join('') + '</ul>'
