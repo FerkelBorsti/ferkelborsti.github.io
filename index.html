@@ -947,7 +947,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.25';
+const APP_VERSION = '1.25.1';
 
 /* Das laufende Kegeljahr. Es steht außerdem noch als fester Text in der
    Überschrift "Auswertung 2026/27" im Reiter "Amt" – beim Saisonwechsel sind
@@ -4061,7 +4061,7 @@ function kassePostenMaske(p){
   ];
 
   if (!ruht){
-    felder.push({ art: 'zahl', label: 'Gezahlt', id: 'kasseGezahlt',
+    felder.push({ art: 'zahl', label: 'Gezahlt', id: 'kasseGezahlt', einheit: '€',
       wert: betragFuerFeld(p.offen), platzhalter: 'z. B. 20,00',
       note: 'Steht hier mehr als offen ist, wird die Differenz als Spende vermerkt. '
           + 'Weniger geht nicht – dafür gibt es die Korrektur.' });
@@ -4104,7 +4104,7 @@ function kasseZahlungMaske(titel, posten, summe){
       note: plural(posten.length, 'Posten', 'Posten') + '. Trag ein, was wirklich überwiesen '
           + 'wurde. Ist es mehr, wird die Differenz als Spende vermerkt. Weniger geht nicht – '
           + 'dann hake bitte die Posten einzeln ab.' },
-    { art: 'zahl', label: 'Gezahlt', id: 'kasseGezahlt',
+    { art: 'zahl', label: 'Gezahlt', id: 'kasseGezahlt', einheit: '€',
       wert: betragFuerFeld(summe), platzhalter: 'z. B. 150,00' }
   ], 'Zahlung buchen', async () => {
     kasseFehler('stammFormFehler', '');
@@ -4208,7 +4208,7 @@ function kasseBuchungMaske(art, e){
 
   const felder = [
     { art: 'datum', label: 'Datum',  id: 'kbDatum',  wert: e.datum || '' },
-    { art: 'zahl',  label: 'Betrag', id: 'kbBetrag', wert: betragFuerFeld(e.betrag) }
+    { art: 'zahl',  label: 'Betrag', id: 'kbBetrag', wert: betragFuerFeld(e.betrag), einheit: '€' }
   ];
   if (istAusgabe){
     felder.push({ art: 'auswahl', label: 'Kategorie', id: 'kbKat', wert: e.kategorie || '',
@@ -5550,15 +5550,20 @@ function stammMaske(titel, felder, primaerText, primaer, gefahr){
        Handy tippt man 3,50 mit Komma, und ein Zahlenfeld verwirft das
        stillschweigend – das Feld bleibt leer, und abgeschickt würde eine 0.
        Deshalb ein Textfeld mit Zifferntastatur und eigener Prüfung. */
-    if (f.art === 'text' || f.art === 'zahl' || f.art === 'datum') return `<div style="margin-bottom:18px">
-        <div class="eyebrow" style="margin-bottom:10px">${esc(f.label)}</div>
-        <input class="search" id="${f.id}" type="${f.art === 'datum' ? 'date' : 'text'}"
+    /* `einheit` haengt ein Zeichen ins Feld – bei Geldbetraegen das €. Ohne das
+       steht in einem Feld, in das man 20,00 tippt, nirgends, worum es geht. */
+    if (f.art === 'text' || f.art === 'zahl' || f.art === 'datum') {
+      const feld = `<input class="search" id="${f.id}" type="${f.art === 'datum' ? 'date' : 'text'}"
           ${f.art === 'zahl' ? 'inputmode="decimal" autocomplete="off"' : ''}
           value="${esc(f.wert == null ? '' : String(f.wert))}"
           ${f.platzhalter ? `placeholder="${esc(f.platzhalter)}"` : ''}
-          maxlength="${f.max || 80}" aria-label="${esc(f.label)}">
+          maxlength="${f.max || 80}" aria-label="${esc(f.label)}">`;
+      return `<div style="margin-bottom:18px">
+        <div class="eyebrow" style="margin-bottom:10px">${esc(f.label)}</div>
+        ${f.einheit ? `<div class="euro">${feld}<span>${esc(f.einheit)}</span></div>` : feld}
         ${f.note ? `<p class="note" style="margin-top:8px">${esc(f.note)}</p>` : ''}
       </div>`;
+    }
     if (f.art === 'lang') return `<div style="margin-bottom:18px">
         <div class="eyebrow" style="margin-bottom:10px">${esc(f.label)}</div>
         <textarea class="search" id="${f.id}" rows="5" style="resize:vertical"
