@@ -473,6 +473,23 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
 .aendkarte .txt{color:var(--muted);font-size:13px;line-height:1.6;margin-top:6px}
 .aendkarte .knoepfe{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 
+/* Der Jahresabschluss (1.28). Bewusst nicht in Akzentfarbe, sondern in Gelb:
+   Gelb heisst in dieser App seit 1.24 "hier laeuft eine Frist ab" – und ein
+   Kegeljahr, das zu Ende ist, ist genau das. Die Karte steht nur beim
+   Schriftfuehrer und beim 1. Kegelvater und nur ab dem Tag der Versammlung. */
+.abschlusskarte{border:1px solid var(--warn);border-radius:14px;padding:15px;margin-top:18px;background:var(--surface)}
+.abschlusskarte .kopf{font-family:'Archivo Black',sans-serif;font-size:15px;color:var(--warn)}
+.abschlusskarte .txt{color:var(--muted);font-size:13px;line-height:1.6;margin-top:6px}
+.abschlusskarte .knoepfe{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.absmark{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--warn);border:1px solid var(--warn);border-radius:99px;padding:1px 7px;margin-left:7px;white-space:nowrap}
+.absrow{cursor:pointer;width:100%;border:none;text-align:left;font-family:inherit;background:var(--surface)}
+.absschritte{color:var(--muted);font-size:13px;line-height:1.8;margin:0;padding-left:18px}
+/* Der Wert einer Titelzeile ist bei den Koenigen ein ganzer Satz
+   ("19,50 Holz je Termin · 75 % anwesend") und kein nackter Betrag. Er darf
+   deshalb umbrechen, sonst laeuft er auf dem iPhone rechts aus dem Bild. */
+.row .v.absv{white-space:normal;text-align:right;max-width:60%;font-size:13.5px;line-height:1.35}
+
 
 .ziehen{position:fixed;top:0;left:0;right:0;max-width:var(--shell);margin:0 auto;z-index:8;
   display:flex;align-items:flex-end;justify-content:center;pointer-events:none;
@@ -837,6 +854,33 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
   </div>
 
   <!-- EINSTELLUNGEN -->
+  <!-- JAHRESABSCHLUSS: DER EINE BILDSCHIRM -->
+  <div class="sheet hidden" id="abschluss" role="dialog" aria-label="Kegeljahr abschließen">
+    <div class="sheet-in">
+      <div class="sheet-head">
+        <h2 id="abschlussKopf">Kegeljahr abschließen</h2>
+        <button class="iconbtn" id="closeAbschluss" aria-label="Schließen">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div id="abschlussBody"></div>
+    </div>
+  </div>
+
+  <!-- JAHRESABSCHLUSS: EINE TITELZEILE ÄNDERN -->
+  <div class="sheet hidden" id="absForm" role="dialog" aria-label="Titel ändern">
+    <div class="sheet-in">
+      <div class="sheet-head">
+        <h2 id="absFormTitel">Titel ändern</h2>
+        <button class="iconbtn" id="closeAbsForm" aria-label="Schließen">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div id="absFormBody"></div>
+      <button class="btn" id="absFormSpeichern" style="margin-top:18px">Übernehmen</button>
+    </div>
+  </div>
+
   <div class="sheet hidden" id="settings" role="dialog" aria-label="Einstellungen">
     <div class="sheet-in">
       <div class="sheet-head">
@@ -955,7 +999,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.27';
+const APP_VERSION = '1.28';
 
 /* Das laufende Kegeljahr. Es steht außerdem noch als fester Text in der
    Überschrift "Auswertung 2026/27" im Reiter "Amt" – beim Saisonwechsel sind
@@ -1617,6 +1661,8 @@ function zeichneStart(){
       <div class="sub">${plural(D.meineTermine.filter(x=>!x.bezahlt).length,'Termin offen','Termine offen')} · ${esc(standText())}</div>
     </div>
 
+    ${abschlussKarte()}
+
     ${aendKarte()}
 
     <div class="stat breit" style="margin-top:20px">
@@ -1680,6 +1726,7 @@ function zeichneStart(){
   const verstanden = $('aendVerstanden');
   if (verstanden) verstanden.addEventListener('click', aendZurKenntnis);
   if ($('aendAlle')) $('aendAlle').addEventListener('click', zeigeHistorie);
+  if ($('absKarteBtn')) $('absKarteBtn').addEventListener('click', abschlussOeffnen);
   $('tab-start').querySelectorAll('button[data-aend]').forEach(b =>
     b.addEventListener('click', () => aendAnsehen(b.dataset.aend)));
   if ($('startErfassen')) $('startErfassen').addEventListener('click',
@@ -2850,7 +2897,7 @@ $('tabs').addEventListener('click', e => {
    bleibt hängen und man landet nach dem Schließen an einer anderen Stelle. */
 let gemerkteHoehe = 0;
 function ebenenOffen(){
-  return ['settings', 'verwaltung', 'stamm', 'stammForm', 'stammFrage', 'terminSheet', 'erfassung', 'freistrafe', 'lightbox', 'tour']
+  return ['settings', 'verwaltung', 'stamm', 'stammForm', 'stammFrage', 'terminSheet', 'erfassung', 'freistrafe', 'abschluss', 'absForm', 'lightbox', 'tour']
     .some(id => $(id) && !$(id).classList.contains('hidden'));
 }
 function hintergrundPruefen(){
@@ -2881,7 +2928,7 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   ebene('lightbox', false); ebene('stammFrage', false); ebene('stammForm', false);
   ebene('stamm', false); ebene('verwaltung', false); ebene('settings', false);
-  ebene('freistrafe', false);
+  ebene('freistrafe', false); ebene('absForm', false); ebene('abschluss', false);
   if (!$('erfassung').classList.contains('hidden')){ ebene('erfassung', false); ERF = null; }
   if (!$('tour').classList.contains('hidden')) tourBeenden();
 });
@@ -5121,6 +5168,12 @@ const TOUR_NEU      = 'kc-tour-neu';      // App-Fassung, deren Neuerungen schon
    Wer die App zum ersten Mal öffnet, sieht das NICHT – für ihn ist alles neu,
    er bekommt die Grundtour. */
 const NEUERUNGEN = [
+  { fassung: '1.28', punkte: [
+      'Das Kegeljahr lässt sich jetzt in der App abschließen – vorher ging das nur in der Tabelle.',
+      'Der Schriftführer startet, der Kegelvater bestätigt. Zusammen sind es fünf Klicks, einzutragen ist nichts.',
+      'Der Abschluss schreibt das Jahr mit Königen, Ämtern und Zahlen in die Historie, übernimmt die offenen Forderungen und legt die Kegelabende der neuen Saison an.',
+      'Vorher legt er von allem eine Archivkopie an und rechnet nach. Stimmt etwas nicht, bricht er ab und lässt alles, wie es ist.'
+    ] },
   /* Die Nummer 1.26 war am 31.08. zweimal vergeben: einmal fuer eine Fassung, die
      nur 42 Minuten im Repo lag, und einmal fuer das Urlaubslogo. Wer in diesem
      Fenster geladen hat, haette die Punkte unten nie zu sehen bekommen. Deshalb
@@ -5433,6 +5486,12 @@ function zeigeZiel(ziel){
   if (!ziel) return;
   if ($('app').classList.contains('hidden')){ offenesZiel = ziel; return; }
 
+  /* "abschluss" ist kein Reiter, sondern eine Ebene – der Kegelvater tippt auf
+     die Push-Meldung und steht sofort im Abschluss-Bildschirm. Das ist Klick 4
+     von fünf. */
+  if (ziel === 'abschluss'){ abschlussOeffnen(); offenesZiel = ''; return; }
+  if (ziel === 'historie'){ zeigeHistorie(); offenesZiel = ''; return; }
+
   const reiter = { termine: 'verein', warte: 'verein', kasse: 'kasse', amt: 'amt',
                    aenderungen: 'start', start: 'start' }[ziel] || 'start';
   const knopf = document.querySelector('#tabs button[data-tab="' + reiter + '"]');
@@ -5473,6 +5532,392 @@ if ('serviceWorker' in navigator){
     if (e.data && e.data.typ === 'zeigen') zeigeZiel(e.data.ziel);
   });
 }
+
+/* ================================================ Jahresabschluss (1.28) */
+/* Der Wechsel ins neue Kegeljahr – der einzige Vorgang in dieser App, der sich
+   nicht zurückdrehen lässt, und zugleich der, den jemand vielleicht zum ersten
+   Mal in seinem Leben macht. Deshalb ist er auf FÜNF Klicks gebaut, verteilt
+   auf zwei Personen:
+
+     1  Schriftführer tippt die goldene Karte auf der Startseite an
+     2  "Kegeljahr abschließen"
+     3  "Ja, abschließen"
+     4  Kegelvater tippt auf die Push-Meldung
+     5  "Abschluss bestätigen"
+
+   Dazwischen ist nichts einzutragen. Der Bildschirm kommt fertig gerechnet vom
+   Backend: Könige, Ämterbesetzung, offene Forderungen, die neuen Termine und
+   was geleert wird. Eine Titelzeile lässt sich antippen und ändern – muss aber
+   nicht, der Vorschlag steht schon richtig da. */
+
+let ABS = null;          // die Vorschau, wie sie vom Backend kommt
+let absLaeuft = false;   // gegen Doppeltippen auf den roten Knopf
+let absTitelIndex = -1;  // welche Titelzeile gerade in der Maske steht
+
+/* Die Karte auf der Startseite. Wer damit nichts zu tun hat, bekommt vom
+   Backend null und sieht deshalb gar nichts. */
+function abschlussKarte(){
+  const a = D && D.abschluss;
+  if (!a) return '';
+  const wartet = a.wartet;
+  const ichBinDran = wartet ? a.darfBestaetigen : a.darfStarten;
+  const txt = wartet
+    ? (a.darfBestaetigen
+        ? esc(a.wer) + ' will das Kegeljahr ' + esc(a.saison) + ' abschließen und wartet auf dich.'
+        : 'Der Abschluss von ' + esc(a.saison) + ' wartet auf die Bestätigung des Kegelvaters.')
+    : 'Das Kegeljahr ' + esc(a.saison) + ' ist zu Ende. Der Abschluss schreibt es in die Historie, '
+      + 'übernimmt die offenen Forderungen und stellt die App auf die neue Saison.';
+  return `<div class="abschlusskarte">
+    <div class="kopf">${wartet ? 'Ein Abschluss wartet' : 'Das Kegeljahr ist zu Ende'}</div>
+    <div class="txt">${txt}</div>
+    <div class="knoepfe">
+      <button class="btn ghost small" id="absKarteBtn">${
+        ichBinDran ? (wartet ? 'Ansehen und bestätigen' : 'Kegeljahr abschließen') : 'Ansehen'}</button>
+    </div></div>`;
+}
+
+async function abschlussOeffnen(){
+  ebene('settings', false);
+  ebene('abschluss', true);
+  $('abschlussBody').innerHTML = `<div class="list" style="margin-top:16px"><div class="row">
+    <div class="n">Das Kegeljahr wird durchgerechnet …</div></div></div>`;
+  try {
+    const a = await api('abschlussVorschau', { token: token }, 2);
+    if (a.fehler){ absFehler(a.fehler); return; }
+    if (!a.faellig){ absFehler('Zurzeit steht kein Kegeljahr zum Abschluss an.'); return; }
+    ABS = a;
+    zeichneAbschluss();
+  } catch (e) {
+    absFehler('Der Abschluss lässt sich gerade nicht laden (' + fehlerGrund(e) + ').');
+  }
+}
+
+function absFehler(text){
+  $('abschlussBody').innerHTML = `<p class="note" style="margin-top:16px;color:var(--accent);font-weight:600">${esc(text)}</p>`;
+}
+
+/* Ein Datum wie "31.12.2027", dahinter die Marke, falls der Tag besonders ist. */
+function absTerminZeile(t){
+  return `<div class="row"><div><div class="n">${esc(wochentag(t.datum))}, ${dat(t.datum)}${
+    t.hinweis ? `<span class="absmark">${esc(t.hinweis)}</span>` : ''}</div>
+    <div class="m">${esc([t.beginn ? t.beginn + ' Uhr' : '', t.ort].filter(String).join(' · ') || 'Kegelabend')}</div></div></div>`;
+}
+
+function zeichneAbschluss(){
+  const a = ABS, z = a.zahlen;
+  $('abschlussKopf').textContent = 'Kegeljahr ' + a.saison;
+
+  let h = `<p class="note" style="margin-top:14px">Vom ${dat(a.beginn)} bis zur Generalversammlung
+    am ${dat(a.ende)}. Alles auf diesem Bildschirm ist bereits gerechnet – es ist nichts
+    einzutragen.</p>`;
+
+  /* 1 – Der Stand */
+  h += `<h2 class="sec" style="margin-top:24px">Der Stand</h2>
+    <div class="list" style="margin-top:14px">
+      <div class="row"><div class="n">Termine</div><div class="v">${z.termine}</div></div>
+      <div class="row"><div><div class="n">Davon mit Werten</div>${
+        z.leer.length ? `<div class="m frist">Ohne Werte geblieben: ${z.leer.map(dat).join(', ')}</div>` : ''}
+        </div><div class="v">${z.mitWerten}</div></div>
+      <div class="row"><div class="n">Strafen der Saison</div><div class="v">${eur(z.strafen)}</div></div>
+      <div class="row"><div class="n">Ausgaben</div><div class="v">${eur(z.ausgaben)}</div></div>
+      <div class="row"><div class="n">Sonstige Einnahmen</div><div class="v">${eur(z.einnahmen)}</div></div>
+      <div class="row"><div class="n">Spenden</div><div class="v">${eur(z.spenden)}</div></div>
+      <div class="row"><div class="n">Kassenstand</div><div class="v">${esc(preisText(z.kontostand) || '–')}</div></div>
+    </div>`;
+
+  /* 2 – Das kommt in die Historie */
+  h += `<h2 class="sec" style="margin-top:24px">Das kommt in die Historie</h2>
+    <p class="note" style="margin-top:10px">Antippen ändert eine Zeile – nur nötig, wenn auf der
+      Versammlung etwas anderes verkündet wurde.</p>
+    <div class="list" style="margin-top:14px">${
+      (a.titel || []).map((t, i) => `<button class="row absrow" data-titel="${i}">
+        <div><div class="n">${esc(t.titel)}</div>
+          <div class="m">${esc(t.wer || 'niemand')}</div></div>
+        <div class="v absv ${/\d/.test(t.wert) ? '' : 'blass'}">${esc(t.wert)}</div></button>`).join('')
+      || `<div class="row"><div class="n">Keine Titel</div></div>`}
+    </div>`;
+
+  h += `<div class="list" style="margin-top:14px">
+      <div class="row"><div><div class="n">Ämterbesetzung</div>
+        <div class="m">So, wie sie am Ende der Saison war</div></div>
+        <div class="v">${(a.aemter || []).length}</div></div>
+      <div class="row"><div><div class="n">Ereignisse und Strafen</div>
+        <div class="m">Zum ersten Mal seit 2019/20 mit Geldwerten</div></div>
+        <div class="v">${z.ereignisse + z.strafzeilen}</div></div>
+    </div>`;
+
+  /* 3 – Das wird übernommen */
+  h += `<h2 class="sec mitchip" style="margin-top:24px"><span>Das wird übernommen</span>
+      <span class="chip">${eur(a.offenSumme)}</span></h2>`;
+  /* Nach Kegelbruder gebündelt. Einzeln wären es schnell sechzig Zeilen, durch
+     die man sich bis zum Knopf scrollen müsste – und wissen will man hier, wer
+     wie viel mitnimmt, nicht welcher Abend das im Einzelnen war. */
+  const jeMann = {};
+  (a.offen || []).forEach(o => {
+    const m = jeMann[o.name] || (jeMann[o.name] = { name: o.name, summe: 0, anzahl: 0, aeltester: o.datum });
+    m.summe += o.betrag; m.anzahl++;
+    if (o.datum < m.aeltester) m.aeltester = o.datum;
+  });
+  const gebuendelt = Object.keys(jeMann).sort().map(k => jeMann[k]);
+  h += gebuendelt.length
+    ? `<div class="list" style="margin-top:14px">${gebuendelt.map(o => `<div class="row">
+        <div><div class="n">${esc(o.name)}</div>
+          <div class="m">${plural(o.anzahl,'Posten','Posten')} · ältester vom ${dat(o.aeltester)}</div></div>
+        <div class="v">${eur(Math.round(o.summe * 100) / 100)}</div></div>`).join('')}</div>
+      <p class="note" style="margin-top:10px">Diese Posten bleiben mit ihrem bisherigen
+        Fälligkeitsdatum stehen – der Zuschlag nach §20 läuft also weiter.</p>`
+    : `<p class="note" style="margin-top:14px">Es ist nichts mehr offen.</p>`;
+
+  /* 4 – Das wird neu angelegt */
+  h += `<h2 class="sec" style="margin-top:24px">Das wird neu angelegt</h2>
+    <p class="note" style="margin-top:10px">${plural((a.neueTermine||[]).length,'Kegelabend','Kegelabende')},
+      alle vier Wochen freitags im Rhythmus der alten Saison.</p>
+    <div class="list" style="margin-top:14px">${
+      (a.neueTermine || []).map(absTerminZeile).join('')
+      || `<div class="row"><div class="n">Es sind schon alle Termine angelegt.</div></div>`}</div>`;
+  if ((a.neueTermine || []).some(t => t.hinweis)){
+    h += `<p class="note frist" style="margin-top:10px;color:var(--warn);font-weight:600">
+      Ein Termin fällt auf einen besonderen Tag. Er wird trotzdem angelegt – verschieben
+      kannst du ihn danach unter Verein · Termine mit „Ändern“.</p>`;
+  }
+
+  /* 5 – Das wird geleert */
+  h += `<h2 class="sec" style="margin-top:24px">Das wird geleert</h2>
+    <ul class="absschritte" style="margin-top:12px">
+      <li>Strafen, Ereignisse und offene Beträge der abgelaufenen Saison</li>
+      <li>Ausgaben und sonstige Einnahmen</li>
+      <li>Der Terminkalender – die neuen Kegelabende kommen an ihre Stelle</li>
+      <li>Die Strafenlisten der einzelnen Abende</li>
+      <li>Die Freigaben: Kegelkönig und Kassenbericht sind für die neue Saison wieder zu</li>
+    </ul>
+    <p class="note" style="margin-top:12px"><b>Nicht angefasst:</b> Kassenstand, Statuten, Ämter,
+      Mitglieder, alle Zugangscodes und angemeldeten Geräte. Von allem, was geleert wird, liegt
+      vorher eine Archivkopie in Drive.</p>`;
+
+  /* 6 – Der Knopf */
+  h += `<div id="absAktion" style="margin-top:26px">${absAktionHtml()}</div>`;
+
+  $('abschlussBody').innerHTML = h;
+  absAktionVerdrahten();
+  $('abschlussBody').querySelectorAll('button[data-titel]').forEach(b =>
+    b.addEventListener('click', () => absTitelOeffnen(Number(b.dataset.titel))));
+}
+
+/* Der untere Teil wechselt zwischen Knopf, Rückfrage und Wartezustand –
+   deshalb steht er in einer eigenen Funktion und wird für sich neu gezeichnet. */
+function absAktionHtml(frage){
+  const a = ABS;
+  if (a.antrag && !a.darfBestaetigen){
+    return `<p class="note">Wartet auf die Bestätigung von
+      ${esc(absKegelvaterName() || 'dem 1. Kegelvater')}. Angemeldet von ${esc(a.antrag.wer)}
+      am ${esc(a.antrag.zeit)}.</p>
+      <button class="btn ghost" id="absAbbrechen" style="margin-top:14px">Abschluss zurückziehen</button>`;
+  }
+  if (a.antrag && a.darfBestaetigen){
+    return `<p class="note">${esc(a.antrag.wer)} hat den Abschluss am ${esc(a.antrag.zeit)}
+      angemeldet. Mit deiner Bestätigung läuft er durch – das dauert etwa eine Minute.</p>
+      <button class="btn" id="absBestaetigen" style="margin-top:14px">Abschluss bestätigen</button>
+      <button class="btn ghost" id="absAbbrechen" style="margin-top:10px">Zurückziehen</button>`;
+  }
+  if (!a.darfStarten){
+    return `<p class="note">Den Abschluss startet der Schriftführer.</p>`;
+  }
+  if (frage){
+    return `<div class="card" style="border-color:var(--warn)">
+        <div class="eyebrow" style="color:var(--warn)">Das lässt sich nicht zurückdrehen</div>
+        <p class="note" style="margin-top:10px">Die Saison ${esc(a.saison)} wird in die Historie
+          geschrieben und danach geleert. Vorher legt die App von allem eine Archivkopie an.
+          Stimmt beim Nachrechnen etwas nicht, bricht sie ab und lässt alles, wie es ist.</p>
+        <p class="note" style="margin-top:8px">Danach bekommt ${esc(absKegelvaterName() || 'der 1. Kegelvater')}
+          eine Nachricht und muss bestätigen. Erst dann passiert wirklich etwas.</p>
+      </div>
+      <button class="btn" id="absJa" style="margin-top:14px">Ja, abschließen</button>
+      <button class="btn ghost" id="absNein" style="margin-top:10px">Doch nicht</button>`;
+  }
+  return `<button class="btn" id="absStart">Kegeljahr abschließen</button>`;
+}
+
+function absKegelvaterName(){
+  const a = (D.aemter || []).filter(x => x.amt === 'Kegelvater')[0];
+  return a && a.wer && a.wer[0] ? a.wer[0] : '';
+}
+
+function absAktionNeu(frage){
+  $('absAktion').innerHTML = absAktionHtml(frage);
+  absAktionVerdrahten();
+}
+
+function absAktionVerdrahten(){
+  if ($('absStart'))       $('absStart').addEventListener('click', () => absAktionNeu(true));
+  if ($('absNein'))        $('absNein').addEventListener('click', () => absAktionNeu(false));
+  if ($('absJa'))          $('absJa').addEventListener('click', absStarten);
+  if ($('absBestaetigen')) $('absBestaetigen').addEventListener('click', absBestaetigen);
+  if ($('absAbbrechen'))   $('absAbbrechen').addEventListener('click', absAbbrechen);
+}
+
+/* Klick 3: anmelden. Hat der Schriftführer vorher eine Titelzeile geändert,
+   geht die Änderung direkt hinterher – das Backend rechnet beim Anmelden neu
+   und würde sie sonst überschreiben. */
+async function absStarten(){
+  if (absLaeuft) return;
+  absLaeuft = true;
+  $('absAktion').innerHTML = `<p class="note">Wird angemeldet …</p>`;
+  try {
+    const a = await api('abschlussStarten', { token: token }, 2);
+    if (a.fehler){ hinweisleiste(a.fehler, 'warn'); absLaeuft = false; absAktionNeu(false); return; }
+    if (ABS.geaendert){
+      const t = await api('abschlussTitel', { token: token, titel: ABS.titel }, 2);
+      if (t.antrag) a.antrag = t.antrag;
+    }
+    ABS.antrag = a.antrag;
+    ABS.titel  = a.antrag.titel;
+    ABS.darfBestaetigen = false;
+    hinweisleiste(a.hinweis || 'Angemeldet.');
+    zeichneAbschluss();
+    aktualisieren();
+  } catch (e) {
+    hinweisleiste('Das Anmelden hat nicht geklappt (' + fehlerGrund(e) + ').', 'warn');
+    absAktionNeu(false);
+  }
+  absLaeuft = false;
+}
+
+/* Klick 5: der Kegelvater bestätigt, und der ganze Ablauf läuft durch. */
+async function absBestaetigen(){
+  if (absLaeuft) return;
+  absLaeuft = true;
+  $('absAktion').innerHTML = `<p class="note">Das Kegeljahr wird abgeschlossen. Das dauert etwa
+    eine Minute – bitte die App so lange offen lassen.</p>`;
+  try {
+    const a = await api('abschlussBestaetigen', { token: token }, 1);
+    if (a.fehler){
+      $('absAktion').innerHTML = `<div class="card" style="border-color:var(--accent)">
+        <div class="eyebrow" style="color:var(--accent)">Abgebrochen</div>
+        <p class="note" style="margin-top:10px">${esc(a.fehler)}</p></div>`;
+      absLaeuft = false;
+      return;
+    }
+    absBericht(a);
+    aktualisieren(true);
+  } catch (e) {
+    $('absAktion').innerHTML = `<p class="note" style="color:var(--accent);font-weight:600">
+      Die Verbindung ist abgerissen (${esc(fehlerGrund(e))}). Der Abschluss kann trotzdem
+      durchgelaufen sein – schließ den Bildschirm, lade die Daten neu und sieh nach, ob das
+      Kegeljahr in der Historie steht. Ein zweiter Lauf wäre gefahrlos.</p>`;
+  }
+  absLaeuft = false;
+}
+
+async function absAbbrechen(){
+  try {
+    await api('abschlussAbbrechen', { token: token }, 2);
+    hinweisleiste('Zurückgezogen.');
+    ebene('abschluss', false);
+    aktualisieren();
+  } catch (e) { hinweisleiste('Hat nicht geklappt (' + fehlerGrund(e) + ').', 'warn'); }
+}
+
+/* Was danach dasteht: kein "fertig", sondern was tatsächlich passiert ist. */
+function absBericht(a){
+  const koenig = (a.titel || []).filter(t => t.titel === 'Kegelkönig')[0];
+  const pumpe  = (a.titel || []).filter(t => t.titel === 'Pumpenkönig')[0];
+  let h = `<div class="card" style="border-color:var(--ok)">
+      <div class="eyebrow" style="color:var(--ok)">Abgeschlossen</div>
+      <p class="note" style="margin-top:10px">Das Kegeljahr ${esc(a.saison)} steht jetzt in der
+        Historie.${koenig && koenig.wer ? ' Kegelkönig: ' + esc(koenig.wer) + '.' : ''}${
+        pumpe && pumpe.wer ? ' Pumpenkönig: ' + esc(pumpe.wer) + '.' : ''}</p>
+    </div>
+    <ul class="absschritte" style="margin-top:16px">${
+      (a.schritte || []).map(t => `<li>${esc(t)}</li>`).join('')}</ul>`;
+
+  if ((a.archiv || []).length){
+    h += `<h2 class="sec" style="margin-top:22px">Archivkopien</h2>
+      <div class="list" style="margin-top:12px">${a.archiv.map(k => `<div class="row">
+        <div class="n">${esc(k.name)}</div></div>`).join('')}</div>`;
+  }
+  if ((a.neueTermine || []).length){
+    h += `<h2 class="sec" style="margin-top:22px">Die neue Saison</h2>
+      <div class="list" style="margin-top:12px">${a.neueTermine.map(absTerminZeile).join('')}</div>`;
+  }
+  h += `<div class="card" style="margin-top:22px">
+      <div class="eyebrow">Als Nächstes</div>
+      <p class="note" style="margin-top:10px">Die neu gewählten Warte eintragen. Die Reihenfolge
+        spielt keine Rolle – die App hat die alte Besetzung bereits festgehalten.</p>
+      <button class="btn ghost" id="absZuAemtern" style="margin-top:12px">Zu den Ämtern</button>
+    </div>
+    <button class="btn" id="absFertig" style="margin-top:14px">Fertig</button>`;
+
+  $('abschlussBody').innerHTML = h;
+  $('abschlussKopf').textContent = 'Kegeljahr ' + a.saison;
+  $('absFertig').addEventListener('click', () => { ebene('abschluss', false); aktualisieren(true); });
+  $('absZuAemtern').addEventListener('click', () => {
+    ebene('abschluss', false);
+    if ($('openStamm')) $('openStamm').click();
+    const b = document.querySelector('#stammSeg button[data-stamm="aemter"]');
+    if (b) b.click();
+  });
+}
+
+/* ------------------------------------------------ Eine Titelzeile ändern */
+
+function absTitelOeffnen(i){
+  const t = (ABS.titel || [])[i];
+  if (!t) return;
+  absTitelIndex = i;
+  $('absFormTitel').textContent = t.titel;
+  $('absFormBody').innerHTML = `
+    <p class="note" style="margin-top:14px">Der Vorschlag ist nachgerechnet. Trag hier ein, was
+      auf der Generalversammlung wirklich verkündet wurde – sonst einfach schließen.</p>
+    <div style="margin-top:18px">
+      <div class="eyebrow" style="margin-bottom:10px">Wer</div>
+      <input id="absWer" class="search" list="absNamen" maxlength="60"
+        aria-label="Wer" value="${esc(t.wer)}">
+      <datalist id="absNamen">${(D.mitglieder || []).map(m =>
+        `<option value="${esc(m.name)}"></option>`).join('')}</datalist>
+    </div>
+    <div style="margin-top:18px">
+      <div class="eyebrow" style="margin-bottom:10px">Wert</div>
+      <input id="absWert" class="search" maxlength="120" aria-label="Wert" value="${esc(t.wert)}">
+    </div>
+    <div style="margin-top:18px">
+      <div class="eyebrow" style="margin-bottom:10px">Bemerkung</div>
+      <input id="absBemerkung" class="search" maxlength="300" aria-label="Bemerkung"
+        value="${esc(t.bemerkung || '')}">
+    </div>
+    <p class="note" style="margin-top:14px">Geänderte Zeilen führt die Historie als
+      <b>belegt</b>, unveränderte als <b>gerechnet</b>.</p>`;
+  ebene('absForm', true);
+}
+
+async function absTitelSpeichern(){
+  const t = (ABS.titel || [])[absTitelIndex];
+  if (!t){ ebene('absForm', false); return; }
+  const wer  = $('absWer').value.trim();
+  const wert = $('absWert').value.trim();
+  const bem  = $('absBemerkung').value.trim();
+  const anders = wer !== t.wer || wert !== t.wert || bem !== (t.bemerkung || '');
+  if (anders){
+    t.wer = wer; t.wert = wert; t.bemerkung = bem;
+    t.quelle = 'überliefert + nachgerechnet';
+    ABS.geaendert = true;
+  }
+  ebene('absForm', false);
+
+  // Läuft der Antrag schon, wandert die Änderung sofort zum Backend – sonst
+  // stünde in der Historie am Ende doch der alte Vorschlag.
+  if (anders && ABS.antrag){
+    try {
+      const a = await api('abschlussTitel', { token: token, titel: ABS.titel }, 2);
+      if (a.fehler) hinweisleiste(a.fehler, 'warn');
+      else if (a.antrag){ ABS.antrag = a.antrag; ABS.titel = a.antrag.titel; }
+    } catch (e) { hinweisleiste('Nicht gespeichert (' + fehlerGrund(e) + ').', 'warn'); }
+  }
+  zeichneAbschluss();
+}
+
+$('closeAbschluss').addEventListener('click', () => ebene('abschluss', false));
+$('closeAbsForm').addEventListener('click', () => ebene('absForm', false));
+$('absFormSpeichern').addEventListener('click', absTitelSpeichern);
 
 /* -------------------------------------------------- Service Worker */
 /* Warum das komplizierter aussieht als nötig:
