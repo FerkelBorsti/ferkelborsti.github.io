@@ -919,7 +919,7 @@ details.jahr summary:focus-visible{outline:2px solid var(--accent);outline-offse
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.25';
+const APP_VERSION = '1.26';
 
 /* Das laufende Kegeljahr. Es steht außerdem noch als fester Text in der
    Überschrift "Auswertung 2026/27" im Reiter "Amt" – beim Saisonwechsel sind
@@ -3782,6 +3782,11 @@ function postenZeile(p){
     if (p.ausgesetzt){
       knoepfe = vermerkKnopf(p, 'ausgesetzt', false, 'Aussetzung zurücknehmen');
     } else {
+      /* Fällt ein Kegelabend aus oder wird verschoben, stimmt das errechnete
+         Datum nicht mehr – dafür dieser Knopf. */
+      knoepfe += `<button class="btn ghost small" data-faellig="1"
+            data-datum="${esc(p.datum)}" data-name="${esc(p.name)}"
+            data-quelle="${esc(p.quelle || '')}">Fällig …</button>`;
       if (p.frist) knoepfe += vermerkKnopf(p, 'frist', false, 'Frist wieder setzen');
       else         knoepfe += vermerkKnopf(p, 'frist', true,  'Frist aufheben');
       if (p.oe)    knoepfe += vermerkKnopf(p, 'ausgesetzt', true, 'Aussetzen');
@@ -3800,7 +3805,7 @@ function postenZeile(p){
                   data-datum="${esc(p.datum)}" data-name="${esc(p.name)}"
                   data-quelle="${esc(p.quelle || '')}">Bezahlt</button>`}
       </div>
-    </div>${knoepfe ? `<div class="kassepost" style="padding-top:0;justify-content:flex-end;gap:8px">${knoepfe}</div>` : ''}`;
+    </div>${knoepfe ? `<div class="kassepost" style="padding-top:0;justify-content:flex-end;gap:8px;flex-wrap:wrap">${knoepfe}</div>` : ''}`;
 }
 
 /* ------------------------------------------------- Masken der Kasse */
@@ -3833,6 +3838,52 @@ function kasseZahlungMaske(titel, posten, summe){
     hinweisleiste(r.spende > 0
       ? 'Gebucht – ' + eur(r.spende) + ' davon als Spende vermerkt.'
       : 'Als bezahlt vermerkt.');
+  });
+}
+
+/**
+ * Fälligkeitsdatum eines Postens. Gebraucht wird das, wenn ein Kegelabend
+ * ausfällt oder verschoben wird: Die Automatik rechnet stur alle vier Wochen
+ * weiter und weiß davon nichts.
+ */
+function kasseFaelligMaske(p){
+  stammMaske(esc(p.name) + ' · ' + dat(p.datum), [
+    { art: 'info', label: 'Bisher fällig', wert: p.faellig ? dat(p.faellig) : 'keine Frist gesetzt',
+      note: 'Ab dem Tag nach diesem Datum wächst der Zuschlag nach §20. '
+          + 'Ein neues Datum nimmt einen gesetzten Vermerk „Frist aufgehoben" zurück.' },
+    { art: 'datum', label: 'Neu fällig am', id: 'kasseFaellig', wert: p.faellig || '' }
+  ], 'Speichern', async () => {
+    kasseFehler('stammFormFehler', '');
+    const d = stammWert('kasseFaellig');
+    if (!d){ kasseFehler('stammFormFehler', 'Bitte ein Datum wählen.'); return; }
+    const r = await kasseSenden('postenSetzen', {
+      posten: { datum: p.datum, name: p.name, quelle: p.quelle || '' },
+      was: 'faellig', wert: d
+    }, $('stammSpeichern'), 'Speichern', 'stammFormFehler');
+    if (!r) return;
+    ebene('stammForm', false);
+    hinweisleiste('Neue Frist: ' + dat(d) + '.');
+  });
+}
+
+/** Eine neue Ausgaben-Kategorie. Entfernen geht bewusst nicht – siehe Backend. */
+function kasseKategorieMaske(){
+  stammMaske('Neue Kategorie', [
+    { art: 'text', label: 'Name', id: 'kasseKat', wert: '', max: 60,
+      platzhalter: 'z. B. Bahnmiete',
+      note: 'Steht danach in der Auswahl. Bestehende Kategorien lassen sich nicht löschen – '
+          + 'an ihnen hängen alte Ausgaben.' }
+  ], 'Anlegen', async () => {
+    kasseFehler('stammFormFehler', '');
+    const name = stammWert('kasseKat');
+    if (name.length < 2){ kasseFehler('stammFormFehler', 'Bitte einen Namen mit mindestens zwei Zeichen angeben.'); return; }
+    const r = await kasseSenden('kategorieAnlegen', { name: name },
+                                $('stammSpeichern'), 'Anlegen', 'stammFormFehler');
+    if (!r) return;
+    ausgabeKategorie = r.neu || name;   // gleich ausgewählt, sonst tippt man zweimal
+    ebene('stammForm', false);
+    zeichneKasse();
+    hinweisleiste('Kategorie angelegt.');
   });
 }
 
@@ -4032,9 +4083,9 @@ const KASSE_SICHTEN = {
       <div class="kassefeld">
         <div class="eyebrow">Kategorie</div>
         <div class="chips" id="ausgabeKats" style="margin:0;padding:2px 0">${
-          kategorien.length
-            ? kategorien.map(k => `<button data-kat="${esc(k)}" aria-pressed="${k === ausgabeKategorie}">${esc(k)}</button>`).join('')
-            : '<span class="note">Es sind noch keine Kategorien hinterlegt.</span>'}</div>
+          kategorien.map(k => `<button data-kat="${esc(k)}" aria-pressed="${k === ausgabeKategorie}">${esc(k)}</button>`).join('')
+          + (darfKasseAendern() ? '<button data-neuekat="1" aria-pressed="false">+ Neue Kategorie</button>' : '')
+          || '<span class="note">Es sind noch keine Kategorien hinterlegt.</span>'}</div>
       </div>
       <div class="kassefeld">
         <div class="eyebrow">Notiz</div>
@@ -4137,6 +4188,7 @@ async function kasseSenden(aktion, nutzlast, knopf, beschriftung, fehlerFeld){
     if (r.offene)   D.kasseDaten.offene   = r.offene;
     if (r.ausgaben) D.kasseDaten.ausgaben = r.ausgaben;
     if (r.umlage)   D.kasseDaten.umlage   = r.umlage;
+    if (r.kategorien) D.kasseDaten.kategorien = r.kategorien;
     if (r.kasse)    D.kasse = r.kasse;
     if (typeof r.offenSumme === 'number') D.offen = r.offenSumme;
     speicher.schreib('kc-daten', JSON.stringify(D));
@@ -4195,6 +4247,22 @@ $('kasseBody').addEventListener('click', async e => {
     e.preventDefault(); e.stopPropagation();
     const mann = offenNachMann().filter(g => g.name === zahlung.dataset.zahlung)[0];
     if (mann) kasseZahlungMaske(mann.name, echteForderungen(mann), mann.summe);
+    return;
+  }
+
+  const faellig = e.target.closest('button[data-faellig]');
+  if (faellig){
+    e.preventDefault(); e.stopPropagation();
+    const p = kasseD().offene.filter(x => x.datum === faellig.dataset.datum
+      && x.name === faellig.dataset.name
+      && (x.quelle || '') === (faellig.dataset.quelle || ''))[0];
+    if (p) kasseFaelligMaske(p);
+    return;
+  }
+
+  if (e.target.closest('button[data-neuekat]')){
+    e.preventDefault(); e.stopPropagation();
+    kasseKategorieMaske();
     return;
   }
 
