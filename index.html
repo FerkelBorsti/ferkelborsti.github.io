@@ -106,6 +106,13 @@ details.kasse summary::-webkit-details-marker{display:none}
 details.kasse summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 details.kasse .body{padding:0 15px 14px;border-top:1px solid var(--line)}
 .kassepost{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+/* Ein offener Posten ist eine Zeile wie jede andere und wird angetippt – bis
+   1.24 standen hier bis zu fuenf Knoepfe nebeneinander, die auf einem Handy
+   rechts aus dem Bild liefen. */
+.kasserow{cursor:pointer}
+.kasserow .v{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+.kasserow .go{color:var(--muted);font-size:18px;line-height:1;font-family:'Archivo',sans-serif;font-weight:400}
+.kassetun{display:flex;flex-direction:column;gap:8px;padding:12px 15px}
 .kassepost:last-child{border-bottom:none}
 .kassepost .m{color:var(--muted);font-size:12.5px;margin-top:2px}
 .kassefeld{margin-top:16px}
@@ -940,7 +947,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
 <script>
 /* ================= KC Knüppeldick – App  v1.0.0 ================= */
 const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
-const APP_VERSION = '1.24.1';
+const APP_VERSION = '1.25';
 
 /* Das laufende Kegeljahr. Es steht außerdem noch als fester Text in der
    Überschrift "Auswertung 2026/27" im Reiter "Amt" – beim Saisonwechsel sind
@@ -2184,9 +2191,13 @@ function zeichneStrafen(){
         <span class="pill ${t.bezahlt?'paid':'open'}">${t.bezahlt?'bezahlt':eur(t.summe)}</span></div>
       ${fasseZusammen(t.eintraege).map(x => `<div class="row"><div><div class="n">${esc(x.t)}</div>
         <div class="m">${x.n} × ${eur(x.summe/x.n)}</div></div><div class="v">${eur(x.summe)}</div></div>`).join('')}
-      ${t.faellig && !t.bezahlt ? `<div class="row"><div><div class="m${
-        t.faellig <= D.heute ? ' frist' : ''}">Fällig am ${dat(t.faellig)}${
-        t.faellig <= D.heute ? ' – Frist verstrichen, §20 greift' : ''}</div></div></div>` : ''}
+      ${!t.bezahlt && (t.ausgesetzt || t.frist)
+        ? `<div class="row"><div><div class="m">${t.ausgesetzt
+             ? 'Durchschnittstrafe ausgesetzt – du musst sie nicht zahlen'
+             : 'Frist aufgehoben – kein Zahlungsziel'}</div></div></div>`
+        : (t.faellig && !t.bezahlt ? `<div class="row"><div><div class="m${
+            t.faellig <= D.heute ? ' frist' : ''}">Fällig am ${dat(t.faellig)}${
+            t.faellig <= D.heute ? ' – Frist verstrichen, §20 greift' : ''}</div></div></div>` : '')}
     </div>`).join('');
   }
   $('tab-strafen').innerHTML = h;
@@ -3988,14 +3999,23 @@ const isoAusDeutsch = t => {
   return m ? m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2) : '';
 };
 
+/* Zwei Vermerke des Kassenwarts, die aus der Tabelle kommen (1.25):
+   "Frist aufgehoben" nimmt nur das Zahlungsziel – das Geld schuldet der
+   Kegelbruder weiter. "Durchschnittstrafe ausgesetzt" heißt dagegen: wird nie
+   kassiert. Der Betrag bleibt trotzdem stehen, sonst wäre die Aussetzung
+   nirgends mehr zu sehen. */
+const postenMarke = o => o.ausgesetzt ? 'ausgesetzt' : (o.frist ? 'ohne Frist' : '');
+const postenRuht  = o => o.ausgesetzt === true;
+const echteForderungen = mann => mann.posten.filter(x => !postenRuht(x) && (x.offen || 0) > 0);
+
 function offenNachMann(){
   const map = {};
   kasseD().offene.forEach(o => {
     if (o.bezahlt) return;
     const rest = Math.round((o.offen || 0) * 100) / 100;
-    if (rest <= 0) return;
+    if (rest <= 0 && !postenMarke(o)) return;
     if (!map[o.name]) map[o.name] = { name: o.name, summe: 0, posten: [] };
-    map[o.name].summe += rest;
+    if (rest > 0) map[o.name].summe += rest;
     map[o.name].posten.push(o);
   });
   return Object.keys(map).map(k => {
@@ -4003,7 +4023,228 @@ function offenNachMann(){
     m.summe = Math.round(m.summe * 100) / 100;
     m.posten.sort((a, b) => a.datum < b.datum ? -1 : 1);
     return m;
-  }).sort((a, b) => b.summe - a.summe || (a.name < b.name ? -1 : 1));
+  // Sortiert nach Namen (Wunsch vom 31.08.2026): Der Kassenwart sucht einen
+  // bestimmten Kegelbruder, nicht den größten Betrag.
+  }).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+}
+
+/* Beim Zeichnen gefüllt: Die Zeilen tragen nur eine Nummer, den Posten selbst
+   holt der Klick von hier. Datum, Name und Quelle als Text im HTML wären drei
+   Stellen, an denen ein Sonderzeichen etwas kaputtmachen kann. */
+let kassePosten = [], kasseAbgehakt = [];
+
+/* ------------------------------------------------- Masken der Kasse */
+/* Es ist dieselbe Eingabemaske wie in den Stammdaten. Zwei verschiedene
+   Formulare in einer App waeren zwei Bedienungen zum Lernen. */
+
+/* Frist, Aussetzung und Faelligkeit duerfen Kassenwart und Schriftfuehrer.
+   Der Rueckfall greift bei einem Backend aelter als 1.25. */
+const darfVermerk = () => !!(D.ich && (D.ich.darfVermerk !== undefined ? D.ich.darfVermerk
+                                                                       : D.ich.darfKasse));
+
+/** Alles, was mit einem einzelnen offenen Posten geht – an einer Stelle. */
+function kassePostenMaske(p){
+  const marke = postenMarke(p);
+  const ruht  = postenRuht(p);
+  /* Der Name steht schon im Titel der Maske – ihn hier zu wiederholen, waere
+     eine Zeile, die niemand liest. */
+  const felder = [
+    { art: 'info', label: 'Termin', wert: dat(p.datum) + (p.quelle ? ' · ' + p.quelle : '') },
+    { art: 'info', label: ruht ? 'Ausgesetzt' : 'Offen',
+      wert: ruht ? eur(p.betrag) + ' (zählt nicht)' : eur(p.offen),
+      note: marke === 'ausgesetzt'
+        ? 'Die Durchschnittstrafe ist ausgesetzt. Der Betrag bleibt stehen, damit nachvollziehbar bleibt, dass hier nicht gezahlt, sondern erlassen wurde.'
+        : marke === 'ohne Frist'
+          ? 'Die Frist ist aufgehoben: kein Zahlungsziel, kein Zuschlag nach §20. Bezahlt werden kann trotzdem.'
+          : 'Fällig ' + (p.faellig ? dat(p.faellig) : '–')
+            + (p.zuschlag > 0 ? ' · darin ' + eur(p.zuschlag) + ' Zuschlag nach §20' : '') }
+  ];
+
+  if (!ruht){
+    felder.push({ art: 'zahl', label: 'Gezahlt', id: 'kasseGezahlt',
+      wert: betragFuerFeld(p.offen), platzhalter: 'z. B. 20,00',
+      note: 'Steht hier mehr als offen ist, wird die Differenz als Spende vermerkt. '
+          + 'Weniger geht nicht – dafür gibt es die Korrektur.' });
+  }
+
+  if (darfVermerk() && !ruht){
+    felder.push({ art: 'knopf', label: 'Fälligkeit ändern …', id: 'kasseKnopfFaellig',
+                  tun: () => kasseFaelligMaske(p) });
+    felder.push({ art: 'knopf', label: p.frist ? 'Frist wieder setzen' : 'Frist aufheben',
+                  id: 'kasseKnopfFrist',
+                  tun: () => kasseVermerkSenden(p, 'frist', !p.frist, $('kasseKnopfFrist')) });
+  }
+  if (darfVermerk() && (p.oe || ruht)){
+    felder.push({ art: 'knopf', label: ruht ? 'Aussetzung zurücknehmen' : 'Durchschnittstrafe aussetzen',
+                  id: 'kasseKnopfAus',
+                  tun: () => kasseVermerkSenden(p, 'ausgesetzt', !ruht, $('kasseKnopfAus')) });
+  }
+
+  stammMaske(p.name + ' · ' + dat(p.datum), felder,
+    ruht ? null : 'Zahlung buchen',
+    ruht ? null : async () => {
+      kasseFehler('stammFormFehler', '');
+      const z = stammZahl('kasseGezahlt', true);
+      if (z.fehler){ kasseFehler('stammFormFehler', z.fehler); return; }
+      const r = await kasseSenden('bezahltSetzen', {
+        posten: [{ datum: p.datum, name: p.name, quelle: p.quelle || '' }],
+        bezahlt: true, gezahlt: z.wert
+      }, $('stammSpeichern'), 'Zahlung buchen', 'stammFormFehler');
+      if (!r) return;
+      ebene('stammForm', false);
+      hinweisleiste(r.spende > 0 ? 'Gebucht – ' + eur(r.spende) + ' davon als Spende vermerkt.'
+                                 : 'Als bezahlt vermerkt.');
+    });
+}
+
+/** Zahlung für alle offenen Posten eines Kegelbruders auf einmal. */
+function kasseZahlungMaske(titel, posten, summe){
+  stammMaske(titel, [
+    { art: 'info', label: 'Offen', wert: eur(summe),
+      note: plural(posten.length, 'Posten', 'Posten') + '. Trag ein, was wirklich überwiesen '
+          + 'wurde. Ist es mehr, wird die Differenz als Spende vermerkt. Weniger geht nicht – '
+          + 'dann hake bitte die Posten einzeln ab.' },
+    { art: 'zahl', label: 'Gezahlt', id: 'kasseGezahlt',
+      wert: betragFuerFeld(summe), platzhalter: 'z. B. 150,00' }
+  ], 'Zahlung buchen', async () => {
+    kasseFehler('stammFormFehler', '');
+    const z = stammZahl('kasseGezahlt', true);
+    if (z.fehler){ kasseFehler('stammFormFehler', z.fehler); return; }
+    const r = await kasseSenden('bezahltSetzen', {
+      posten: posten.map(x => ({ datum: x.datum, name: x.name, quelle: x.quelle })),
+      bezahlt: true, gezahlt: z.wert
+    }, $('stammSpeichern'), 'Zahlung buchen', 'stammFormFehler');
+    if (!r) return;
+    ebene('stammForm', false);
+    hinweisleiste(r.spende > 0 ? 'Gebucht – ' + eur(r.spende) + ' davon als Spende vermerkt.'
+                               : 'Als bezahlt vermerkt.');
+  });
+}
+
+/** Eine abgehakte Zahlung zurücknehmen. */
+function kasseZurueckMaske(p){
+  stammMaske(p.name + ' · ' + dat(p.datum), [
+    { art: 'info', label: 'Abgehakt', wert: eur(p.betrag),
+      note: 'Zurücknehmen stellt den Posten wieder offen. Eine Spende, die mit dieser Zahlung '
+          + 'gebucht wurde, fällt dabei weg.' }
+  ], 'Zahlung zurücknehmen', async () => {
+    const r = await kasseSenden('bezahltSetzen', {
+      posten: [{ datum: p.datum, name: p.name, quelle: p.quelle || '' }], bezahlt: false
+    }, $('stammSpeichern'), 'Zahlung zurücknehmen', 'stammFormFehler');
+    if (!r) return;
+    ebene('stammForm', false);
+    hinweisleiste('Zurückgenommen.');
+  });
+}
+
+async function kasseVermerkSenden(p, was, an, knopf){
+  kasseFehler('stammFormFehler', '');
+  const r = await kasseSenden('postenSetzen', {
+    posten: { datum: p.datum, name: p.name, quelle: p.quelle || '' }, was: was, wert: an
+  }, knopf, knopf ? knopf.textContent : '', 'stammFormFehler');
+  if (!r) return;
+  ebene('stammForm', false);
+  hinweisleiste(was === 'frist'
+    ? (an ? 'Frist aufgehoben – dieser Posten hat kein Zahlungsziel mehr.' : 'Frist wieder gesetzt.')
+    : (an ? 'Durchschnittstrafe ausgesetzt – der Betrag bleibt zur Dokumentation stehen.'
+          : 'Aussetzung zurückgenommen.'));
+}
+
+/**
+ * Fälligkeitsdatum. Gebraucht, wenn ein Kegelabend ausfällt oder verschoben
+ * wird: Die Automatik rechnet stur alle vier Wochen weiter.
+ */
+function kasseFaelligMaske(p){
+  stammMaske(p.name + ' · ' + dat(p.datum), [
+    { art: 'info', label: 'Bisher fällig', wert: p.faellig ? dat(p.faellig) : 'keine Frist gesetzt',
+      note: 'Ab dem Tag nach diesem Datum wächst der Zuschlag nach §20. Ein neues Datum nimmt '
+          + 'einen gesetzten Vermerk „Frist aufgehoben" zurück.' },
+    { art: 'datum', label: 'Neu fällig am', id: 'kasseFaellig', wert: p.faellig || '' }
+  ], 'Speichern', async () => {
+    kasseFehler('stammFormFehler', '');
+    const d = stammWert('kasseFaellig');
+    if (!d){ kasseFehler('stammFormFehler', 'Bitte ein Datum wählen.'); return; }
+    const r = await kasseSenden('postenSetzen', {
+      posten: { datum: p.datum, name: p.name, quelle: p.quelle || '' }, was: 'faellig', wert: d
+    }, $('stammSpeichern'), 'Speichern', 'stammFormFehler');
+    if (!r) return;
+    ebene('stammForm', false);
+    hinweisleiste('Neue Frist: ' + dat(d) + '.');
+  });
+}
+
+/** Eine neue Ausgaben-Kategorie. Entfernen geht bewusst nicht – siehe Backend. */
+function kasseKategorieMaske(){
+  stammMaske('Neue Kategorie', [
+    { art: 'text', label: 'Name', id: 'kasseKat', wert: '', max: 60, platzhalter: 'z. B. Bahnmiete',
+      note: 'Steht danach in der Auswahl. Bestehende Kategorien lassen sich nicht löschen – '
+          + 'an ihnen hängen alte Ausgaben.' }
+  ], 'Anlegen', async () => {
+    kasseFehler('stammFormFehler', '');
+    const name = stammWert('kasseKat');
+    if (name.length < 2){
+      kasseFehler('stammFormFehler', 'Bitte einen Namen mit mindestens zwei Zeichen angeben.'); return;
+    }
+    const r = await kasseSenden('kategorieAnlegen', { name: name },
+                                $('stammSpeichern'), 'Anlegen', 'stammFormFehler');
+    if (!r) return;
+    ausgabeKategorie = r.neu || name;   // gleich ausgewählt, sonst tippt man zweimal
+    ebene('stammForm', false);
+    zeichneKasse();
+    hinweisleiste('Kategorie angelegt.');
+  });
+}
+
+/** Eine Ausgabe oder eine sonstige Einnahme ändern – oder löschen. */
+function kasseBuchungMaske(art, e){
+  const istAusgabe = art === 'ausgabe';
+  /* Mitgeschickt wird, was die App angezeigt hat. Das Backend vergleicht es mit
+     der Zeile im Blatt und rührt nichts an, wenn sich dort etwas geändert hat. */
+  const alt = { zeile: e.zeile, datum: e.datum, betrag: e.betrag,
+                kategorie: e.kategorie || '', notiz: e.notiz || '' };
+
+  const kats = (kasseD().kategorien || []).slice();
+  if (istAusgabe && e.kategorie && kats.indexOf(e.kategorie) < 0) kats.unshift(e.kategorie);
+
+  const felder = [
+    { art: 'datum', label: 'Datum',  id: 'kbDatum',  wert: e.datum || '' },
+    { art: 'zahl',  label: 'Betrag', id: 'kbBetrag', wert: betragFuerFeld(e.betrag) }
+  ];
+  if (istAusgabe){
+    felder.push({ art: 'auswahl', label: 'Kategorie', id: 'kbKat', wert: e.kategorie || '',
+                  optionen: kats.map(k => ({ wert: k, text: k })) });
+  }
+  felder.push({ art: 'text', label: 'Notiz', id: 'kbNotiz', wert: e.notiz || '', max: 120,
+                note: istAusgabe ? 'freiwillig'
+                                 : 'Pflicht – sonst lässt sich die Einnahme später nicht zuordnen.' });
+
+  const senden = async (aktion, nutzlast, knopf, text) => {
+    const r = await kasseSenden(aktion, nutzlast, knopf, text, 'stammFormFehler');
+    if (!r) return null;
+    ebene('stammForm', false);
+    return r;
+  };
+
+  stammMaske(istAusgabe ? 'Ausgabe bearbeiten' : 'Einnahme bearbeiten', felder, 'Speichern',
+    async () => {
+      kasseFehler('stammFormFehler', '');
+      const z = stammZahl('kbBetrag', true);
+      if (z.fehler){ kasseFehler('stammFormFehler', z.fehler); return; }
+      const eintrag = { zeile: e.zeile, datum: stammWert('kbDatum'), betrag: z.wert,
+                        notiz: stammWert('kbNotiz'), alt: alt };
+      if (istAusgabe) eintrag.kategorie = stammWert('kbKat');
+      const r = await senden(istAusgabe ? 'ausgabeAendern' : 'umlageAendern',
+                             { eintrag: eintrag }, $('stammSpeichern'), 'Speichern');
+      if (r) hinweisleiste('Geändert.');
+    },
+    { text: istAusgabe ? 'Ausgabe löschen' : 'Einnahme löschen',
+      tun: async () => {
+        kasseFehler('stammFormFehler', '');
+        const r = await senden(istAusgabe ? 'ausgabeLoeschen' : 'umlageLoeschen',
+                               { eintrag: { zeile: e.zeile, alt: alt } },
+                               $('stammGefahr'), istAusgabe ? 'Ausgabe löschen' : 'Einnahme löschen');
+        if (r) hinweisleiste('Gelöscht.');
+      } });
 }
 
 const KASSE_SICHTEN = {
@@ -4062,13 +4303,20 @@ const KASSE_SICHTEN = {
         <div class="summe">${eur(t.summe)}</div></div>`).join('')}</div>` : ''}`;
   },
 
+  /* Aufgebaut wie ein Kegelabend unter "Deine Strafen" und wie ein Kegeljahr in
+     der Historie: eine Karte je Kegelbruder, oben die graue Kopfleiste mit der
+     Summe als Pille, darin Zeilen. Bis 1.24 standen die Knöpfe neben jedem
+     Posten – auf einem Handy lief das rechts aus dem Bild. Jetzt öffnet ein
+     Tipp auf die Zeile den Posten, und dort steht alles, was man mit ihm tun
+     kann. */
   offen(){
     if (!kasseD().offene.length){
       return '<p class="note" style="margin-top:16px">Es steht nichts offen.</p>';
     }
     const gruppen = offenNachMann();
     const gesamt = Math.round(gruppen.reduce((s, g) => s + g.summe, 0) * 100) / 100;
-    const bezahlt = kasseD().offene.filter(o => o.bezahlt)
+    kassePosten = [];
+    kasseAbgehakt = kasseD().offene.filter(o => o.bezahlt)
                                    .sort((a, b) => a.datum < b.datum ? 1 : -1);
 
     const kopf = `<div class="list" style="margin-top:16px"><div class="row">
@@ -4076,42 +4324,64 @@ const KASSE_SICHTEN = {
         <div class="m">${gruppen.length ? plural(gruppen.length, 'Kegelbruder', 'Kegelbrüder') : 'alles beglichen'}</div></div>
       <div class="summe">${eur(gesamt)}</div></div></div>`;
 
-    const liste = gruppen.length ? `<div class="list" style="margin-top:14px">${gruppen.map(g => `
-      <details class="kasse">
-        <summary>
-          <div><div class="n">${esc(g.name)}</div>
-            <div class="m">${plural(g.posten.length, 'Posten', 'Posten')}</div></div>
-          <div style="display:flex;align-items:center;gap:10px;flex:none">
-            <span class="summe">${eur(g.summe)}</span>
-            <button class="btn ghost small" data-alle="${esc(g.name)}">Alles bezahlt</button>
-          </div>
+    const karte = g => {
+      const ruhend = g.posten.filter(postenRuht).length;
+      const offeneP = echteForderungen(g);
+      const naechste = offeneP.map(x => x.faellig).filter(Boolean).sort()[0] || '';
+      const ueber = offeneP.some(x => x.zuschlag > 0 || (x.faellig && x.faellig <= D.heute));
+
+      const zeilen = g.posten.map(x => {
+        const nr = kassePosten.push(x) - 1;
+        const marke = postenMarke(x);
+        const unten = marke === 'ausgesetzt'
+          ? 'Durchschnittstrafe ausgesetzt · ' + eur(x.betrag) + ' bleiben stehen'
+          : marke === 'ohne Frist'
+            ? 'Frist aufgehoben – kein Zahlungsziel, kein Zuschlag'
+            : 'fällig ' + (x.faellig ? dat(x.faellig) : '–')
+              + (x.zuschlag > 0 ? ' · Zuschlag ' + eur(x.zuschlag) : '');
+        const gelb = !marke && (x.zuschlag > 0 || (x.faellig && x.faellig <= D.heute));
+        return `<div class="row kasserow" data-posten="${nr}">
+          <div><div class="n">${dat(x.datum)}${x.quelle ? ' · ' + esc(x.quelle) : ''}</div>
+            <div class="m${gelb ? ' frist' : ''}">${esc(unten)}</div></div>
+          <div class="v${postenRuht(x) ? ' blass' : ''}">${eur(x.offen)}<span class="go">›</span></div>
+        </div>`;
+      }).join('');
+
+      const knoepfe = offeneP.length ? `<div class="hblock"><div class="kassetun">
+          <button class="btn ghost" data-zahlung="${esc(g.name)}">Zahlung buchen …</button>
+          <button class="btn ghost" data-alle="${esc(g.name)}">Alles bezahlt</button>
+        </div></div>` : '';
+
+      return `<details class="jahrkarte"><summary>
+          <div class="group-head"><span>${esc(g.name)}</span>
+            <span class="pill ${g.summe > 0 ? 'open' : 'grau'}">${eur(g.summe)}</span></div>
+          <div class="teaser"><div class="kein">${plural(g.posten.length, 'Posten', 'Posten')}${
+            ruhend ? ' · ' + ruhend + ' ausgesetzt' : ''}${
+            naechste ? ' · fällig ' + dat(naechste) : ''}${
+            ueber ? ' · überfällig' : ''}</div></div>
         </summary>
-        <div class="body">${g.posten.map(p => `
-          <div class="kassepost">
-            <div><div>${dat(p.datum)}${p.quelle ? ' · ' + esc(p.quelle) : ''}</div>
-              <div class="m${p.zuschlag > 0 || (p.faellig && p.faellig <= D.heute) ? ' frist' : ''}">fällig ${
-                p.faellig ? dat(p.faellig) : '–'}${p.zuschlag > 0 ? ' · Zuschlag ' + eur(p.zuschlag) : ''}</div></div>
-            <div style="display:flex;align-items:center;gap:10px;flex:none">
-              <span class="summe">${eur(p.offen)}</span>
-              <button class="btn ghost small" data-bezahlt="ja"
-                      data-datum="${esc(p.datum)}" data-name="${esc(p.name)}"
-                      data-quelle="${esc(p.quelle || '')}">Bezahlt</button>
-            </div>
-          </div>`).join('')}</div>
-      </details>`).join('')}</div>`
+        <div class="hblock"><div class="group-head"><span>Offene Posten</span>${
+          ueber ? '<span class="pill open">§20 läuft</span>' : ''}</div>${zeilen}</div>
+        ${knoepfe}
+      </details>`;
+    };
+
+    const liste = gruppen.length
+      ? '<div style="margin-top:14px">' + gruppen.map(karte).join('') + '</div>'
       : '<p class="note" style="margin-top:14px">Alles bezahlt – nichts mehr offen.</p>';
 
-    const abgehakt = bezahlt.length ? `
-      <details class="kasse" style="margin-top:18px;border:1px solid var(--line);border-radius:var(--radius)">
-        <summary><div><div class="n">Bereits abgehakt</div>
-          <div class="m">${plural(bezahlt.length, 'Posten', 'Posten')} – zum Zurücknehmen aufklappen</div></div></summary>
-        <div class="body">${bezahlt.map(p => `
-          <div class="kassepost">
-            <div><div>${esc(p.name)}</div><div class="m">${dat(p.datum)} · ${eur(p.betrag)}</div></div>
-            <button class="btn ghost small" data-bezahlt="nein"
-                    data-datum="${esc(p.datum)}" data-name="${esc(p.name)}"
-                    data-quelle="${esc(p.quelle || '')}">Zurücknehmen</button>
-          </div>`).join('')}</div>
+    const abgehakt = kasseAbgehakt.length ? `
+      <details class="jahrkarte" style="margin-top:4px"><summary>
+        <div class="group-head"><span>Bereits abgehakt</span>
+          <span class="pill grau">${kasseAbgehakt.length}</span></div>
+        <div class="teaser"><div class="kein">Zum Zurücknehmen aufklappen und den Posten antippen.</div></div>
+      </summary>
+      <div class="hblock">${kasseAbgehakt.map((x, i) => `
+        <div class="row kasserow" data-zurueck="${i}">
+          <div><div class="n">${esc(x.name)}</div>
+            <div class="m">${dat(x.datum)}${x.quelle ? ' · ' + esc(x.quelle) : ''}</div></div>
+          <div class="v blass">${eur(x.betrag)}<span class="go">›</span></div>
+        </div>`).join('')}</div>
       </details>` : '';
 
     /* Der Kassenwart merkt beim Kassieren, dass ein Posten nicht stimmt –
@@ -4159,9 +4429,9 @@ const KASSE_SICHTEN = {
       <div class="kassefeld">
         <div class="eyebrow">Kategorie</div>
         <div class="chips" id="ausgabeKats" style="margin:0;padding:2px 0">${
-          kategorien.length
-            ? kategorien.map(k => `<button data-kat="${esc(k)}" aria-pressed="${k === ausgabeKategorie}">${esc(k)}</button>`).join('')
-            : '<span class="note">Es sind noch keine Kategorien hinterlegt.</span>'}</div>
+          kategorien.map(k => `<button data-kat="${esc(k)}" aria-pressed="${k === ausgabeKategorie}">${esc(k)}</button>`).join('')
+          + (darfKasseAendern() ? '<button data-neuekat="1" aria-pressed="false">+ Neue Kategorie</button>' : '')
+          || '<span class="note">Es sind noch keine Kategorien hinterlegt.</span>'}</div>
       </div>
       <div class="kassefeld">
         <div class="eyebrow">Notiz</div>
@@ -4174,9 +4444,13 @@ const KASSE_SICHTEN = {
         <div><div class="n">Ausgaben gesamt</div><div class="m">${plural(liste.length, 'Eintrag', 'Einträge')}</div></div>
         <div class="summe">${eur(summe)}</div></div></div>
       ${liste.length ? `<div class="list" style="margin-top:12px">${liste.slice(0, 20).map(a => `
-        <div class="row"><div><div class="n">${esc(a.kategorie || '–')}</div>
-          <div class="m">${dat(a.datum)}${a.notiz ? ' · ' + esc(a.notiz) : ''}</div></div>
-          <div class="summe">${eur(a.betrag)}</div></div>`).join('')}</div>` : ''}`;
+        <div class="row${a.zeile && darfKasseAendern() ? ' kasserow' : ''}"${
+          a.zeile && darfKasseAendern() ? ` data-buchung="ausgabe" data-zeile="${a.zeile}"` : ''}>
+          <div><div class="n">${esc(a.kategorie || '–')}</div>
+            <div class="m">${dat(a.datum)}${a.notiz ? ' · ' + esc(a.notiz) : ''}</div></div>
+          <div class="v">${eur(a.betrag)}${a.zeile && darfKasseAendern() ? '<span class="go">›</span>' : ''}</div>
+        </div>`).join('')}</div>
+        ${darfKasseAendern() ? '<p class="note" style="margin-top:8px">Zum Ändern oder Löschen einen Eintrag antippen.</p>' : ''}` : ''}`;
   },
 
   umlage(){
@@ -4204,9 +4478,13 @@ const KASSE_SICHTEN = {
         <div><div class="n">Einnahmen gesamt</div><div class="m">${plural(liste.length, 'Eintrag', 'Einträge')}</div></div>
         <div class="summe">${eur(summe)}</div></div></div>
       ${liste.length ? `<div class="list" style="margin-top:12px">${liste.slice(0, 20).map(u => `
-        <div class="row"><div><div class="n">${esc(u.notiz || 'ohne Notiz')}</div>
-          <div class="m">${dat(u.datum)}</div></div>
-          <div class="summe">${eur(u.betrag)}</div></div>`).join('')}</div>` : ''}`;
+        <div class="row${u.zeile && darfKasseAendern() ? ' kasserow' : ''}"${
+          u.zeile && darfKasseAendern() ? ` data-buchung="umlage" data-zeile="${u.zeile}"` : ''}>
+          <div><div class="n">${esc(u.notiz || 'ohne Notiz')}</div>
+            <div class="m">${dat(u.datum)}</div></div>
+          <div class="v">${eur(u.betrag)}${u.zeile && darfKasseAendern() ? '<span class="go">›</span>' : ''}</div>
+        </div>`).join('')}</div>
+        ${darfKasseAendern() ? '<p class="note" style="margin-top:8px">Zum Ändern oder Löschen einen Eintrag antippen.</p>' : ''}` : ''}`;
   }
 };
 
@@ -4235,6 +4513,9 @@ function kasseFehler(id, text){
   const e = $(id); if (!e) return;
   e.textContent = text || '';
   e.style.color = 'var(--accent)';
+  // Das Fehlerfeld der Eingabemaske ist ausgeblendet – ohne das hier stünde der
+  // Text zwar drin, sichtbar wäre er nicht.
+  e.classList.toggle('hidden', !text);
 }
 
 /* Nach jedem Schreibvorgang schickt der Server den frischen Stand zurück –
@@ -4253,6 +4534,7 @@ async function kasseSenden(aktion, nutzlast, knopf, beschriftung, fehlerFeld){
     if (r.offene)   D.kasseDaten.offene   = r.offene;
     if (r.ausgaben) D.kasseDaten.ausgaben = r.ausgaben;
     if (r.umlage)   D.kasseDaten.umlage   = r.umlage;
+    if (r.kategorien) D.kasseDaten.kategorien = r.kategorien;
     if (r.kasse)    D.kasse = r.kasse;
     if (typeof r.offenSumme === 'number') D.offen = r.offenSumme;
     speicher.schreib('kc-daten', JSON.stringify(D));
@@ -4282,17 +4564,30 @@ $('kasseBody').addEventListener('click', async e => {
     return;
   }
 
-  const einzeln = e.target.closest('button[data-bezahlt]');
-  if (einzeln){
-    // Der Knopf sitzt in einer <summary> bzw. in einem <details> – ohne das hier
-    // klappt beim Tippen zusätzlich der Eintrag auf oder zu.
+  /* Eine angetippte Posten-Zeile öffnet die Maske – dort steht alles, was mit
+     dem Posten geht. Die Zeile liegt in einem <details>, deshalb muss das
+     Aufklappen unterdrückt werden. */
+  const zeile = e.target.closest('[data-posten]');
+  if (zeile){
     e.preventDefault(); e.stopPropagation();
-    const r = await kasseSenden('bezahltSetzen', {
-      posten: [{ datum: einzeln.dataset.datum, name: einzeln.dataset.name,
-                 quelle: einzeln.dataset.quelle || '' }],
-      bezahlt: einzeln.dataset.bezahlt === 'ja'
-    }, einzeln, einzeln.textContent);
-    if (r) hinweisleiste(einzeln.dataset.bezahlt === 'ja' ? 'Als bezahlt vermerkt.' : 'Zurückgenommen.');
+    const p = kassePosten[Number(zeile.dataset.posten)];
+    if (p) kassePostenMaske(p);
+    return;
+  }
+
+  const zurueck = e.target.closest('[data-zurueck]');
+  if (zurueck){
+    e.preventDefault(); e.stopPropagation();
+    const p = kasseAbgehakt[Number(zurueck.dataset.zurueck)];
+    if (p) kasseZurueckMaske(p);
+    return;
+  }
+
+  const zahlung = e.target.closest('button[data-zahlung]');
+  if (zahlung){
+    e.preventDefault(); e.stopPropagation();
+    const mann = offenNachMann().filter(g => g.name === zahlung.dataset.zahlung)[0];
+    if (mann) kasseZahlungMaske(mann.name, echteForderungen(mann), mann.summe);
     return;
   }
 
@@ -4302,9 +4597,27 @@ $('kasseBody').addEventListener('click', async e => {
     const mann = offenNachMann().filter(g => g.name === alle.dataset.alle)[0];
     if (!mann) return;
     const r = await kasseSenden('bezahltSetzen', {
-      posten: mann.posten.map(p => ({ datum: p.datum, name: p.name, quelle: p.quelle })), bezahlt: true
+      posten: echteForderungen(mann).map(p => ({ datum: p.datum, name: p.name, quelle: p.quelle })),
+      bezahlt: true
     }, alle, 'Alles bezahlt');
     if (r) hinweisleiste(esc(mann.name) + ': ' + plural(r.geaendert || 0, 'Posten', 'Posten') + ' abgehakt.');
+    return;
+  }
+
+  const buchung = e.target.closest('[data-buchung]');
+  if (buchung){
+    e.preventDefault(); e.stopPropagation();
+    const art = buchung.dataset.buchung;
+    const nr = Number(buchung.dataset.zeile);
+    const eintrag = (art === 'ausgabe' ? kasseD().ausgaben : kasseD().umlage)
+                      .filter(x => x.zeile === nr)[0];
+    if (eintrag) kasseBuchungMaske(art, eintrag);
+    return;
+  }
+
+  if (e.target.closest('button[data-neuekat]')){
+    e.preventDefault(); e.stopPropagation();
+    kasseKategorieMaske();
     return;
   }
 
