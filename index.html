@@ -1031,7 +1031,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    Datei sw.js verändert hat. Bleibt sie gleich, erscheint kein Hinweis
    "Neue Version verfügbar" und die Änderung wird frühestens beim übernächsten
    Start sichtbar. */
-const APP_VERSION = '1.31.2';
+const APP_VERSION = '1.32';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -1205,6 +1205,42 @@ let PREISE = {};       // Strafart -> Einzelpreis, fuer die Anzahl-Rueckrechnung
    Zugang, kein Amt und keine Saisonwertung. */
 const istGast = n => /^gast\b/i.test(String(n == null ? '' : n).trim());
 
+/* ------------------------------------------------------- Gleichstand
+   Das Backend liefert bei jedem Titel und jeder Bestleistung nicht nur den
+   Ersten, sondern in "gleich" ALLE, die denselben Wert haben. Bis zum
+   01.09.2026 zeigte die App nur den Ersten – bei einem Gleichstand entschied
+   damit die Reihenfolge der Mitgliederliste darueber, wer als Koenig dastand.
+
+   Hier wird daraus ein Text. Ab vier Namen nur noch die Anzahl: Zehn Namen in
+   einer Zeile sagen weniger als "10 gleichauf".
+   Faellt "gleich" (aeltere Backend-Fassung), bleibt es beim einzelnen Namen. */
+const GLEICH_MAX = 3;
+
+function namenListe(namen){
+  const n = (namen || []).filter(x => x);
+  if (!n.length) return '';
+  if (n.length === 1) return n[0];
+  if (n.length <= GLEICH_MAX) return n.slice(0, -1).join(', ') + ' und ' + n[n.length-1];
+  return n.length + ' gleichauf';
+}
+
+/* Der Anzeigename eines Titeltraegers oder Bestwerts. */
+function traegerText(k){
+  if (!k) return '';
+  const g = k.gleich || [];
+  return g.length > 1 ? namenListe(g) : (k.n || '');
+}
+function hatGleichstand(k){ return !!(k && k.gleich && k.gleich.length > 1); }
+
+/* Gaeste heraus – aber aus der ganzen Gruppe, nicht nur beim Ersten.
+   Bleibt niemand uebrig, faellt der Eintrag ganz weg. */
+function ohneGaesteTitel(k){
+  if (!k) return null;
+  const g = (k.gleich || [k.n]).filter(n => !istGast(n));
+  if (!g.length) return null;
+  return Object.assign({}, k, { n: g[0], gleich: g });
+}
+
 function ohneGaeste(d){
   if (!d) return d;
   const raus = x => x && istGast(x.n || x.name || x);
@@ -1214,8 +1250,8 @@ function ohneGaeste(d){
   if (Array.isArray(d.aemter))     d.aemter.forEach(a => { if (Array.isArray(a.wer)) a.wer = a.wer.filter(w => !istGast(w)); });
   const la = d.letzterAbend;
   if (la){
-    if (la.teuerster && istGast(la.teuerster.n)) la.teuerster = null;
-    if (la.bester    && istGast(la.bester.n))    la.bester = null;
+    la.teuerster = ohneGaesteTitel(la.teuerster);
+    la.bester    = ohneGaesteTitel(la.bester);
     if (Array.isArray(la.sonder)) la.sonder = la.sonder.filter(s => !istGast(s.n));
     if (Array.isArray(la.pumpen)) la.pumpen = la.pumpen.filter(p => !istGast(p.n));
   }
@@ -2030,11 +2066,19 @@ function rueckblick(la){
 
   if (D.ich.schriftfuehrer){
     return h +
-      (la.teuerster ? hl('€','Teuerster Kegelbruder', la.teuerster.n + ' hat am meisten gesammelt', eur(la.teuerster.v)) : '') +
+      (la.teuerster ? hl('€', hatGleichstand(la.teuerster) ? 'Teuerste Kegelbrüder' : 'Teuerster Kegelbruder',
+                            traegerText(la.teuerster)
+                            + (hatGleichstand(la.teuerster) ? ' haben' : ' hat') + ' am meisten gesammelt',
+                            eur(la.teuerster.v)) : '') +
       schnitt +
       pumpenkegelZeile(la) +
-      (la.haeufigste ? hl('×','Häufigste Strafe', la.haeufigste.t, la.haeufigste.n + '×') : '') +
-      (la.bester ? hl('9','Bester Wurf', la.bester.n + ' bei 5 in die Vollen', la.bester.v + ' Holz') : '') +
+      /* Bei der haeufigsten Strafe sind die Gleichauf-Liegenden STRAFARTEN,
+         nicht Kegelbrueder – deshalb hier namenListe statt traegerText. */
+      (la.haeufigste ? hl('×', hatGleichstand(la.haeufigste) ? 'Häufigste Strafen' : 'Häufigste Strafe',
+                          hatGleichstand(la.haeufigste) ? namenListe(la.haeufigste.gleich) : la.haeufigste.t,
+                          la.haeufigste.n + '×') : '') +
+      (la.bester ? hl('9','Bester Wurf', traegerText(la.bester) + ' bei 5 in die Vollen',
+                       la.bester.v + ' Holz') : '') +
       (la.sonder && la.sonder.length ? hl('!','Sonderwürfe', la.sonder.map(s=>s.n+' – '+s.t).join(' · '), '') : '') +
       `<div class="row"><div><div class="n">Kasseneingang des Abends</div>
         <div class="m">alle Strafen zusammen, auch der Ausgleich der Abwesenden</div></div>
@@ -2074,10 +2118,10 @@ function tresor(){
     const weitere = SONDERKOENIGE
       .filter(([, feld]) => D.koenige[feld])
       .map(([titel, feld, fmt]) => `<div class="sub" style="border-top:1px solid var(--line);padding-top:10px;width:100%">
-        ${esc(titel)}: <strong style="color:var(--text)">${esc(D.koenige[feld].n)}</strong> mit ${esc(fmt(D.koenige[feld].v))}</div>`)
+        ${esc(titel)}: <strong style="color:var(--text)">${esc(traegerText(D.koenige[feld]))}</strong> mit ${esc(fmt(D.koenige[feld].v))}</div>`)
       .join('');
     return `<div class="eyebrow">Verkündet auf der Generalversammlung</div>
-      <div class="big">${esc(k ? k.n : '–')}</div>
+      <div class="big">${esc(k ? traegerText(k) : '–')}</div>
       <div class="sub">Kegelkönig${k ? ' mit ' + zahlText(k.v) + ' Holz' : ''}</div>
       ${weitere}`;
   }
@@ -2477,12 +2521,14 @@ function histLeerJahre(leer){
 function histLaufende(){
   if (!D.gvFrei || !D.koenige) return null;
   const t = [];
-  if (D.koenige.kegel) t.push({ titel:'Kegelkönig', wer: D.koenige.kegel.n,
+  if (D.koenige.kegel) t.push({ titel:'Kegelkönig', wer: traegerText(D.koenige.kegel),
                                 wert: zahlText(D.koenige.kegel.v) + ' Holz',
-                                quelle:'laufende Saison', bemerkung:'' });
+                                quelle:'laufende Saison',
+                                bemerkung: hatGleichstand(D.koenige.kegel) ? 'Gleichstand' : '' });
   SONDERKOENIGE.forEach(([name, feld, fmt]) => {
-    if (D.koenige[feld]) t.push({ titel: name.replace(' · Urkunde',''), wer: D.koenige[feld].n,
-                                  wert: fmt(D.koenige[feld].v), quelle:'laufende Saison', bemerkung:'' });
+    if (D.koenige[feld]) t.push({ titel: name.replace(' · Urkunde',''), wer: traegerText(D.koenige[feld]),
+                                  wert: fmt(D.koenige[feld].v), quelle:'laufende Saison',
+                                  bemerkung: hatGleichstand(D.koenige[feld]) ? 'Gleichstand' : '' });
   });
   if (!t.length) return null;
   return { s: SAISON_LAEUFT, aktuell: true, hatDaten: true, titel: t, kategorien: [],
@@ -2987,11 +3033,6 @@ const koenigsfaehig = r => {
 };
 const quote = r => r.termine ? Math.round(r.da / r.termine * 100) : 0;
 
-/* Wie viele Namen ausgeschrieben werden, bevor nur noch gezaehlt wird.
-   Bei "alle 9" liegen schnell zehn Kegelbrueder gemeinsam bei 0 - zehn Namen
-   nebeneinander sagen dann weniger als die blosse Zahl. */
-const BW_NAMEN_MAX = 3;
-
 /* Alle, die denselben Wert haben wie der Erste bzw. Letzte. Verglichen wird mit
    einer kleinen Toleranz: Betraege und Durchschnitte sind Kommazahlen, und
    18,00 aus zwei Summanden ist nicht immer bitgleich mit 18,00 aus einem. */
@@ -3000,10 +3041,7 @@ function bwGleichauf(liste, key, wert){
 }
 
 function bwNamen(gruppe){
-  const n = gruppe.map(r => r.n);
-  if (n.length === 1) return esc(n[0]);
-  if (n.length <= BW_NAMEN_MAX) return esc(n.slice(0, -1).join(', ') + ' und ' + n[n.length-1]);
-  return n.length + ' gleichauf';
+  return esc(namenListe(gruppe.map(r => r.n)));
 }
 
 /* Bester und Schlechtester einer Kategorie.
@@ -3069,7 +3107,8 @@ const SICHTEN = {
         'Weniger ist besser. Pumpenkönig wird trotzdem, wer die meisten hat – das ist der Schlechteste hier.')}
       ${bwBlock('Anwesenheit', r=>r.da, true, r=>r.da+' / '+r.termine)}
       ${bwBlock('Strafen (Betrag)', r=>r.betrag, false, r=>eur(r.betrag))}
-      ${bwBlock('Strafen (Anzahl)', r=>r.anzahl, false, r=>r.anzahl+'×')}
+      ${bwBlock('Strafen (Anzahl)', r=>r.anzahl, false, r=>r.anzahl+'×',
+        'Gezählt werden einzelne Strafen, nicht Buchungszeilen: 5,40 € Pumpen sind bei 0,45 € je Pumpe zwölf Strafen.')}
       ${bwBlock('Spenden', r=>r.spenden, true, r=>eur(r.spenden))}
       ${bwBlock('alle 9', r=>r.alle9, true, r=>r.alle9+'×')}
       ${bwBlock('Sonderwürfe', gesamtSonder, true, r=>gesamtSonder(r)+'×')}
