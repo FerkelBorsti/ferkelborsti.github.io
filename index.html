@@ -1031,7 +1031,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    Datei sw.js verändert hat. Bleibt sie gleich, erscheint kein Hinweis
    "Neue Version verfügbar" und die Änderung wird frühestens beim übernächsten
    Start sichtbar. */
-const APP_VERSION = '1.34';
+const APP_VERSION = '1.35';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -3540,6 +3540,20 @@ async function schlangeSenden(){
   } finally {
     schlangeLaeuft = false;
     erfKopfZeichnen();
+    /* Wartet eine Übertragung darauf, dass die Schlange leer wird? Dann jetzt. */
+    if (erfSyncGewuenscht){
+      if (!schlange().length){
+        erfSyncGewuenscht = false;
+        if ($('erfSync')) erfSyncAnfordern(); else erfZeichnen();
+      } else {
+        /* Es blieb etwas liegen – dann ist die Übertragung nicht sinnvoll, und
+           der Knopf darf nicht ewig auf "Sendet noch …" stehen bleiben. */
+        erfSyncGewuenscht = false;
+        hinweisleiste('Es liegen noch Eintragungen, die nicht rausgegangen sind – '
+                    + 'die Übertragung wurde deshalb nicht angefordert.', 'warn');
+        erfZeichnen();
+      }
+    }
   }
 }
 
@@ -3803,7 +3817,7 @@ function erfListeZeichnen(){
     erfZeichnen();
   });
   if ($('erfFehlerWeg')) $('erfFehlerWeg').addEventListener('click', () => { abgelehnteSchreib([]); erfZeichnen(); });
-  if ($('erfSync')) $('erfSync').addEventListener('click', erfSyncAnfordern);
+  if ($('erfSync')) $('erfSync').addEventListener('click', erfSyncStarten);
   $('erfBody').querySelectorAll('button[data-mann]').forEach(b =>
     b.addEventListener('click', () => { erfMann = b.dataset.mann; erfSicht = 'mann'; erfZeichnen(); }));
 }
@@ -3825,13 +3839,43 @@ function erfSyncBlock(){
     <p class="note" style="margin-top:10px">Alles Erfasste ist gespeichert. In die Auswertung,
       in die offenen Beträge und in die App der anderen kommt es erst mit der Übertragung –
       bis dahin kannst du hier noch korrigieren.</p>
-    <button class="btn" id="erfSync" style="margin-top:12px"${laeuft || offen ? ' disabled' : ''}>${
-      offen ? 'Erst senden, dann übertragen' : laeuft ? 'Angefordert …' : 'Jetzt übertragen'}</button>
+    <button class="btn" id="erfSync" style="margin-top:12px"${
+      laeuft || erfSyncGewuenscht ? ' disabled' : ''}>${
+      erfSyncGewuenscht ? 'Sendet noch ' + offen + ' …'
+      : laeuft ? 'Angefordert …' : 'Jetzt übertragen'}</button>
     ${st.status ? `<p class="note ${fertig ? '' : 'warnton'}" style="margin-top:10px">${
       fertig ? 'Übertragen am ' + esc(st.erledigt || '') + (st.meldung ? ' · ' + esc(st.meldung) : '')
              : laeuft ? 'Angefordert um ' + esc((st.angefordert || '').slice(11, 16))
                         + ' Uhr. Das läuft von allein weiter.'
              : esc(st.meldung || '')}</p>` : ''}`;
+}
+
+/* Merkt sich, dass übertragen werden soll, während die Schlange noch läuft. */
+let erfSyncGewuenscht = false;
+
+/**
+ * Der eine Knopf für beides.
+ *
+ * NACHTRAG 01.09.2026: Bis heute stand auf dem Knopf "Erst senden, dann
+ * übertragen", und er war dabei GESPERRT. Das liest sich wie eine
+ * Aufforderung, es gibt aber gar keinen Senden-Knopf – das Senden läuft von
+ * selbst. Wer darauf drückte, bei dem passierte nichts; erst als die Schlange
+ * leer war, wechselte die Beschriftung, und man musste ein zweites Mal
+ * drücken. Genau so ist es am 01.09.2026 passiert.
+ *
+ * Jetzt genügt ein Druck: Liegt noch etwas in der Schlange, wird das Senden
+ * angestoßen, der Wunsch vermerkt – und sobald alles draußen ist, fordert die
+ * App die Übertragung von selbst an. Der Knopf sagt so lange, worauf gewartet
+ * wird, statt etwas zu verlangen.
+ */
+function erfSyncStarten(){
+  if (schlange().length){
+    erfSyncGewuenscht = true;
+    erfZeichnen();
+    schlangeSenden();
+    return;
+  }
+  erfSyncAnfordern();
 }
 
 async function erfSyncAnfordern(){
