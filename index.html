@@ -1031,7 +1031,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    Datei sw.js verändert hat. Bleibt sie gleich, erscheint kein Hinweis
    "Neue Version verfügbar" und die Änderung wird frühestens beim übernächsten
    Start sichtbar. */
-const APP_VERSION = '1.32';
+const APP_VERSION = '1.33';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -1089,7 +1089,21 @@ const LOGO_NAMEN = { standard:'Standard', weihnachten:'Weihnachten', urlaub:'Url
 
 const $ = id => document.getElementById(id);
 const eur = n => (Number(n)||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
-const num = s => { const n = parseFloat(String(s).replace(/[^\d,.-]/g,'').replace(',','.')); return isNaN(n)?0:n; };
+/* NACHTRAG 01.09.2026: Der deutsche Tausenderpunkt wird jetzt hier weggeworfen.
+   Vorher ergab num('1.234,56') den Wert 1,234 – gerundet 1,23 €. Das traf jeden
+   von Hand getippten Betrag: freie Strafe, Korrektur, Direkteingabe im Abend
+   und Geldspiel. Die App hatte mit betragAusText längst einen richtigen Leser,
+   diese Stellen benutzten ihn nur nicht. Statt vier Aufrufe umzustellen und
+   den fünften beim nächsten Mal zu vergessen, kann es num() jetzt selbst –
+   die Regel ist dieselbe wie in zahl() im Backend. */
+const num = s => {
+  const roh = String(s == null ? '' : s)
+    .replace(/[^\d,.-]/g, '')
+    .replace(/\.(?=\d{3}\b)/g, '')
+    .replace(',', '.');
+  const n = parseFloat(roh);
+  return isNaN(n) ? 0 : n;
+};
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 /* ------------------------------------------------------------ Rechenwerte
@@ -1169,11 +1183,26 @@ function standAusTabelle(wert){
 const WOCHENTAG = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
 const wochentag = iso => { const d=new Date(iso+'T12:00:00'); return isNaN(d)?'':WOCHENTAG[d.getDay()]; };
 
+/* schreib() meldet seit dem 01.09.2026, ob es geklappt hat.
+   Vorher wurde jeder Fehler verschluckt. Bei blockierten Websitedaten oder in
+   einem privaten Fenster hieß das: Die Strafe erscheint auf dem Bildschirm,
+   landet aber in keiner Schlange und geht nie raus – und der Schriftführer
+   merkt den ganzen Abend nichts davon. */
 const speicher = {
   lies(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
-  schreib(k,v){ try { localStorage.setItem(k,v); } catch(e){} },
+  schreib(k,v){ try { localStorage.setItem(k,v); return true; } catch(e){ return false; } },
   loesch(k){ try { localStorage.removeItem(k); } catch(e){} }
 };
+
+/* Nur einmal je Sitzung warnen – sonst steht die Leiste bei jedem Tippen neu da. */
+let speicherGewarnt = false;
+function speicherWarnung(){
+  if (speicherGewarnt) return;
+  speicherGewarnt = true;
+  hinweisleiste('Dieses Gerät kann nichts zwischenspeichern (private Sitzung oder '
+              + 'blockierte Websitedaten). Eintragungen gehen nur raus, solange du '
+              + 'Netz hast – bitte nach jedem Abend prüfen, ob alles angekommen ist.', 'warn');
+}
 
 /* Den ganzen Datenstand wegschreiben ist teuer: JSON.stringify über 100 bis
    250 KB plus ein synchroner localStorage-Zugriff. Bis 1.30 stand das mitten
@@ -1302,6 +1331,19 @@ function fehlerGrund(e){
   if (e instanceof SyntaxError) return 'unerwartete Antwort – der Dienst hat gerade eine Störung';
   if (e instanceof TypeError) return 'Netzwerkfehler – keine Verbindung';
   return e.message || 'unbekannt';
+}
+
+/* Ein ehrlicher Satz für einen fehlgeschlagenen Schreibversuch.
+   NUR ein echter Netzwerkfehler (TypeError) heißt sicher "nicht abgeschickt".
+   Zeitüberschreitung, HTTP-Antwort und kaputte Antwort heißen: Die Anfrage kann
+   sehr wohl angekommen sein und nur die ANTWORT ging verloren – und weil die
+   anlegenden Aktionen in API_EINMALIG stehen und bewusst nicht wiederholt
+   werden, steht die Buchung dann in der Tabelle. Bis zum 01.09.2026 behauptete
+   die App an vier Stellen pauschal "es wurde nichts gebucht/gespeichert". */
+function schreibFehlerText(e, was){
+  if (e instanceof TypeError) return 'Keine Verbindung – ' + was + ' wurde nicht gespeichert.';
+  return 'Die Antwort kam nicht an (' + fehlerGrund(e) + '). Möglicherweise ist es '
+       + 'trotzdem gespeichert – bitte nachsehen, bevor du es erneut einträgst.';
 }
 
 /* Aktionen, die etwas ANLEGEN und keine Kennung mitführen. Bei ihnen darf nie
@@ -1621,8 +1663,22 @@ $('logoutBtn').addEventListener('click', async () => {
      Löschen und vor dem Neuladen feuern und die Daten des abgemeldeten
      Nutzers wieder in den Gerätespeicher schreiben. */
   if (standUhr){ clearTimeout(standUhr); standUhr = null; }
+
+  /* NACHTRAG 01.09.2026: Auch die Erfassungs-Schlange und die Push-Anmeldung
+     gehören weg.
+     Vorher blieben sie liegen. Ablauf, der schiefging: Der Schriftführer
+     erfasst im Keller, ein Eintrag bleibt in der Schlange, er meldet sich auf
+     dem Vereinshandy ab. Der Kassenwart meldet sich an – und beim Start ging
+     der liegengebliebene Eintrag mit DESSEN Token raus. Das Backend wies ihn
+     ab ("Erfassen darf nur der Schriftführer"), und mit ihm den ganzen Stapel.
+     Die Strafen waren endgültig verloren. Die Push-Anmeldung blieb ebenfalls
+     stehen: Das nächste Gerät zeigte "Benachrichtigungen an" und bekam weiter
+     die Meldungen des Vorgängers. */
+  try { await pushAusschalten(); } catch(e){}
   try { await api('geraetAbmelden', { token: token }); } catch(e){}
-  speicher.loesch('kc-token'); speicher.loesch('kc-daten'); speicher.loesch('kc-stand');
+  ['kc-token','kc-daten','kc-stand', ERF_SCHLANGE, ERF_ABGELEHNT, 'kc-push']
+    .forEach(k => speicher.loesch(k));
+  schlangeRam = null;
   location.reload();
 });
 
@@ -2946,7 +3002,7 @@ async function terminSenden(aktion, nutzlast, knopf, beschriftung){
     terminSheetSchliessen();
     return true;
   } catch (e){
-    terminFehler('Keine Verbindung – der Termin wurde nicht gespeichert.');
+    terminFehler(schreibFehlerText(e, 'der Termin'));
     return false;
   } finally {
     knopf.disabled = false;
@@ -3365,8 +3421,21 @@ function kennung(){
    kennt die Kennungen und bucht keine zweimal – deshalb darf die App beliebig
    oft nachsenden. Auf der Kegelbahn ist Funk selten verlässlich; die Anzeige
    soll trotzdem sofort stimmen. */
-function schlange(){ try { return JSON.parse(speicher.lies(ERF_SCHLANGE) || '[]'); } catch(e){ return []; } }
-function schlangeSchreib(l){ speicher.schreib(ERF_SCHLANGE, JSON.stringify(l)); }
+/* Rückfall im Arbeitsspeicher (01.09.2026): Kann das Gerät nichts speichern,
+   lebt die Schlange wenigstens, solange die App offen ist. Vorher war sie in
+   dem Fall schlicht wirkungslos – jede Eintragung verschwand im Nichts. */
+let schlangeRam = null;
+function schlange(){
+  if (schlangeRam) return schlangeRam.slice();
+  try { return JSON.parse(speicher.lies(ERF_SCHLANGE) || '[]'); } catch(e){ return []; }
+}
+function schlangeSchreib(l){
+  if (schlangeRam){ schlangeRam = l.slice(); return; }
+  if (!speicher.schreib(ERF_SCHLANGE, JSON.stringify(l))){
+    schlangeRam = l.slice();
+    speicherWarnung();
+  }
+}
 function abgelehnte(){ try { return JSON.parse(speicher.lies(ERF_ABGELEHNT) || '[]'); } catch(e){ return []; } }
 function abgelehnteSchreib(l){ speicher.schreib(ERF_ABGELEHNT, JSON.stringify(l.slice(-20))); }
 
@@ -3443,7 +3512,27 @@ async function schlangeSenden(){
         });
       }
       if (abgewiesen) erfZeichnen();
-      schlangeSchreib(schlange().slice(anzahl));
+      /* NACH KENNUNG ABRÄUMEN, NICHT NACH POSITION (01.09.2026).
+         Vorher stand hier schlange().slice(anzahl) – die Schlange wurde frisch
+         gelesen, aber blind um so viele Einträge vorn gekürzt, wie DIESER Lauf
+         gesendet hatte. Sind zwei Fenster offen (App und Browser-Tab), senden
+         nach einem Funkloch beide. Der schnellere leert die Schlange, der
+         Schriftführer tippt weiter, und dann kürzt die Antwort des langsameren
+         die neuen Einträge weg – Strafen, die nie gesendet wurden, und ohne
+         jede Meldung. Entfernt wird jetzt nur, was wirklich in diesem Bündel
+         war; alles andere bleibt stehen. */
+      const gesendeteKennungen = {};
+      l.slice(0, anzahl).forEach(a => {
+        const e = a && a.nutzlast && a.nutzlast.eintrag;
+        if (e && e.id) gesendeteKennungen[e.id] = true;
+      });
+      schlangeSchreib(schlange().filter((a, i) => {
+        const e = a && a.nutzlast && a.nutzlast.eintrag;
+        // Ohne Kennung (ältere Einträge) bleibt der bisherige Weg: die ersten
+        // "anzahl" gelten als erledigt.
+        if (!e || !e.id) return i >= anzahl;
+        return !gesendeteKennungen[e.id];
+      }));
       erfGesendet += anzahl - abgewiesen;   // abgewiesene sind nicht "gesendet"
       erfKopfZeichnen();
     }
@@ -4517,7 +4606,7 @@ async function fsSenden(knopf){
     fsFehler(e && e.name === 'AbortError'
       ? 'Das Backend hat nicht rechtzeitig geantwortet. Ob gebucht wurde, ist unklar – '
         + 'du kannst es gleich noch einmal versuchen, doppelt wird dabei nichts.'
-      : 'Keine Verbindung – es wurde nichts gebucht. ' + fehlerGrund(e) + '.');
+      : schreibFehlerText(e, 'die Buchung'));
   } finally {
     knopf.disabled = false; knopf.textContent = alt;
   }
@@ -4602,14 +4691,11 @@ const darfKasseSehen   = () => !!(D.ich && (D.ich.darfKasseSehen !== undefined ?
 // bevor Daten da sind.
 const darfAmtSehen     = () => !!(D && D.ich && (D.ich.darfAmtSehen !== undefined ? D.ich.darfAmtSehen : D.ich.schriftfuehrer));
 
-/* num() kennt den deutschen Tausenderpunkt nicht: aus "1.234,56 €" wird dort
-   1,234. Für den Kontostand ist das ein Faktor 1000 – deshalb ein eigener
-   Leser, der den Tausenderpunkt vorher wegwirft (wie zahl() im Backend). */
-const betragAusText = t => {
-  const roh = String(t == null ? '' : t).replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.');
-  const n = parseFloat(roh);
-  return isNaN(n) ? 0 : n;
-};
+/* Seit dem 01.09.2026 kann num() den deutschen Tausenderpunkt selbst; dieser
+   Name bleibt bestehen, damit die Aufrufstellen lesbar bleiben, und zeigt auf
+   dieselbe eine Regel. Zwei Leser für dieselbe Sache waren der Grund, warum
+   vier Stellen monatelang falsch gerechnet haben. */
+const betragAusText = num;
 const betragFuerFeld = n => n ? n.toFixed(2).replace('.', ',') : '';
 const isoAusDeutsch = t => {
   const m = String(t || '').match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
@@ -5192,6 +5278,11 @@ async function kasseSenden(aktion, nutzlast, knopf, beschriftung, fehlerFeld){
     if (r.kategorien) D.kasseDaten.kategorien = r.kategorien;
     if (r.kasse)    D.kasse = r.kasse;
     if (typeof r.offenSumme === 'number') D.offen = r.offenSumme;
+    /* NACHTRAG 01.09.2026: Der Kassenbericht wurde bis heute nicht mitgeholt.
+       Die Liste zeigte danach zwei Ausgaben über 149,90 €, die Übersicht einen
+       Chip weiter unverändert einen Eintrag über 49,90 €. Seit heute schickt
+       das Backend ihn bei jeder geldbewegenden Buchung mit. */
+    if (r.kassenbericht) D.kassenbericht = r.kassenbericht;
     standSichern();
     alleReiterNeu();
     return r;
@@ -5462,6 +5553,13 @@ $('codeListe').addEventListener('click', async e => {
   }
 });
 
+/* Die eine Stelle, an der entschieden wird, ob jemand überhaupt etwas
+   freigeben darf. Zweimal nachgebaut war der Grund für den Fehler oben. */
+function darfIrgendetwasFreigeben(){
+  const darf = (D && D.ich && D.ich.darfFreigeben) || {};
+  return Object.keys(darf).some(k => darf[k] === true);
+}
+
 function zeichneFreigaben(){
   const darf = (D.ich && D.ich.darfFreigeben) || {};
   const meine = FREIGABEN.filter(f => darf[f.k]);
@@ -5530,7 +5628,7 @@ $('freigabenListe').addEventListener('click', async e => {
     // Beim Kegelkönig schickt der Server die Namen erst mit der nächsten Antwort mit.
     if (schluessel === 'gv') aktualisieren(true);
   } catch (err){
-    hinweisleiste('Keine Verbindung – nichts geändert.', 'warn');
+    hinweisleiste(schreibFehlerText(e, 'die Änderung'), 'warn');
   } finally {
     sw.disabled = false;
   }
@@ -5912,7 +6010,13 @@ function tourBereicheJetzt(){
   if (i.darfKasse || i.nurLesenKasse) b.push('kasse');
   if (darfAmtSehen()) b.push('amt');   // dieselbe Regel wie überall, nicht nachgebaut
   if (i.darfStammdaten) b.push('stammdaten');
-  if (i.darfFreigeben) b.push('freigeben');
+  /* NACHTRAG 01.09.2026: darfFreigeben ist ein OBJEKT ({gv:false, kasse:false,
+     …}) und damit immer wahr. Jeder Kegelbruder ohne Amt bekam deshalb in der
+     Einführung die Karte "Freigaben – hier gibst du frei, was andere sehen
+     dürfen", während der zugehörige Punkt in der Verwaltung bei ihm gar nicht
+     auftaucht. Geprüft wird jetzt wie in zeichneFreigaben: Steht wenigstens
+     ein Bereich auf wahr? */
+  if (darfIrgendetwasFreigeben()) b.push('freigeben');
   return b;
 }
 
@@ -6423,7 +6527,14 @@ async function absBestaetigen(){
 
 async function absAbbrechen(){
   try {
-    await api('abschlussAbbrechen', { token: token }, 2);
+    /* NACHTRAG 01.09.2026: Antwort prüfen, bevor "Zurückgezogen." gemeldet wird.
+       Vorher wurde jede Antwort ignoriert. Antwortete das Backend mit einem
+       Fehler – abgelaufener Zugang, oder "Das darfst du nicht" –, sagte die App
+       trotzdem "Zurückgezogen." und schloss den Bildschirm. Der Antrag stand
+       weiter, der Kegelvater bekam seine Meldung und bestätigte einen Abschluss,
+       den niemand mehr wollte. Und der ist unwiderruflich. */
+    const r = await api('abschlussAbbrechen', { token: token }, 2);
+    if (r && r.fehler){ hinweisleiste(r.fehler, 'warn'); return; }
     eigeneSchreibung();
     hinweisleiste('Zurückgezogen.');
     ebene('abschluss', false);
@@ -6692,7 +6803,7 @@ async function stammSenden(aktion, nutzlast, knopf, fehlerFeld){
     aktualisieren(true);
     return true;
   } catch (e) {
-    stammFehler('Keine Verbindung – es wurde nichts gespeichert.', fehlerFeld);
+    stammFehler(schreibFehlerText(e, 'die Änderung'), fehlerFeld);
     return false;
   } finally {
     maskeSperren(false);
@@ -6830,8 +6941,14 @@ function stammWert(id){ const e = $(id); return e ? String(e.value || '').trim()
 function stammZahl(id, pflicht){
   const roh = stammWert(id).replace(/\s|€/g, '');
   if (!roh) return pflicht ? { fehler: 'Bitte einen Betrag eintragen.' } : { wert: '' };
-  if (!/^\d{1,6}([.,]\d{1,2})?$/.test(roh)) return { fehler: 'Der Betrag muss eine Zahl sein, z. B. 3,50.' };
-  return { wert: Number(roh.replace(',', '.')) };
+  /* NACHTRAG 01.09.2026: Die alte Prüfung war ein eigener Ausdruck, der den
+     deutschen Tausenderpunkt nicht kannte – "1.234,56" wurde als "keine Zahl"
+     abgewiesen, obwohl es genau die Schreibweise ist, die jeder eintippt.
+     Geprüft wird jetzt die Form, gelesen wird mit num(). */
+  if (!/^\d{1,3}(\.\d{3})*(,\d{1,2})?$|^\d{1,9}([.,]\d{1,2})?$/.test(roh)) {
+    return { fehler: 'Der Betrag muss eine Zahl sein, z. B. 3,50.' };
+  }
+  return { wert: num(roh) };
 }
 function stammHaken(id){ const e = $(id); return !!e && e.getAttribute('aria-checked') === 'true'; }
 
