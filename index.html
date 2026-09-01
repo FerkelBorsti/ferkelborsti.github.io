@@ -1031,7 +1031,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    Datei sw.js verändert hat. Bleibt sie gleich, erscheint kein Hinweis
    "Neue Version verfügbar" und die Änderung wird frühestens beim übernächsten
    Start sichtbar. */
-const APP_VERSION = '1.33';
+const APP_VERSION = '1.34';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -1675,7 +1675,8 @@ $('logoutBtn').addEventListener('click', async () => {
      stehen: Das nächste Gerät zeigte "Benachrichtigungen an" und bekam weiter
      die Meldungen des Vorgängers. */
   try { await pushAusschalten(); } catch(e){}
-  try { await api('geraetAbmelden', { token: token }); } catch(e){}
+  const geraetVorher = pushGeraet();
+  try { await api('geraetAbmelden', { token: token, geraet: geraetVorher }); } catch(e){}
   ['kc-token','kc-daten','kc-stand', ERF_SCHLANGE, ERF_ABGELEHNT, 'kc-push']
     .forEach(k => speicher.loesch(k));
   schlangeRam = null;
@@ -1688,7 +1689,7 @@ function zeigeAnsicht(id){
 }
 
 async function start(){
-  if (!token){ zeigeAnsicht('view-login'); return; }
+  if (!token){ zeigeAnsicht('view-login'); pushOhneAnmeldungLoesen(); return; }
 
   const zwischen = speicher.lies('kc-daten');
   if (zwischen){
@@ -5730,6 +5731,38 @@ async function pushEinschalten(){
   speicher.schreib('kc-push', geraet);
   pushEmpfangVorbereiten();
   return { ok: true };
+}
+
+/**
+ * Kein Kegelbruder angemeldet? Dann darf dieses Gerät auch keine Meldungen
+ * mehr bekommen.
+ *
+ * NACHTRAG 01.09.2026. Gemeldeter Fall: Geräte, auf denen die App zwar
+ * installiert, aber niemand angemeldet ist, bekamen weiter die Meldungen des
+ * Vereins – mit Namen und Beträgen. Besonders unangenehm, wenn jemand
+ * ausgeschieden ist.
+ *
+ * Der Grund: Die Anmeldung für Meldungen hängt im Backend am NAMEN, nicht am
+ * Gerät, und wurde nur gelöst, wenn jemand sie in der App ausschaltet. Wer
+ * sich abmeldet oder seinen Speicher leert, blieb eingetragen.
+ *
+ * pushAbmelden verlangt einen gültigen Zugang – den hat dieses Gerät gerade
+ * nicht. Deshalb der Weg über "pushGeraetLoesen", der nur das
+ * Gerätekennzeichen braucht. Läuft im Hintergrund und ohne Meldung: Der
+ * Anmeldebildschirm ist nicht der Ort für so etwas.
+ */
+async function pushOhneAnmeldungLoesen(){
+  const geraet = pushGeraet();
+  if (!geraet) return;
+  try {
+    await api('pushGeraetLoesen', { geraet: geraet }, 1);
+    speicher.loesch('kc-push');
+    if (await firebaseLaden()) await firebase.messaging().deleteToken();
+  } catch (e){
+    /* Ohne Netz bleibt es beim nächsten Start stehen und wird dann gelöst.
+       Der Merker wird BEWUSST nicht gelöscht: Sonst wüsste die App beim
+       nächsten Versuch nicht mehr, welches Gerät sie lösen soll. */
+  }
 }
 
 async function pushAusschalten(){
