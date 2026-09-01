@@ -1028,7 +1028,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    Datei sw.js verändert hat. Bleibt sie gleich, erscheint kein Hinweis
    "Neue Version verfügbar" und die Änderung wird frühestens beim übernächsten
    Start sichtbar. */
-const APP_VERSION = '1.31';
+const APP_VERSION = '1.31.1';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -5109,8 +5109,27 @@ async function kasseSenden(aktion, nutzlast, knopf, beschriftung, fehlerFeld){
     alleReiterNeu();
     return r;
   } catch (e){
-    if (fehlerFeld) kasseFehler(fehlerFeld, 'Keine Verbindung – nichts gespeichert.');
-    else hinweisleiste('Keine Verbindung – nichts gespeichert.', 'warn');
+    /* Die alte Meldung lautete immer "Keine Verbindung – nichts gespeichert."
+       Das war in zwei Punkten falsch:
+       1. Sie nannte jede Ursache "keine Verbindung" – auch eine
+          Zeitüberschreitung, eine HTTP-Antwort oder eine kaputte Antwort des
+          Dienstes. Wer das liest, sucht den Fehler beim eigenen Empfang.
+       2. "nichts gespeichert" kann die App gar nicht wissen. Die anlegenden
+          Aktionen stehen in API_EINMALIG und werden bewusst NICHT wiederholt,
+          weil ein Fehler auch dann auftritt, wenn die Anfrage ankam und nur die
+          ANTWORT verlorenging. Dann steht die Buchung sehr wohl in der Tabelle.
+       Nur ein echter Netzwerkfehler (TypeError) heißt sicher: nicht abgeschickt.
+       Alles andere heißt: bitte nachsehen. */
+    const grund = fehlerGrund(e);
+    const sicherNichts = (e instanceof TypeError);
+    const text = sicherNichts
+      ? 'Keine Verbindung – nichts gespeichert.'
+      : 'Die Antwort kam nicht an (' + grund + '). Möglicherweise ist es trotzdem '
+        + 'gespeichert – bitte unten in der Liste nachsehen, bevor du es erneut '
+        + 'einträgst.';
+    letzterApiFehler = grund;
+    if (fehlerFeld) kasseFehler(fehlerFeld, text);
+    else hinweisleiste(text, 'warn');
     return null;
   } finally {
     maskeSperren(false);
