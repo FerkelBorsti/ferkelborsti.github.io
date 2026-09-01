@@ -25,7 +25,7 @@
               lädt jedes Gerät bei jeder Fassung 300 KB Bilder neu, die sich
               nie ändern. Ändert sich ein Logo doch einmal, bekommt die Datei
               einen neuen Namen – dann holt der Browser sie von selbst. */
-const VERSION = 'kc-v1.31';
+const VERSION = 'kc-v1.31.1';
 const BILDER  = 'kc-bilder';
 
 /* Was beim Installieren geholt wird. Bewusst knapp:
