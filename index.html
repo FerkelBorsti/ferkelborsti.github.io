@@ -541,7 +541,12 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
            spellcheck="false" autocapitalize="characters" aria-label="Zugangscode">
     <div class="err" id="err"></div>
     <button class="btn" id="loginBtn">Anmelden</button>
-    <div class="hint">Den Code bekommst du vom Schriftführer. Er gilt nur für dich.</div>
+    <!-- NACHTRAG 01.09.2026: Vorher stand hier "vom Schriftführer". Die Codes
+         gibt aber der Betreuer der App aus - und das Backend kennt ihn seit
+         1.20 als eigene Rolle, gerade damit ein Amtswechsel den Zugang nicht
+         blockiert. Ein NAME kann hier nicht stehen: Der Anmeldebildschirm hat
+         keine Daten vom Backend, er ist ja der Weg dorthin. -->
+    <div class="hint">Den Code bekommst du vom Betreuer der App. Er gilt nur für dich.</div>
   </section>
 
   <!-- LADEN -->
@@ -1037,7 +1042,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    Datei sw.js verändert hat. Bleibt sie gleich, erscheint kein Hinweis
    "Neue Version verfügbar" und die Änderung wird frühestens beim übernächsten
    Start sichtbar. */
-const APP_VERSION = '1.36';
+const APP_VERSION = '1.37';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
