@@ -327,7 +327,10 @@ svg.orden.big{width:19px;height:19px}
 .bw .tag{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:99px;flex:none}
 .bw .tag.best{background:var(--ok-tint);color:var(--ok)}
 .bw .tag.worst{background:var(--accent-tint);color:var(--accent)}
-.bw .nm{flex:1;font-weight:600}
+.bw .tag.even{background:var(--line);color:var(--muted)}
+/* Mehrere Namen muessen umbrechen duerfen, sonst schiebt sich der Wert rechts
+   aus dem Bild. */
+.bw .nm{flex:1;font-weight:600;min-width:0;overflow-wrap:anywhere}
 .bw .vl{font-family:'Archivo Black',system-ui,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap}
 .bw small{display:block;color:var(--muted);font-size:11.5px;margin-top:8px}
 .bw .leer{color:var(--muted);font-size:13px}
@@ -1028,7 +1031,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    Datei sw.js verändert hat. Bleibt sie gleich, erscheint kein Hinweis
    "Neue Version verfügbar" und die Änderung wird frühestens beim übernächsten
    Start sichtbar. */
-const APP_VERSION = '1.31.1';
+const APP_VERSION = '1.31.2';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -2984,16 +2987,61 @@ const koenigsfaehig = r => {
 };
 const quote = r => r.termine ? Math.round(r.da / r.termine * 100) : 0;
 
+/* Wie viele Namen ausgeschrieben werden, bevor nur noch gezaehlt wird.
+   Bei "alle 9" liegen schnell zehn Kegelbrueder gemeinsam bei 0 - zehn Namen
+   nebeneinander sagen dann weniger als die blosse Zahl. */
+const BW_NAMEN_MAX = 3;
+
+/* Alle, die denselben Wert haben wie der Erste bzw. Letzte. Verglichen wird mit
+   einer kleinen Toleranz: Betraege und Durchschnitte sind Kommazahlen, und
+   18,00 aus zwei Summanden ist nicht immer bitgleich mit 18,00 aus einem. */
+function bwGleichauf(liste, key, wert){
+  return liste.filter(r => Math.abs(key(r) - wert) < 0.005);
+}
+
+function bwNamen(gruppe){
+  const n = gruppe.map(r => r.n);
+  if (n.length === 1) return esc(n[0]);
+  if (n.length <= BW_NAMEN_MAX) return esc(n.slice(0, -1).join(', ') + ' und ' + n[n.length-1]);
+  return n.length + ' gleichauf';
+}
+
+/* Bester und Schlechtester einer Kategorie.
+   Bis 1.31 stand hier s[0] bzw. s[s.length-1] - bei Gleichstand zeigte die App
+   also einen willkuerlich herausgegriffenen Namen und verschwieg die anderen.
+   Jetzt werden alle genannt, die denselben Wert haben; ab vier nur noch ihre
+   Anzahl. Sind ALLE gleichauf, gibt es keinen Besten und keinen Schlechtesten -
+   dann steht dort eine einzige Zeile statt zweier, die dasselbe behaupten. */
 function bwBlock(titel, key, mehrIstBesser, fmt, fuss){
   const A = D.auswertung || [];
   if (!A.length) return '';
   const s = A.slice().sort((a,b) => key(b) - key(a));
-  const best = mehrIstBesser ? s[0] : s[s.length-1];
-  const schlecht = mehrIstBesser ? s[s.length-1] : s[0];
-  return `<div class="bw"><h4>${esc(titel)}</h4><div class="pair">
-    <div class="pr"><span class="tag best">Bester</span><span class="nm">${esc(best.n)}</span><span class="vl">${fmt(best)}</span></div>
-    <div class="pr"><span class="tag worst">Schlechtester</span><span class="nm">${esc(schlecht.n)}</span><span class="vl">${fmt(schlecht)}</span></div>
-    </div>${fuss ? `<small>${esc(fuss)}</small>` : ''}</div>`;
+  const hoch = s[0], tief = s[s.length-1];
+  const best     = mehrIstBesser ? hoch : tief;
+  const schlecht = mehrIstBesser ? tief : hoch;
+
+  const gBest     = bwGleichauf(s, key, key(best));
+  const gSchlecht = bwGleichauf(s, key, key(schlecht));
+
+  const kopf = `<div class="bw"><h4>${esc(titel)}</h4><div class="pair">`;
+  const fuss1 = `</div>${fuss ? `<small>${esc(fuss)}</small>` : ''}</div>`;
+
+  /* Alle auf demselben Wert: Es gibt schlicht keinen Besten. Steht ueberhaupt
+     nur einer in der Liste, ist er es aber sehr wohl. */
+  if (Math.abs(key(best) - key(schlecht)) < 0.005){
+    const einer = A.length === 1;
+    return kopf + `<div class="pr"><span class="tag ${einer ? 'best' : 'even'}">`
+      + `${einer ? 'Bester' : 'Alle gleich'}</span>`
+      + `<span class="nm">${einer ? esc(A[0].n) : 'alle Kegelbrüder'}</span>`
+      + `<span class="vl">${fmt(best)}</span></div>` + fuss1;
+  }
+
+  return kopf
+    + `<div class="pr"><span class="tag best">${gBest.length > 1 ? 'Beste' : 'Bester'}</span>`
+    + `<span class="nm">${bwNamen(gBest)}</span><span class="vl">${fmt(best)}</span></div>`
+    + `<div class="pr"><span class="tag worst">${gSchlecht.length > 1 ? 'Schlechteste' : 'Schlechtester'}</span>`
+    + `<span class="nm">${bwNamen(gSchlecht)}</span><span class="vl">${fmt(schlecht)}</span></div>`
+    + fuss1;
 }
 
 /* Balken-Rangliste wie bei "5 in die Vollen"; sub() liefert optional eine
