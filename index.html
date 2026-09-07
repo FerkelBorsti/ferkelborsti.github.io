@@ -2,7 +2,10 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<!-- interactive-widget=resizes-content kam mit 1.38 dazu: Ohne diese Angabe
+     schiebt Android die Tastatur ÜBER die Seite, das Layout bleibt gleich groß –
+     und die untere Menüleiste steht dann mitten im Bild statt am Rand. -->
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content">
 <title>KC Knüppeldick</title>
 <meta name="description" content="Strafen, Statuten und Auswertungen des KC Knüppeldick">
 <meta name="theme-color" content="#0E0C10">
@@ -463,7 +466,22 @@ button.row.erfmann:focus-visible{outline:2px solid var(--accent);outline-offset:
    Zeichendurchgang – auf dem iPhone der einzige Grund, warum die Liste beim
    Scrollen haken konnte. Der Farbwert von --nav-bg ist ohnehin fast deckend;
    der Unterschied ist mit bloßem Auge nicht zu sehen, die Kosten sind null. */
-nav.tabs{position:fixed;bottom:0;left:0;right:0;max-width:var(--shell);margin:0 auto;background:var(--nav-bg);border-top:1px solid var(--line);display:grid;grid-auto-flow:column;grid-auto-columns:1fr;padding:8px 4px calc(8px + env(safe-area-inset-bottom));z-index:6}
+/* MENÜLEISTE, Stand 1.38.
+   Gemeldet am 07.09.2026: Die Leiste stand zeitweise nicht am unteren Rand,
+   sondern schwebte mitten im Bild. Ursache ist nicht ein Fehler im Aufbau,
+   sondern das, was Handy-Browser mit "position:fixed" machen, sobald sich der
+   sichtbare Bereich ändert – aufklappende Tastatur, ein- und ausfahrende
+   Adressleiste, Drehen des Geräts. "unten" ist dann für einen Moment (und
+   manchmal dauerhaft) nicht mehr dort, wo der Bildschirm aufhört.
+   Gegenmittel, alle drei zusammen:
+     1. interactive-widget=resizes-content im Kopf der Seite,
+     2. --nav-schub: der Abstand zwischen sichtbarem und angenommenem Rand
+        wird per JavaScript nachgeführt (siehe "Menüleiste nachführen"),
+     3. bei offener Tastatur verschwindet die Leiste ganz – sie hat dort
+        ohnehin nichts zu suchen und nimmt dem Eingabefeld den Platz weg. */
+nav.tabs{position:fixed;bottom:0;left:0;right:0;max-width:var(--shell);margin:0 auto;background:var(--nav-bg);border-top:1px solid var(--line);display:grid;grid-auto-flow:column;grid-auto-columns:1fr;padding:8px 4px calc(8px + env(safe-area-inset-bottom));z-index:6;
+  transform:translateY(calc(-1 * var(--nav-schub, 0px)));will-change:transform}
+nav.tabs.tastatur{transform:translateY(130%);pointer-events:none}
 nav.tabs button{background:none;border:none;color:var(--muted);font-family:inherit;font-size:11px;font-weight:600;letter-spacing:.03em;padding:6px 2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;border-radius:10px}
 nav.tabs button svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 nav.tabs button[aria-current="true"]{color:var(--accent)}
@@ -591,10 +609,16 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
       </section>
 
       <section id="tab-verein" class="hidden">
-        <div class="seg vier" id="vereinSeg">
+        <!-- Bis 1.37 eine Segmentleiste mit vier Knöpfen. Mit "Runden" (§32)
+             wären es fünf, und fünf feste Spalten sind auf einem schmalen
+             Handy nicht mehr zu lesen. Deshalb dieselbe Chip-Leiste wie in
+             Kasse und Auswertung: Sie schiebt sich zur Seite und verträgt
+             jeden weiteren Punkt. -->
+        <div class="chips" id="vereinSeg" style="margin-top:2px">
           <button data-mode="warte" aria-pressed="true">Die Warte</button>
           <button data-mode="leute" aria-pressed="false">Kegelbrüder</button>
           <button data-mode="termine" aria-pressed="false">Termine</button>
+          <button data-mode="runden" aria-pressed="false">Runden</button>
           <button data-mode="historie" aria-pressed="false">Historie</button>
         </div>
         <div id="modeWarte">
@@ -613,6 +637,14 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
           <div class="list" id="terminList" style="margin-top:16px"></div>
           <p class="note hidden" id="terminHinweis" style="margin-top:10px">Termine legt der Kegelvater an – das Erfassen der Strafen bleibt Sache des Schriftführers.</p>
         </div>
+        <div id="modeRunden" class="hidden">
+          <p class="note" style="margin-top:16px">Wer nach §32 noch eine Runde ausgeben muss –
+            Geburtstag, neues Auto, Beförderung und der ganze Rest. Oben steht, wer am
+            längsten dran ist.</p>
+          <button class="btn ghost small hidden" id="rundeNeu" style="margin-top:14px">Runde eintragen</button>
+          <div id="rundenBody" style="margin-top:16px"></div>
+        </div>
+
         <div id="modeHistorie" class="hidden">
           <p class="note" style="margin-top:16px">Jedes Kegeljahr zum Aufklappen: Könige, Auszeichnungen
             und die Werte des Jahres. Wo nichts steht, wurde damals nichts festgehalten.</p>
@@ -626,9 +658,15 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
         <div class="chips" id="kasseChips">
           <button data-kasse="uebersicht" aria-pressed="true">Übersicht</button>
           <button data-kasse="offen" aria-pressed="false">Offene Beträge</button>
-          <button data-kasse="konto" aria-pressed="false">Kontostand</button>
+          <button data-kasse="beitraege" aria-pressed="false">Monatsbeiträge</button>
           <button data-kasse="ausgaben" aria-pressed="false">Ausgaben</button>
           <button data-kasse="umlage" aria-pressed="false">Einnahmen</button>
+          <!-- Aus dem Bereich des Schriftführers hierher gezogen
+               (Entscheidung Johannes vom 07.09.2026): Strafen und Spenden sind
+               Geld und gehören damit zum Kassenwart. -->
+          <button data-kasse="strafen" aria-pressed="false">Strafen</button>
+          <button data-kasse="spenden" aria-pressed="false">Spenden</button>
+          <button data-kasse="konto" aria-pressed="false">Konto</button>
         </div>
         <div id="kasseBody"></div>
       </section>
@@ -643,9 +681,8 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
           <button data-view="pumpen" aria-pressed="false">Pumpen</button>
           <button data-view="anwesenheit" aria-pressed="false">Anwesenheit</button>
           <button data-view="sonder" aria-pressed="false">Sonderwürfe</button>
-          <button data-view="strafen" aria-pressed="false">Strafen</button>
-          <button data-view="spenden" aria-pressed="false">Spenden</button>
-
+          <!-- "Strafen" und "Spenden" standen bis 1.37 hier. Sie sind zum
+               Kassenwart gewandert (07.09.2026). -->
         </div>
         <div id="amtBody"></div>
       </section>
@@ -672,8 +709,11 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
       <button data-tab="kasse" id="tabKasse" class="hidden">
         <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="17" cy="15" r="1.3"/></svg>Kasse
       </button>
+      <!-- Hieß bis 1.37 "Amt". Beim Kassenwart heißt der Bereich "Kasse", also
+           nach dem, was drinsteht – beim Schriftführer stand dort nur, dass es
+           ein Amt ist. Umbenannt am 07.09.2026 auf Wunsch von Johannes. -->
       <button data-tab="amt" id="tabAmt" class="hidden">
-        <svg viewBox="0 0 24 24"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"/></svg>Amt
+        <svg viewBox="0 0 24 24"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"/></svg>Auswertung
       </button>
     </nav>
   </div>
@@ -933,6 +973,32 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
         <p class="note hidden" id="pushHinweis" style="margin-top:10px"></p>
       </div>
 
+      <!-- KALENDER-ABO (1.38)
+           Ein Abo, keine einzelne Termindatei: Wird ein Abend verschoben,
+           zieht der Kalender von allein nach. Entscheidung Johannes vom
+           07.09.2026. -->
+      <div id="kalenderBlock" class="hidden">
+        <div class="eyebrow" style="margin-bottom:10px">Termine im Kalender</div>
+        <div class="list">
+          <button class="linkrow" id="kalenderAbo" style="width:100%;border:none;cursor:pointer;font-family:inherit;text-align:left;background:var(--surface)">
+            <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+            <div style="flex:1"><div class="lbl">Kalender abonnieren</div>
+              <div class="dsc">Alle Kegelabende und Veranstaltungen im Handy-Kalender</div></div>
+            <span class="go">›</span>
+          </button>
+        </div>
+        <p class="note" style="margin-top:10px" id="kalenderHinweis">Die Adresse gehört nur dir.
+          Sie enthält ausschließlich Datum, Uhrzeit und Ort – keine Namen und keine Beträge.</p>
+        <div class="hidden" id="kalenderAdresseBlock" style="margin-top:12px">
+          <div class="zahl"><div class="tx"><b>Adresse zum Abonnieren</b>
+            <span id="kalenderAdresseText" style="overflow-wrap:anywhere"></span></div>
+            <button class="cp" id="kalenderKopieren">Kopieren</button></div>
+          <button class="btn ghost small" id="kalenderErneuern" style="margin-top:10px">Adresse erneuern</button>
+          <p class="note" style="margin-top:8px">Erneuern macht die alte Adresse sofort ungültig –
+            gedacht für ein verlorenes Handy. Danach muss das Abo überall neu eingerichtet werden.</p>
+        </div>
+      </div>
+
       <div id="verwaltungBlock" class="hidden">
         <div class="eyebrow" style="margin-bottom:10px">Verwaltung</div>
         <div class="list">
@@ -1042,7 +1108,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    Datei sw.js verändert hat. Bleibt sie gleich, erscheint kein Hinweis
    "Neue Version verfügbar" und die Änderung wird frühestens beim übernächsten
    Start sichtbar. */
-const APP_VERSION = '1.37';
+const APP_VERSION = '1.38';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -1370,11 +1436,41 @@ const API_EINMALIG = [
   'statutUmbenennen', 'statutSetzen', 'paragraphAnlegen', 'amtAnlegen',
   'amtEntfernen', 'amtSetzen', 'mitgliedAnlegen', 'mitgliedSetzen',
   'mitgliedUmbenennen', 'stammAbschliessen', 'neuerCode', 'bezahltSetzen',
-  'postenSetzen', 'kasseSetzen', 'erfassungAnlegen', 'freigabeSetzen'
+  'postenSetzen', 'kasseSetzen', 'erfassungAnlegen', 'freigabeSetzen',
+  // Mit 1.38 dazugekommen.
+  'beitragSetzen', 'beitragMonatSetzen', 'rundeAnlegen', 'rundeSetzen',
+  'rundeLoeschen', 'kalenderErneuern'
 ];
 
+/* Aktionen, die nur LESEN. Alles andere bekommt seit 1.38 eine Sendekennung –
+   siehe unten. */
+const API_LESEN = ['daten', 'anmelden', 'historie', 'stammdaten', 'erfassungLesen',
+                   'syncStand', 'abschlussVorschau', 'freiStrafeDaten'];
+
+/* ---- Sendekennung (1.38) --------------------------------------------------
+   Gemeldet am 07.09.2026: "Zahlung buchen" musste mehrfach getippt werden, und
+   die Meldung "Keine Verbindung – nichts gespeichert" kam immer wieder.
+   Das eine erzeugt das andere: Wer nach einer unklaren Meldung noch einmal
+   tippt, schickt dieselbe Buchung ein zweites Mal – und ob daraus eine Dublette
+   wird, hing bisher an einer Handvoll Einzelprüfungen im Backend.
+   Seit 1.38 trägt jede schreibende Anfrage eine Kennung. Kommt dieselbe
+   Kennung ein zweites Mal an, schickt das Backend die GESPEICHERTE Antwort
+   zurück, ohne noch einmal zu schreiben. Ein zweiter Anlauf kann damit nichts
+   mehr kaputtmachen – weder der des Nutzers noch der der App.
+   Wichtig: Die Kennung entsteht EINMAL je Anfrage und bleibt über alle
+   Wiederholungen dieselbe. Genau daran ist am 31.08.2026 die freie Strafe
+   gescheitert, die ihre Kennung bei jedem Tastendruck neu erzeugt hat. */
+function kennungNeu(){
+  try {
+    if (self.crypto && crypto.randomUUID) return crypto.randomUUID();
+  } catch (e) {}
+  return 'k' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+}
+
 async function api(aktion, extra, versuche){
-  const max = API_EINMALIG.indexOf(aktion) >= 0 ? 1 : Math.max(1, versuche || 1);
+  const einmalig = API_EINMALIG.indexOf(aktion) >= 0;
+  const max = Math.max(1, versuche || 1);
+  const kennung = API_LESEN.indexOf(aktion) < 0 ? kennungNeu() : '';
   let letzterFehler;
   for (let i = 1; i <= max; i++){
     const abbruch = new AbortController();
@@ -1383,7 +1479,7 @@ async function api(aktion, extra, versuche){
       const antwort = await fetch(API, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(Object.assign({ aktion: aktion }, extra || {})),
+        body: JSON.stringify(Object.assign({ aktion: aktion, kennung: kennung }, extra || {})),
         signal: abbruch.signal
       });
       if (!antwort.ok){
@@ -1398,6 +1494,13 @@ async function api(aktion, extra, versuche){
       // ein zweiter Anlauf legt nur eine weitere Ausführung obendrauf und macht
       // alles langsamer. Nachgelegt wird deshalb nur bei echten Netzfehlern.
       if (e.name === 'AbortError') break;
+      /* Anlegende Aktionen wurden bis 1.37 NIE wiederholt – aus gutem Grund:
+         Eine verlorene ANTWORT sieht aus wie eine verlorene Anfrage.
+         Seit 1.38 gilt das nur noch für Fälle, in denen die Anfrage angekommen
+         sein KANN. Ein TypeError heißt dagegen: Das Gerät hat die Verbindung
+         gar nicht erst aufgebaut – da ist ein zweiter Anlauf gefahrlos und
+         genau das, was den Kegelabend im Keller rettet. */
+      if (einmalig && !(e instanceof TypeError)) break;
       if (i < max){
         hinweisleiste('Versuch ' + i + ' von ' + max + ' fehlgeschlagen (' + fehlerGrund(e) + ') – nächster läuft …');
         await warte(1500);
@@ -1662,6 +1765,11 @@ async function anmelden(){
     speicher.schreib('kc-token', token);
     datenMerken(r);
     zeigeApp();
+    /* Meldungen sind ab Werk an (Entscheidung Johannes vom 07.09.2026).
+       Gefragt wird genau hier: Der Anmelde-Tipp ist der Fingertipp, den die
+       Browser für eine Erlaubnisfrage sehen wollen. Bewusst ohne await – die
+       App soll nicht auf die Frage warten. */
+    pushEinrichtenAutomatisch(true);
   } catch (e) {
     $('err').textContent = 'Keine Verbindung. Bist du online?';
   } finally {
@@ -1798,6 +1906,10 @@ function zeigeApp(){
   $('versionText').textContent = 'KC Knüppeldick · App ' + APP_VERSION + ' · Backend ' + (D.version||'?');
   // Die Saison steht nur noch an einer Stelle im Code – hier wird sie eingesetzt.
   if ($('amtSaison')) $('amtSaison').textContent = 'Auswertung ' + SAISON_LAEUFT;
+  /* Der Reiter heißt seit 1.38 "Auswertung". War beim Umschalten noch eine der
+     beiden abgewanderten Ansichten gewählt, gäbe es sonst einen leeren
+     Bereich. */
+  if (aktuelleAmtSicht === 'strafen' || aktuelleAmtSicht === 'spenden') aktuelleAmtSicht = 'dash';
 
   /* Meldet das Backend ein fehlendes Blatt, wird das gesagt. Vorher rechnete
      die App stillschweigend mit 0 weiter – so ist die Ehrentafel drei
@@ -1819,8 +1931,10 @@ function zeigeApp(){
   zeichneVerwaltung();
   zeichneStammEintrag();
   zeichnePush();
+  zeichneKalender();
   schlangeSenden();          // was offline liegen blieb, geht jetzt raus
   pushEmpfangVorbereiten();
+  pushEinrichtenAutomatisch(false);   // 1.38: holt ein verlorenes Kennzeichen nach
   offenesZielNachholen();
   tourPruefen();
 }
@@ -2935,6 +3049,228 @@ function zeichneTermine(){
   }).join('');
 }
 
+/* ============================================ §32 Runden (1.38) */
+/* Wer muss noch einen ausgeben? §32 zählt neunzehn Anlässe auf – Geburtstag,
+   neues Auto, Beförderung, Führerschein und so weiter. Bis 1.37 stand das nur
+   im Statutentext, und wer dran war, wusste am Ende niemand mehr.
+
+   Sehen dürfen die Liste ALLE Kegelbrüder – das ist ihr Sinn. Pflegen dürfen
+   sie Kegelvater, Schriftführer und Kassenwart (Entscheidung Johannes vom
+   07.09.2026). Welche Anlässe zur Auswahl stehen, liest das Backend aus §32;
+   ändert die Generalversammlung den Paragraphen, ändert sich die Auswahl mit. */
+
+const darfRundenPflegen = () => !!(D && D.ich && D.ich.darfRunden);
+const rundenD = () => (D && D.runden) || { liste: [], anlaesse: [] };
+
+/* Beim Zeichnen gefüllt – dieselbe Bauart wie bei den Kassenposten: Die Zeile
+   trägt nur die Kennung, den Eintrag holt der Klick von hier. */
+let rundenListe = [];
+
+function zeichneRunden(){
+  const darf = darfRundenPflegen();
+  $('rundeNeu').classList.toggle('hidden', !darf);
+
+  rundenListe = (rundenD().liste || []).slice();
+  const offen  = rundenListe.filter(x => !x.ausgegeben);
+  const fertig = rundenListe.filter(x => x.ausgegeben);
+
+  const zeile = x => {
+    const nr = rundenListe.indexOf(x);
+    /* Wie lange ist er schon dran? Die Zahl ist der eigentliche Witz der
+       Liste – ohne sie stünde da nur ein Datum. */
+    const tage = x.seit ? tageBis(x.seit) : null;
+    const unten = (x.seit ? dat(x.seit) : 'ohne Datum')
+      + (x.ausgegeben ? (x.am ? ' · ausgegeben ' + dat(x.am) : ' · ausgegeben') : '')
+      + (!x.ausgegeben && tage !== null && tage > 0 ? ' · seit ' + tage + ' Tagen' : '');
+    return `<div class="row${darf ? ' kasserow' : ''}"${darf ? ` data-runde="${nr}"` : ''}>
+      <div><div class="n">${esc(x.name)}</div>
+        <div class="m">${esc(x.anlass)}${x.notiz ? ' · ' + esc(x.notiz) : ''}</div>
+        <div class="m">${esc(unten)}</div></div>
+      <div class="v${x.ausgegeben ? ' blass' : ''}">${x.ausgegeben ? '✓' : ''}${darf ? '<span class="go">›</span>' : ''}</div>
+    </div>`;
+  };
+
+  const offenBlock = offen.length
+    ? `<div class="list"><div class="group-head"><span>Noch offen</span>
+         <span class="pill open">${offen.length}</span></div>${offen.map(zeile).join('')}</div>`
+    : '<p class="note">Zurzeit muss niemand eine Runde ausgeben.</p>';
+
+  const fertigBlock = fertig.length
+    ? `<details class="jahrkarte" style="margin-top:14px"><summary>
+         <div class="group-head"><span>Schon ausgegeben</span>
+           <span class="pill grau">${fertig.length}</span></div>
+         <div class="teaser"><div class="kein">Zum Nachschlagen aufklappen.</div></div>
+       </summary><div class="hblock">${fertig.slice(0, 40).map(zeile).join('')}</div></details>`
+    : '';
+
+  $('rundenBody').innerHTML = offenBlock + fertigBlock
+    + (darf ? '' : '<p class="note" style="margin-top:12px">Eintragen und abhaken dürfen '
+                 + 'Kegelvater, Schriftführer und Kassenwart.</p>');
+}
+
+/** Wie viele Tage liegt ein Datum zurück? Negativ, wenn es in der Zukunft liegt. */
+function tageBis(iso){
+  const d = new Date(iso + 'T12:00:00');
+  if (isNaN(d.getTime())) return null;
+  const heute = new Date(D.heute + 'T12:00:00');
+  return Math.round((heute - d) / 86400000);
+}
+
+async function rundenSenden(aktion, nutzlast, knopf, beschriftung){
+  const alt = knopf ? knopf.textContent : '';
+  if (knopf){ knopf.disabled = true; knopf.textContent = 'Moment …'; }
+  maskeSperren(true, knopf);
+  try {
+    const r = await api(aktion, Object.assign({ token: token }, nutzlast), API_VERSUCHE);
+    if (r.fehler){ kasseFehler('stammFormFehler', r.fehler); return null; }
+    eigeneSchreibung();
+    if (r.runden) D.runden = r.runden;
+    standSichern();
+    alleReiterNeu();
+    return r;
+  } catch (e){
+    kasseFehler('stammFormFehler', schreibFehlerText(e, 'der Eintrag'));
+    letzterApiFehler = fehlerGrund(e);
+    return null;
+  } finally {
+    maskeSperren(false);
+    if (knopf){ knopf.disabled = false; knopf.textContent = beschriftung || alt; }
+  }
+}
+
+const RUNDE_FREI = '__frei__';
+
+function rundeNeuMaske(){
+  const namen = (D.mitglieder || []).map(m => m.name);
+  const anlaesse = rundenD().anlaesse || [];
+  stammMaske('Runde eintragen', [
+    { art: 'auswahl', label: 'Kegelbruder', id: 'rdName', wert: namen[0] || '',
+      optionen: namen.map(n => ({ wert: n, text: n })) },
+    { art: 'auswahl', label: 'Anlass', id: 'rdAnlass', wert: anlaesse[0] || RUNDE_FREI,
+      optionen: anlaesse.map(a => ({ wert: a, text: a }))
+                        .concat([{ wert: RUNDE_FREI, text: '— anderer Anlass —' }]),
+      note: anlaesse.length
+        ? 'Die Auswahl kommt aus §32. Passt nichts, unten einen eigenen Anlass eintragen.'
+        : 'In §32 steht keine Aufzählung – bitte unten einen Anlass eintragen.' },
+    { art: 'text', label: 'Anderer Anlass', id: 'rdFrei', wert: '', max: 120,
+      platzhalter: 'nur ausfüllen, wenn oben nichts passt' },
+    { art: 'datum', label: 'Anlass war am', id: 'rdSeit', wert: D.heute,
+      note: 'Danach richtet sich die Reihenfolge – wer am längsten dran ist, steht oben.' },
+    { art: 'text', label: 'Notiz', id: 'rdNotiz', wert: '', max: 120, platzhalter: 'freiwillig' }
+  ], 'Eintragen', async () => {
+    kasseFehler('stammFormFehler', '');
+    const frei = stammWert('rdFrei');
+    const gewaehlt = stammWert('rdAnlass');
+    const anlass = frei || (gewaehlt === RUNDE_FREI ? '' : gewaehlt);
+    if (anlass.length < 3){ kasseFehler('stammFormFehler', 'Bitte einen Anlass angeben.'); return; }
+    const r = await rundenSenden('rundeAnlegen', {
+      eintrag: { name: stammWert('rdName'), anlass: anlass,
+                 seit: stammWert('rdSeit'), notiz: stammWert('rdNotiz') }
+    }, $('stammSpeichern'), 'Eintragen');
+    if (!r) return;
+    ebene('stammForm', false);
+    hinweisleiste(r.doppelt ? 'Der Eintrag stand schon in der Liste.' : 'Eingetragen.');
+  });
+}
+
+function rundeMaske(x){
+  stammMaske(x.name + ' · ' + x.anlass, [
+    { art: 'info', label: 'Anlass war am', wert: x.seit ? dat(x.seit) : '–',
+      note: 'Eingetragen von ' + (x.von || 'unbekannt')
+          + (x.notiz ? ' · ' + x.notiz : '') },
+    { art: 'info', label: 'Stand', wert: x.ausgegeben
+        ? 'ausgegeben' + (x.am ? ' am ' + dat(x.am) : '') : 'noch offen' }
+  ], x.ausgegeben ? 'Doch noch offen' : 'Runde ist ausgegeben', async () => {
+    kasseFehler('stammFormFehler', '');
+    const r = await rundenSenden('rundeSetzen', { id: x.id, ausgegeben: !x.ausgegeben },
+                                 $('stammSpeichern'), 'Speichern');
+    if (!r) return;
+    ebene('stammForm', false);
+    hinweisleiste(x.ausgegeben ? 'Steht wieder offen.' : 'Abgehakt – Runde ausgegeben.');
+  }, { text: 'Eintrag löschen', tun: async () => {
+    kasseFehler('stammFormFehler', '');
+    const r = await rundenSenden('rundeLoeschen', { id: x.id }, $('stammGefahr'), 'Eintrag löschen');
+    if (!r) return;
+    ebene('stammForm', false);
+    hinweisleiste('Gelöscht.');
+  } });
+}
+
+$('rundeNeu').addEventListener('click', () => rundeNeuMaske());
+$('rundenBody').addEventListener('click', e => {
+  const z = e.target.closest('[data-runde]');
+  if (!z) return;
+  e.preventDefault(); e.stopPropagation();
+  const x = rundenListe[Number(z.dataset.runde)];
+  if (x) rundeMaske(x);
+});
+
+/* ========================================== Kalender-Abo (1.38) */
+/* Ein Abo, keine einzelne Termindatei: Wird ein Abend verschoben, zieht der
+   Kalender von allein nach. Entscheidung Johannes vom 07.09.2026.
+
+   Die Adresse gehört jedem Kegelbruder allein und enthält weder Namen noch
+   Beträge – nur Datum, Uhrzeit, Bezeichnung und Ort. */
+
+function zeichneKalender(){
+  const k = D && D.kalender;
+  const moeglich = !!(k && k.adresse);
+  $('kalenderBlock').classList.toggle('hidden', !moeglich);
+  if (!moeglich) return;
+  $('kalenderAdresseText').textContent = k.adresse;
+  $('kalenderHinweis').textContent = istApple()
+    ? 'Antippen öffnet die Abo-Frage im iPhone-Kalender. Klappt das nicht, kopiere die Adresse '
+    + 'und trag sie unter Einstellungen › Kalender › Account hinzufügen › Andere › '
+    + 'Kalenderabo hinzufügen ein.'
+    : 'Kopiere die Adresse und trag sie im Google Kalender am Rechner unter „Weitere Kalender '
+    + '› Per URL“ ein. Danach steht sie auch auf dem Handy. Die Termine aktualisieren sich '
+    + 'von selbst.';
+}
+
+$('kalenderAbo').addEventListener('click', () => {
+  const k = (D && D.kalender) || {};
+  if (!k.adresse) return;
+  $('kalenderAdresseBlock').classList.remove('hidden');
+  /* Auf dem iPhone führt webcal:// direkt in die Abo-Frage des Kalenders.
+     Auf Android macht dieselbe Adresse in aller Regel nichts – deshalb steht
+     dort der Weg über den Google Kalender im Hinweistext. */
+  if (istApple()){
+    try { location.href = k.webcal || k.adresse; } catch (e) {}
+  }
+});
+
+tippen($('kalenderKopieren'), () => {
+  const k = (D && D.kalender) || {};
+  if (k.adresse) kopiere(k.adresse, $('kalenderKopieren'));
+});
+
+tippen($('kalenderErneuern'), async () => {
+  const knopf = $('kalenderErneuern');
+  if (knopf.dataset.sicher !== 'ja'){
+    knopf.dataset.sicher = 'ja';
+    knopf.textContent = 'Wirklich? Das alte Abo hört auf zu laufen';
+    setTimeout(() => { knopf.dataset.sicher = ''; knopf.textContent = 'Adresse erneuern'; }, 8000);
+    return;
+  }
+  knopf.dataset.sicher = '';
+  knopf.textContent = 'Moment …';
+  knopf.disabled = true;
+  try {
+    const r = await api('kalenderErneuern', { token: token }, API_VERSUCHE);
+    if (r.fehler){ hinweisleiste(r.fehler, 'warn'); return; }
+    eigeneSchreibung();
+    D.kalender = r.kalender;
+    standSichern();
+    zeichneKalender();
+    hinweisleiste('Neue Adresse – das alte Abo läuft ins Leere.');
+  } catch (e){
+    hinweisleiste(schreibFehlerText(e, 'die Adresse'), 'warn');
+  } finally {
+    knopf.disabled = false;
+    knopf.textContent = 'Adresse erneuern';
+  }
+});
+
 /* ------------------------------------------------------ Termin anlegen */
 /* terminAlt === null  -> neuer Termin
    terminAlt === {datum, art} -> bestehender Termin, so wie er im Blatt steht.
@@ -3174,10 +3510,9 @@ const SICHTEN = {
       ${bwBlock('Pumpen', gesamtPumpen, false, r=>gesamtPumpen(r).toLocaleString('de-DE'),
         'Weniger ist besser. Pumpenkönig wird trotzdem, wer die meisten hat – das ist der Schlechteste hier.')}
       ${bwBlock('Anwesenheit', r=>r.da, true, r=>r.da+' / '+r.termine)}
-      ${bwBlock('Strafen (Betrag)', r=>r.betrag, false, r=>eur(r.betrag))}
-      ${bwBlock('Strafen (Anzahl)', r=>r.anzahl, false, r=>r.anzahl+'×',
-        'Gezählt werden einzelne Strafen, nicht Buchungszeilen: 5,40 € Pumpen sind bei 0,45 € je Pumpe zwölf Strafen.')}
-      ${bwBlock('Spenden', r=>r.spenden, true, r=>eur(r.spenden))}
+      <!-- "Strafen (Betrag)", "Strafen (Anzahl)" und "Spenden" standen bis 1.37
+           hier. Sie sind Geld und gehören damit zum Kassenwart – Entscheidung
+           Johannes vom 07.09.2026, ausdrücklich einschließlich dieser Zeilen. -->
       ${bwBlock('alle 9', r=>r.alle9, true, r=>r.alle9+'×')}
       ${bwBlock('Sonderwürfe', gesamtSonder, true, r=>gesamtSonder(r)+'×')}
     </div>
@@ -3230,10 +3565,18 @@ const SICHTEN = {
   },
   anwesenheit(){
     const l = (D.auswertung||[]).slice().sort((a,b)=>b.da-a.da);
-    return `<p class="note" style="margin-top:16px">Kegelabende und Veranstaltungen zusammen.</p>
+    /* Zwei Zahlen, die nicht dasselbe messen – deshalb steht es hier
+       ausdrücklich: Die Rangliste zählt nach §12 alles mit, die Königs-Hürde
+       nach §23 seit 1.38 nur die Kegelabende. */
+    return `<p class="note" style="margin-top:16px">Kegelabende und Veranstaltungen zusammen –
+      so zählt §12. Für die Königs-Hürde nach §23 zählen dagegen nur die Kegelabende –
+      die stehen als zweite Zahl darunter.</p>
       <div class="list">${l.map((r,i)=>`<div class="rank ${i===0?'first':''}">
         <div class="pos">${i+1}</div>
-        <div class="name">${esc(r.n)}<div class="bar"><i style="width:${r.termine?Math.round(r.da/r.termine*100):0}%"></i></div></div>
+        <div class="name">${esc(r.n)}${r.kegelTermine !== undefined
+          ? `<div class="rsub">Kegelabende: ${r.daKegeln}/${r.kegelTermine}${
+              r.koenigsfaehig === false ? ' · unter der Hürde' : ''}</div>` : ''}
+          <div class="bar"><i style="width:${r.termine?Math.round(r.da/r.termine*100):0}%"></i></div></div>
         <div class="val">${r.da}/${r.termine}</div></div>`).join('')}</div>`;
   },
   sonder(){
@@ -3243,19 +3586,8 @@ const SICHTEN = {
         <div class="m">${r.kranz}× Kranz · ${r.koenig}× König · ${r.acht}× 8 ums Vordereck · ${r.alle9}× alle 9</div></div>
         <div class="v">${gesamtSonder(r)}×</div></div>`).join('')}</div>`;
   },
-  strafen(){
-    const l = (D.auswertung||[]).slice().sort((a,b)=>b.betrag-a.betrag);
-    if (!l.length) return `<p class="note" style="margin-top:16px">Noch keine Daten.</p>`;
-    return `<p class="note" style="margin-top:16px">Summe der Saison je Kegelbruder.</p>`
-      + rangliste(l, r=>r.betrag, r=>eur(r.betrag),
-          r=>r.anzahl ? r.anzahl + ' Strafen · Ø ' + eur(r.betrag/r.anzahl) : 'keine Strafe');
-  },
-  spenden(){
-    const l = (D.auswertung||[]).filter(r=>r.spenden>0).sort((a,b)=>b.spenden-a.spenden);
-    if (!l.length) return `<p class="note" style="margin-top:16px">Bisher keine Spenden erfasst.</p>`;
-    return `<p class="note" style="margin-top:16px">Freiwillig obendrauf.</p>`
-      + rangliste(l, r=>r.spenden, r=>eur(r.spenden));
-  }
+  /* "strafen" und "spenden" standen bis 1.37 hier. Sie sind mit 1.38 in den
+     Bereich des Kassenwarts gewandert (siehe KASSE_SICHTEN). */
 };
 
 function zeichneAmt(sicht){
@@ -3283,7 +3615,8 @@ function segment(id, map){
   });
 }
 segment('statSeg', {lesen:'modeLesen', rechnen:'modeRechnen'});
-segment('vereinSeg', {warte:'modeWarte', leute:'modeLeute', termine:'modeTermine', historie:'modeHistorie'});
+segment('vereinSeg', {warte:'modeWarte', leute:'modeLeute', termine:'modeTermine',
+                      runden:'modeRunden', historie:'modeHistorie'});
 
 /* -------------------------------------------------- Reiter zeichnen
    Welche Zeichenfunktionen zu welchem Reiter gehören. Ein Reiter wird erst
@@ -3293,7 +3626,7 @@ const REITER = {
   start:    () => zeichneStart(),
   strafen:  () => zeichneStrafen(),
   statuten: () => { zeichneStatuten(D.statuten); zeichneRechner(rechnerZeilen()); },
-  verein:   () => { zeichneWarte(); zeichneMitglieder(); zeichneTermine(); },
+  verein:   () => { zeichneWarte(); zeichneMitglieder(); zeichneTermine(); zeichneRunden(); },
   kasse:    () => { if (darfKasseSehen()) kasseFelderSichern(() => zeichneKasse()); },
   amt:      () => { if (darfAmtSehen()) zeichneAmt(aktuelleAmtSicht); }
 };
@@ -3310,6 +3643,15 @@ function reiterAlleSchmutzig(){
 function reiterZeichnen(name, zwang){
   if (!REITER[name]) return;
   if (!zwang && !reiterSchmutzig[name]) return;
+  /* NEU 1.38: Solange eine Maske offen ist, wird der Reiter DAHINTER nicht neu
+     gezeichnet. Gemeldeter Fehler vom 07.09.2026: "Zahlung buchen" musste
+     mehrfach getippt werden. Eine der Ursachen: Trifft in genau dem Moment ein
+     Datenabruf ein (Zeitgeber, zurückkehrendes Netz), ersetzt zeigeApp() den
+     Inhalt des Reiters – der Knopf, auf dem der Finger gerade liegt, ist dann
+     ein anderes Element, und aus dem Antippen wird kein Klick.
+     Der Vermerk bleibt stehen: Sobald die Maske zugeht, wird nachgezeichnet.
+     Ein erzwungenes Zeichnen (nach einer eigenen Buchung) läuft weiter durch. */
+  if (!zwang && typeof ebenenOffen === 'function' && ebenenOffen()) return;
   /* Der Vermerk wird erst NACH dem Zeichnen gelöscht. Bricht das Zeichnen ab
      (etwa weil ein Zwischenspeicher aus einer älteren Fassung ein Feld nicht
      kennt), gilt der Reiter weiter als überholt – ein zweites Antippen
@@ -3368,6 +3710,8 @@ function hintergrundPruefen(){
     document.body.classList.remove('gesperrt');
     document.body.style.top = '';
     window.scrollTo(0, gemerkteHoehe);
+    // Was währenddessen liegengeblieben ist, wird jetzt nachgeholt.
+    reiterZeichnen(aktuellerReiter());
   }
 }
 function ebene(id, zeigen){
@@ -4310,7 +4654,13 @@ function fsSegZeichnen(){
 /* Die gewählte Kategorie steht in der Variablen ausgabeKategorie und übersteht
    das Neuzeichnen von selbst – sie gehört deshalb nicht in diese Liste. */
 const KASSE_FELDER = ['ausgabeDatum', 'ausgabeBetrag', 'ausgabeNotiz',
-                      'umlageDatum', 'umlageBetrag', 'umlageNotiz'];
+                      'umlageDatum', 'umlageBetrag', 'umlageNotiz',
+                      'kontoAnfang', 'kontoAnfangAm', 'kontoAuszug', 'kontoAuszugAm'];
+/* Felder, die beim NÄCHSTEN Neuzeichnen ausnahmsweise nicht zurückgeschrieben
+   werden. Gebraucht nach dem Speichern des Kontos: Dort soll der Wert stehen,
+   den das Backend gespeichert hat ("1.234,50"), nicht der, den jemand getippt
+   hat ("1234,5"). Die Liste gilt genau einmal. */
+let kasseFelderIgnorieren = [];
 /* Nach einer erfolgreichen Buchung müssen die Eingabefelder leer sein.
    Bis 1.30 erledigte das der komplette Neuaufbau der Kasse; seit
    kasseFelderSichern bleiben die Werte stehen und müssen bewusst
@@ -4328,9 +4678,11 @@ function kasseFelderSichern(zeichnen){
   zeichnen();
 
   KASSE_FELDER.forEach(id => {
+    if (kasseFelderIgnorieren.indexOf(id) >= 0) return;
     const f = $(id);
     if (f && merk[id] !== undefined && merk[id] !== '' && f.value !== merk[id]) f.value = merk[id];
   });
+  kasseFelderIgnorieren = [];
   if (aktiv && $(aktiv)){
     const f = $(aktiv);
     try { f.focus(); if (pos !== null && f.setSelectionRange) f.setSelectionRange(pos, pos); } catch (e) {}
@@ -4679,6 +5031,96 @@ $('freiSeg').addEventListener('click', e => {
   fsZeichnen();
 });
 
+/* ------------------------------------------- Menüleiste nachführen (1.38) */
+/* Siehe die lange Begründung im Stilteil bei "nav.tabs". Kurz: Handy-Browser
+   verschieben den sichtbaren Bereich, ohne dass sich das Layout ändert. Was
+   hier passiert, ist deshalb einfach: Wir messen den Abstand zwischen dem, was
+   der Browser für "unten" hält, und dem, was man wirklich sieht – und schieben
+   die Leiste um genau diesen Abstand nach oben.
+
+   Gibt es visualViewport nicht (sehr alte Browser), bleibt alles wie vorher:
+   --nav-schub ist dann nie gesetzt und der Voreinstellungswert 0px gilt. */
+(function(){
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const nav = $('tabs');
+  /* Ab wie vielen Pixeln Unterschied gilt die Tastatur als offen. Eine
+     Adressleiste ist rund 45–60 px hoch, eine Tastatur immer über 200 –
+     150 liegt sicher dazwischen. */
+  const TASTATUR_AB = 150;
+  let letzterSchub = -1;
+
+  const nachfuehren = () => {
+    const schub = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+    const tastatur = schub > TASTATUR_AB;
+    nav.classList.toggle('tastatur', tastatur);
+    const wert = tastatur ? 0 : schub;
+    if (wert === letzterSchub) return;
+    letzterSchub = wert;
+    document.documentElement.style.setProperty('--nav-schub', wert + 'px');
+  };
+
+  vv.addEventListener('resize', nachfuehren);
+  vv.addEventListener('scroll', nachfuehren);
+  window.addEventListener('orientationchange', () => setTimeout(nachfuehren, 300));
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) setTimeout(nachfuehren, 120);
+  });
+  nachfuehren();
+})();
+
+/* ------------------------------------ Beim Zurückkehren nachsehen (1.38) */
+/* Gemeldet am 07.09.2026: Eine Freigabe war beim einen eingeschaltet und beim
+   anderen noch nicht zu sehen – und andersherum genauso.
+   Die Ursache lag nicht im Backend: Freigaben werden dort ungepuffert gelesen.
+   Sie lag hier. Die App holte die Daten beim Start, beim Runterziehen, beim
+   Knopf in den Einstellungen und wenn das Netz zurückkam – sonst nie. Eine App,
+   die auf dem Handy tagelang offen liegt, zeigte deshalb tagelang den Stand
+   von damals.
+   Jetzt wird beim Zurückholen der App nachgesehen, wenn der letzte Abruf
+   länger her ist als FRISCH_AB. Der Wert ist bewusst nicht klein: Zwischen zwei
+   Handgriffen soll die App nicht bei jedem Blick eine Abfrage lostreten. */
+const FRISCH_AB = 45000;
+function standIstAlt(){
+  const s = speicher.lies('kc-stand');
+  if (!s) return true;
+  const t = new Date(s).getTime();
+  return !t || (Date.now() - t) > FRISCH_AB;
+}
+function beiRueckkehrNachsehen(){
+  if (document.hidden) return;
+  if (!token || !D) return;
+  if (!standIstAlt()) return;
+  aktualisieren(true);
+}
+document.addEventListener('visibilitychange', beiRueckkehrNachsehen);
+window.addEventListener('focus', beiRueckkehrNachsehen);
+window.addEventListener('pageshow', beiRueckkehrNachsehen);
+
+/* --------------------------------------------------- Zuverlässig tippen */
+/* Gemeldet am 07.09.2026: "Zahlung buchen" musste mehrfach getippt werden.
+   Neben dem Neuzeichnen im Hintergrund (siehe reiterZeichnen) gibt es dafür
+   einen zweiten, sehr verbreiteten Grund: Der Finger tippt, während die
+   Tastatur noch offen ist. Sie klappt zu, das Layout rutscht – und weil der
+   Knopf zwischen Auflegen und Loslassen an einer anderen Stelle steht, erzeugt
+   der Browser gar keinen Klick.
+   Deshalb hört ein so gebundener Knopf auf BEIDES: auf pointerup und auf
+   click. Der erste, der kommt, gewinnt; der zweite läuft in die Sperre und
+   passiert nichts. */
+function tippen(el, tun){
+  if (!el) return;
+  let zuletzt = 0;
+  const ausloesen = e => {
+    if (el.disabled) return;
+    const jetzt = Date.now();
+    if (jetzt - zuletzt < 500) return;
+    zuletzt = jetzt;
+    tun(e);
+  };
+  el.addEventListener('pointerup', e => { if (e.isPrimary !== false) ausloesen(e); });
+  el.addEventListener('click', ausloesen);
+}
+
 /* ------------------------------------------- Runterziehen zum Aktualisieren */
 /* Nur wenn die Seite ganz oben steht und der Finger deutlich nach unten zieht.
    Waagerechte Wischer (Chip-Leisten) und normales Scrollen bleiben unberührt. */
@@ -4732,8 +5174,14 @@ $('freiSeg').addEventListener('click', e => {
 
 let aktuelleKasseSicht = 'uebersicht';
 let ausgabeKategorie = '';
+let umlageKategorie = '';
+/* Welche Beitragsmonate offen stehen sollen. Ohne diesen Merker klappte die
+   Karte beim letzten Haken unter dem Finger zu: Sie war "offen, solange noch
+   etwas fehlt", und nach dem letzten Haken fehlte nichts mehr. */
+let beitragOffen = {};
 
-const kasseD = () => D.kasseDaten || { offene: [], ausgaben: [], umlage: [], kategorien: [] };
+const kasseD = () => D.kasseDaten || { offene: [], ausgaben: [], umlage: [],
+                                       kategorien: [], kategorienEin: [], beitraege: null };
 
 /* Sehen und Ändern sind zwei verschiedene Dinge:
    - darfKasseAendern: der Kassenwart selbst
@@ -4827,14 +5275,17 @@ function kassePostenMaske(p){
         : marke === 'ohne Frist'
           ? 'Die Frist ist aufgehoben: kein Zahlungsziel, kein Zuschlag nach §20. Bezahlt werden kann trotzdem.'
           : 'Fällig ' + (p.faellig ? dat(p.faellig) : '–')
-            + (p.zuschlag > 0 ? ' · darin ' + eur(p.zuschlag) + ' Zuschlag nach §20' : '') }
+            + (p.zuschlag > 0 ? ' · darin ' + eur(p.zuschlag) + ' Zuschlag nach §20' : '')
+            + (p.teilzahlung > 0 ? ' · ' + eur(p.teilzahlung) + ' bereits angezahlt' : '') }
   ];
 
   if (!ruht){
     felder.push({ art: 'zahl', label: 'Gezahlt', id: 'kasseGezahlt', einheit: '€',
       wert: betragFuerFeld(p.offen), platzhalter: 'z. B. 20,00',
+      /* Seit 1.38 geht auch weniger: Der Betrag bleibt dann als Anzahlung am
+         Posten stehen und wird vom offenen Betrag abgezogen. */
       note: 'Steht hier mehr als offen ist, wird die Differenz als Spende vermerkt. '
-          + 'Weniger geht nicht – dafür gibt es die Korrektur.' });
+          + 'Steht weniger, bleibt der Rest als Anzahlung stehen – der Posten bleibt offen.' });
   }
 
   if (darfVermerk() && !ruht){
@@ -4862,9 +5313,7 @@ function kassePostenMaske(p){
       }, $('stammSpeichern'), 'Zahlung buchen', 'stammFormFehler');
       if (!r) return;
       ebene('stammForm', false);
-      hinweisleiste(r.doppelt ? 'War schon gebucht – es wurde nichts doppelt vermerkt.'
-                  : r.spende > 0 ? 'Gebucht – ' + eur(r.spende) + ' davon als Spende vermerkt.'
-                                 : 'Als bezahlt vermerkt.');
+      hinweisleiste(zahlungText(r));
     });
 }
 
@@ -4872,9 +5321,12 @@ function kassePostenMaske(p){
 function kasseZahlungMaske(titel, posten, summe){
   stammMaske(titel, [
     { art: 'info', label: 'Offen', wert: eur(summe),
+      /* Bis 1.37 wurde ein zu kleiner Betrag abgewiesen. Seit 1.38 tilgt er
+         die Posten von alt nach neu – der älteste ist der, auf dem der
+         §20-Zuschlag am längsten läuft. */
       note: plural(posten.length, 'Posten', 'Posten') + '. Trag ein, was wirklich überwiesen '
-          + 'wurde. Ist es mehr, wird die Differenz als Spende vermerkt. Weniger geht nicht – '
-          + 'dann hake bitte die Posten einzeln ab.' },
+          + 'wurde. Ist es mehr, wird die Differenz als Spende vermerkt. Ist es weniger, werden '
+          + 'die ältesten Posten zuerst beglichen und der Rest bleibt als Anzahlung stehen.' },
     { art: 'zahl', label: 'Gezahlt', id: 'kasseGezahlt', einheit: '€',
       wert: betragFuerFeld(summe), platzhalter: 'z. B. 150,00' }
   ], 'Zahlung buchen', async () => {
@@ -4887,18 +5339,30 @@ function kasseZahlungMaske(titel, posten, summe){
     }, $('stammSpeichern'), 'Zahlung buchen', 'stammFormFehler');
     if (!r) return;
     ebene('stammForm', false);
-    hinweisleiste(r.doppelt ? 'War schon gebucht – es wurde nichts doppelt vermerkt.'
-                : r.spende > 0 ? 'Gebucht – ' + eur(r.spende) + ' davon als Spende vermerkt.'
-                               : 'Als bezahlt vermerkt.');
+    hinweisleiste(zahlungText(r));
   });
+}
+
+/** Was nach einer gebuchten Zahlung in der Leiste steht. An einer Stelle,
+ *  weil es drei Aufrufer gibt und die Fälle seit der Teilzahlung mehr
+ *  geworden sind. */
+function zahlungText(r){
+  if (r.doppelt) return 'War schon gebucht – es wurde nichts doppelt vermerkt.';
+  if (r.teilzahlung > 0){
+    return 'Anzahlung über ' + eur(r.teilzahlung) + ' vermerkt'
+         + (r.geaendert > 1 ? ' · ' + (r.geaendert - 1) + ' Posten voll bezahlt' : '')
+         + ' – der Rest bleibt offen.';
+  }
+  if (r.spende > 0) return 'Gebucht – ' + eur(r.spende) + ' davon als Spende vermerkt.';
+  return 'Als bezahlt vermerkt.';
 }
 
 /** Eine abgehakte Zahlung zurücknehmen. */
 function kasseZurueckMaske(p){
   stammMaske(p.name + ' · ' + dat(p.datum), [
     { art: 'info', label: 'Abgehakt', wert: eur(p.betrag),
-      note: 'Zurücknehmen stellt den Posten wieder offen. Eine Spende, die mit dieser Zahlung '
-          + 'gebucht wurde, fällt dabei weg.' }
+      note: 'Zurücknehmen stellt den Posten wieder offen. Eine Spende und eine Anzahlung, die '
+          + 'mit dieser Zahlung gebucht wurden, fallen dabei weg.' }
   ], 'Zahlung zurücknehmen', async () => {
     const r = await kasseSenden('bezahltSetzen', {
       posten: [{ datum: p.datum, name: p.name, quelle: p.quelle || '' }], bezahlt: false
@@ -4946,21 +5410,26 @@ function kasseFaelligMaske(p){
 }
 
 /** Eine neue Ausgaben-Kategorie. Entfernen geht bewusst nicht – siehe Backend. */
-function kasseKategorieMaske(){
-  stammMaske('Neue Kategorie', [
-    { art: 'text', label: 'Name', id: 'kasseKat', wert: '', max: 60, platzhalter: 'z. B. Bahnmiete',
+/** Eine neue Kategorie – seit 1.38 für Ausgaben UND Einnahmen. */
+function kasseKategorieMaske(art){
+  const istEin = art === 'umlage';
+  stammMaske(istEin ? 'Neue Einnahmen-Kategorie' : 'Neue Ausgaben-Kategorie', [
+    { art: 'text', label: 'Name', id: 'kasseKat', wert: '', max: 60,
+      platzhalter: istEin ? 'z. B. Sponsoring' : 'z. B. Bahnmiete',
       note: 'Steht danach in der Auswahl. Bestehende Kategorien lassen sich nicht löschen – '
-          + 'an ihnen hängen alte Ausgaben.' }
+          + 'an ihnen hängen alte Buchungen.' }
   ], 'Anlegen', async () => {
     kasseFehler('stammFormFehler', '');
     const name = stammWert('kasseKat');
     if (name.length < 2){
       kasseFehler('stammFormFehler', 'Bitte einen Namen mit mindestens zwei Zeichen angeben.'); return;
     }
-    const r = await kasseSenden('kategorieAnlegen', { name: name },
+    const r = await kasseSenden('kategorieAnlegen', { name: name, art: istEin ? 'umlage' : 'ausgabe' },
                                 $('stammSpeichern'), 'Anlegen', 'stammFormFehler');
     if (!r) return;
-    ausgabeKategorie = r.neu || name;   // gleich ausgewählt, sonst tippt man zweimal
+    // Gleich ausgewählt, sonst tippt man zweimal.
+    if (istEin) umlageKategorie = r.neu || name;
+    else        ausgabeKategorie = r.neu || name;
     ebene('stammForm', false);
     reiterZeichnen('kasse', true);
     hinweisleiste('Kategorie angelegt.');
@@ -4975,17 +5444,17 @@ function kasseBuchungMaske(art, e){
   const alt = { zeile: e.zeile, datum: e.datum, betrag: e.betrag,
                 kategorie: e.kategorie || '', notiz: e.notiz || '' };
 
-  const kats = (kasseD().kategorien || []).slice();
-  if (istAusgabe && e.kategorie && kats.indexOf(e.kategorie) < 0) kats.unshift(e.kategorie);
+  /* Seit 1.38 hat auch die Einnahme eine Kategorie – aus einer eigenen Liste.
+     Eine gemeinsame hätte "Bahnmiete" als mögliche Einnahme angeboten. */
+  const kats = ((istAusgabe ? kasseD().kategorien : kasseD().kategorienEin) || []).slice();
+  if (e.kategorie && kats.indexOf(e.kategorie) < 0) kats.unshift(e.kategorie);
 
   const felder = [
     { art: 'datum', label: 'Datum',  id: 'kbDatum',  wert: e.datum || '' },
     { art: 'zahl',  label: 'Betrag', id: 'kbBetrag', wert: betragFuerFeld(e.betrag), einheit: '€' }
   ];
-  if (istAusgabe){
-    felder.push({ art: 'auswahl', label: 'Kategorie', id: 'kbKat', wert: e.kategorie || '',
-                  optionen: kats.map(k => ({ wert: k, text: k })) });
-  }
+  felder.push({ art: 'auswahl', label: 'Kategorie', id: 'kbKat', wert: e.kategorie || '',
+                optionen: kats.map(k => ({ wert: k, text: k })) });
   felder.push({ art: 'text', label: 'Notiz', id: 'kbNotiz', wert: e.notiz || '', max: 120,
                 note: istAusgabe ? 'freiwillig'
                                  : 'Pflicht – sonst lässt sich die Einnahme später nicht zuordnen.' });
@@ -5003,8 +5472,7 @@ function kasseBuchungMaske(art, e){
       const z = stammZahl('kbBetrag', true);
       if (z.fehler){ kasseFehler('stammFormFehler', z.fehler); return; }
       const eintrag = { zeile: e.zeile, datum: stammWert('kbDatum'), betrag: z.wert,
-                        notiz: stammWert('kbNotiz'), alt: alt };
-      if (istAusgabe) eintrag.kategorie = stammWert('kbKat');
+                        notiz: stammWert('kbNotiz'), kategorie: stammWert('kbKat'), alt: alt };
       const r = await senden(istAusgabe ? 'ausgabeAendern' : 'umlageAendern',
                              { eintrag: eintrag }, $('stammSpeichern'), 'Speichern');
       if (r) hinweisleiste('Geändert.');
@@ -5029,6 +5497,41 @@ const KASSE_SICHTEN = {
       <div><div class="n">${titel}</div>${unter ? `<div class="m">${unter}</div>` : ''}</div>
       <div class="summe"${betont ? ' style="color:var(--warn)"' : ''}>${wert}</div></div>`;
 
+    /* Ausgaben und Einnahmen je Kategorie – Auftrag 37, Punkt 1.
+       Gerechnet hat das Backend; hier steht nur, wie es aussieht. Eine
+       Kategorie ohne Buchung taucht bewusst nicht auf: Eine Liste, in der
+       neun von zwölf Zeilen 0,00 € zeigen, liest niemand zu Ende. */
+    const kategorieBlock = (titel, liste, gesamt) => {
+      if (!liste || !liste.length) return '';
+      return `<div class="eyebrow" style="margin:22px 0 10px">${titel}</div>
+        <div class="list">${liste.map(k => `<div class="row">
+          <div><div class="n">${esc(k.k)}</div>
+            <div class="m">${plural(k.anzahl, 'Buchung', 'Buchungen')}${
+              gesamt > 0 ? ' · ' + Math.round(k.summe / gesamt * 100) + ' %' : ''}</div></div>
+          <div class="summe">${eur(k.summe)}</div></div>`).join('')}</div>`;
+    };
+
+    /* Der Kontostand ist seit 1.38 gerechnet und nicht mehr getippt:
+       Anfangsbestand plus alles, was in der App an Geld bewegt wurde.
+       Daneben steht, was laut Kontoauszug wirklich draufliegt – und die
+       Differenz. Sie ist der eigentliche Sinn der Sache: Solange dort 0,00 €
+       steht, ist in der App nichts vergessen worden. */
+    const diff = b.differenz;
+    const kontoBlock = `
+      <div class="eyebrow" style="margin:22px 0 10px">Konto</div>
+      <div class="list">
+        ${zeile('Anfangsbestand', b.anfangAm ? 'Stand ' + esc(b.anfangAm) : 'noch nicht gepflegt', eur(b.anfang || 0))}
+        ${zeile('Kontostand (gerechnet)', 'Anfangsbestand + alles aus der App', eur(b.kontostandBerechnet || 0))}
+        ${b.auszug === null || b.auszug === undefined ? '' : zeile('Laut Kontoauszug',
+            b.auszugAm ? 'vom ' + esc(b.auszugAm) : 'ohne Datum', eur(b.auszug))}
+        ${diff === null || diff === undefined ? '' : zeile('Differenz',
+            Math.abs(diff) < 0.005 ? 'alles erfasst'
+              : diff > 0 ? 'auf dem Konto liegt mehr – hier fehlt eine Einnahme'
+                         : 'auf dem Konto liegt weniger – hier fehlt eine Ausgabe',
+            (diff > 0 ? '+ ' : diff < 0 ? '− ' : '') + eur(Math.abs(diff)),
+            Math.abs(diff) >= 0.005)}
+      </div>`;
+
     return `
       <div class="list" style="margin-top:16px">
         ${zeile('Offen gesamt',
@@ -5047,32 +5550,139 @@ const KASSE_SICHTEN = {
 
       <div class="list" style="margin-top:14px">
         ${zeile('Eingegangen', 'bezahlte Strafen dieser Saison', eur(b.bezahlt))}
+        ${b.teilzahlungen > 0
+            ? zeile('Davon Anzahlungen', 'auf Posten, die noch offen sind', eur(b.teilzahlungen)) : ''}
         ${zeile('Zahlungsquote', 'von ' + eur(b.gefordert) + ' gefordert', b.quote + ' %')}
         ${zeile('Spenden', 'auf Strafen aufgerundet', eur(b.spenden))}
+        ${zeile('Monatsbeiträge', b.beitraegeOffen > 0
+            ? eur(b.beitraegeOffen) + ' noch offen' : 'vollständig eingegangen',
+            eur(b.beitraegeBezahlt || 0))}
         ${zeile('Sonstige Einnahmen', 'Umlage-Reste und Ähnliches', eur(b.umlage))}
         ${zeile('Verspätungszuschläge', 'in den offenen Posten enthalten', eur(b.zuschlaege))}
       </div>
 
       <div class="list" style="margin-top:14px">
         ${zeile('Ausgaben', plural(b.ausgabenAnzahl, 'Eintrag', 'Einträge'), eur(b.ausgaben))}
-        ${zeile('Bewegung der Saison', 'Eingegangen + Spenden + Einnahmen − Ausgaben',
+        ${zeile('Bewegung der Saison', 'alles Eingegangene − Ausgaben',
                 (b.bewegung >= 0 ? '+ ' : '− ') + eur(Math.abs(b.bewegung)))}
       </div>
 
-      <div class="list" style="margin-top:14px">
-        ${zeile('Kontostand', D.kasse && D.kasse.stand ? 'Stand ' + esc(D.kasse.stand) : 'ohne Stand-Datum',
-                esc((D.kasse && D.kasse.kontostand) || '–'))}
-      </div>
+      ${kategorieBlock('Ausgaben je Kategorie', b.ausgabenJeKategorie, b.ausgaben)}
+      ${kategorieBlock('Einnahmen je Kategorie', b.einnahmenJeKategorie, b.umlage)}
 
-      <p class="note" style="margin-top:12px">Die <strong>Bewegung</strong> ist keine Kassenprüfung: Sie zählt nur,
-        was in der App erfasst ist. Die Monatsbeiträge nach §14 laufen per Dauerauftrag und tauchen hier nicht auf,
-        ein Anfangsbestand ist ebenfalls nicht hinterlegt. Der Kontostand darüber ist der von Hand gepflegte Wert.</p>
+      ${kontoBlock}
+
+      <p class="note" style="margin-top:12px">Die <strong>Bewegung</strong> zählt, was in der App
+        erfasst ist: bezahlte Strafen, Anzahlungen, Spenden, Monatsbeiträge und sonstige Einnahmen,
+        abzüglich der Ausgaben. Der <strong>Kontostand</strong> ist der Anfangsbestand plus diese
+        Bewegung – die Differenz zum Kontoauszug zeigt, ob etwas fehlt.</p>
 
       ${b.jeTermin && b.jeTermin.length ? `
       <div class="eyebrow" style="margin:22px 0 10px">Offen je Termin</div>
       <div class="list">${b.jeTermin.map(t => `<div class="row">
         <div><div class="n">${dat(t.datum)}</div><div class="m">${plural(t.anzahl, 'Posten', 'Posten')}</div></div>
         <div class="summe">${eur(t.summe)}</div></div>`).join('')}</div>` : ''}`;
+  },
+
+  /* --------------------------------------------- Monatsbeiträge nach §14 */
+  /* Entscheidung Johannes vom 07.09.2026: je Kegelbruder und Monat abhaken.
+     Damit das nicht in Klickarbeit ausartet, hat jeder Monat einen Knopf für
+     alle auf einmal – der Dauerauftrag läuft schließlich in aller Regel bei
+     allen. Wer nicht gezahlt hat, wird danach einzeln wieder abgewählt. */
+  beitraege(){
+    const bt = kasseD().beitraege;
+    if (!bt || !bt.monate || !bt.monate.length){
+      return '<p class="note" style="margin-top:16px">Für die Monatsbeiträge fehlt noch die '
+           + 'Grundlage – bitte einmal die Daten neu laden.</p>';
+    }
+    if (!(bt.satz > 0)){
+      return '<p class="note" style="margin-top:16px">In §14 ist kein Betrag hinterlegt. '
+           + 'Solange dort nichts steht, lässt sich kein Beitrag buchen.</p>';
+    }
+
+    const da = {};
+    (bt.eintraege || []).forEach(e => da[e.monat + '|' + e.name] = e);
+    const aendern = darfKasseAendern();
+
+    const kopf = `<div class="list" style="margin-top:16px">
+      <div class="row"><div><div class="n">Eingegangen</div>
+        <div class="m">${eur(bt.satz)} je Kegelbruder und Monat</div></div>
+        <div class="summe">${eur(bt.bezahlt)}</div></div>
+      <div class="row"><div><div class="n">Noch offen</div>
+        <div class="m">von ${eur(bt.soll)} für ${plural(bt.monate.length, 'Monat', 'Monate')}</div></div>
+        <div class="summe"${bt.offen > 0 ? ' style="color:var(--warn)"' : ''}>${eur(bt.offen)}</div></div>
+    </div>`;
+
+    // Der laufende Monat oben – dort wird gearbeitet.
+    const karten = bt.monate.slice().reverse().map(m => {
+      const bezahlt = bt.mitglieder.filter(n => da[m.m + '|' + n]);
+      const alle = bezahlt.length === bt.mitglieder.length;
+      // Aufgeklappt ist, woran gerade gearbeitet wird – sonst alles Unfertige.
+      const auf = beitragOffen[m.m] !== undefined ? beitragOffen[m.m] : !alle;
+      return `<details class="jahrkarte"${auf ? ' open' : ''}><summary>
+          <div class="group-head"><span>${esc(m.name)}</span>
+            <span class="pill ${alle ? 'grau' : 'open'}">${bezahlt.length} / ${bt.mitglieder.length}</span></div>
+          <div class="teaser"><div class="kein">${eur(bezahlt.reduce((su, n) => su + da[m.m + '|' + n].betrag, 0))}
+            ${alle ? '· vollständig' : '· ' + (bt.mitglieder.length - bezahlt.length) + ' offen'}</div></div>
+        </summary>
+        <div class="hblock"><div class="list">${bt.mitglieder.map(n => {
+          const e = da[m.m + '|' + n];
+          return `<div class="setrow">
+            <div><div class="lbl">${esc(n)}</div>
+              <div class="dsc">${e ? eur(e.betrag) + (e.am ? ' · ' + dat(e.am) : '') : 'offen'}</div></div>
+            <button class="switch" role="switch" aria-checked="${e ? 'true' : 'false'}"
+                    ${aendern ? `data-beitrag="${esc(m.m)}" data-name="${esc(n)}"` : 'disabled'}
+                    aria-label="${esc(n)} ${esc(m.name)}"></button></div>`;
+        }).join('')}</div>
+        ${aendern ? `<button class="btn ghost small" style="margin-top:12px"
+            data-beitragmonat="${esc(m.m)}" data-an="${alle ? '0' : '1'}">${
+            alle ? 'Ganzen Monat zurücknehmen' : 'Alle abhaken'}</button>` : ''}
+        </div>
+      </details>`;
+    }).join('');
+
+    return kopf + '<div style="margin-top:14px">' + karten + '</div>'
+         + '<p class="note" style="margin-top:12px">Der Betrag kommt aus §14. Ändert er sich, gilt '
+         + 'der neue Satz für neue Haken – bereits gebuchte Monate bleiben stehen, wie sie waren.</p>';
+  },
+
+  /* ------------------------------------------- Strafen und Spenden (1.38) */
+  /* Vorher im Bereich des Schriftführers. Gerechnet wird hier aus den offenen
+     Beträgen, die der Kassenwart ohnehin hat – nicht aus der Auswertung, die
+     ihm nicht zusteht. Für ihn ist ohnehin die andere Frage die richtige:
+     nicht "wer sammelt die meisten Strafen", sondern "wer schuldet was". */
+  strafen(){
+    const map = {};
+    kasseD().offene.forEach(o => {
+      if (!map[o.name]) map[o.name] = { n: o.name, gesamt: 0, offen: 0, posten: 0 };
+      map[o.name].gesamt += o.betrag || 0;
+      map[o.name].offen  += o.bezahlt ? 0 : (o.offen || 0);
+      map[o.name].posten += 1;
+    });
+    const l = Object.keys(map).map(k => map[k])
+                .map(x => ({ n: x.n, gesamt: Math.round(x.gesamt * 100) / 100,
+                             offen: Math.round(x.offen * 100) / 100, posten: x.posten }))
+                .sort((a, b) => b.gesamt - a.gesamt);
+    if (!l.length) return '<p class="note" style="margin-top:16px">Noch keine Strafen erfasst.</p>';
+    return '<p class="note" style="margin-top:16px">Summe der Saison je Kegelbruder – '
+         + 'bezahlt und offen zusammen.</p>'
+         + rangliste(l, r => r.gesamt, r => eur(r.gesamt),
+             r => plural(r.posten, 'Posten', 'Posten')
+                + (r.offen > 0 ? ' · noch ' + eur(r.offen) + ' offen' : ' · alles bezahlt'));
+  },
+
+  spenden(){
+    const map = {};
+    kasseD().offene.forEach(o => {
+      if (!(o.spende > 0)) return;
+      map[o.name] = (map[o.name] || 0) + o.spende;
+    });
+    const l = Object.keys(map).map(n => ({ n: n, v: Math.round(map[n] * 100) / 100 }))
+                              .sort((a, b) => b.v - a.v);
+    if (!l.length) return '<p class="note" style="margin-top:16px">Bisher keine Spenden erfasst.</p>';
+    return '<p class="note" style="margin-top:16px">Freiwillig obendrauf – der Betrag, den jemand '
+         + 'über seine Schuld hinaus überwiesen hat.</p>'
+         + rangliste(l, r => r.v, r => eur(r.v));
   },
 
   /* Aufgebaut wie ein Kegelabend unter "Deine Strafen" und wie ein Kegeljahr in
@@ -5114,7 +5724,8 @@ const KASSE_SICHTEN = {
           : marke === 'ohne Frist'
             ? 'Frist aufgehoben – kein Zahlungsziel, kein Zuschlag'
             : 'fällig ' + (x.faellig ? dat(x.faellig) : '–')
-              + (x.zuschlag > 0 ? ' · Zuschlag ' + eur(x.zuschlag) : '');
+              + (x.zuschlag > 0 ? ' · Zuschlag ' + eur(x.zuschlag) : '')
+              + (x.teilzahlung > 0 ? ' · angezahlt ' + eur(x.teilzahlung) : '');
         const gelb = !marke && (x.zuschlag > 0 || (x.faellig && x.faellig < D.heute));
         return `<div class="row kasserow" data-posten="${nr}">
           <div><div class="n">${dat(x.datum)}${x.quelle ? ' · ' + esc(x.quelle) : ''}</div>
@@ -5188,23 +5799,63 @@ const KASSE_SICHTEN = {
     return kopf + korrektur + liste + abgehakt;
   },
 
+  /* KONTO (1.38)
+     Bis 1.37 wurde hier der Kontostand von Hand eingetippt. Er wird jetzt
+     gerechnet – von Hand gepflegt werden nur noch zwei Werte:
+       Anfangsbestand: was am Saisonanfang auf dem Konto lag. Einmal.
+       Kontoauszug:    was laut Bank wirklich draufliegt. Reiner Abgleich.
+     Entscheidung Johannes vom 07.09.2026 ("Rechnen + Abgleich"). */
   konto(){
     const k = D.kasse || {};
+    const b = D.kassenbericht || {};
+    const diff = b.differenz;
     return `
+      <p class="note" style="margin-top:16px">Der Kontostand wird gerechnet: Anfangsbestand plus
+        alles, was in der App an Geld bewegt wurde. Von Hand gehören hier nur zwei Zahlen hinein.</p>
+
       <div class="kassefeld">
-        <div class="eyebrow">Kontostand</div>
-        <div class="euro"><input class="search" id="kontoBetrag" inputmode="decimal" placeholder="z. B. 1234,56"
-               value="${esc(betragFuerFeld(betragAusText(k.kontostand)))}" aria-label="Kontostand"><span>€</span></div>
+        <div class="eyebrow">Anfangsbestand</div>
+        <div class="euro"><input class="search" id="kontoAnfang" inputmode="decimal" placeholder="z. B. 1234,56"
+               value="${esc(betragFuerFeld(betragAusText(k.anfang)))}" aria-label="Anfangsbestand"><span>€</span></div>
+        <p class="note" style="margin-top:8px">Was am Anfang der Saison auf dem Konto lag.
+          Einmal eintragen – danach rechnet die App selbst weiter.</p>
       </div>
       <div class="kassefeld">
-        <div class="eyebrow">Stand vom</div>
-        <input class="search" type="date" id="kontoStand"
-               value="${esc(isoAusDeutsch(k.stand) || D.heute)}" aria-label="Stand vom">
+        <div class="eyebrow">Anfangsbestand am</div>
+        <input class="search" type="date" id="kontoAnfangAm"
+               value="${esc(isoAusDeutsch(k.anfangAm) || '')}" aria-label="Anfangsbestand am">
       </div>
+
+      <div class="kassefeld">
+        <div class="eyebrow">Kontostand laut Auszug</div>
+        <div class="euro"><input class="search" id="kontoAuszug" inputmode="decimal" placeholder="z. B. 1876,20"
+               value="${esc(betragFuerFeld(betragAusText(k.auszug)))}" aria-label="Kontostand laut Auszug"><span>€</span></div>
+        <p class="note" style="margin-top:8px">Zum Abgleichen. Weicht er ab, fehlt in der App
+          eine Buchung – oder auf dem Konto ein Eingang.</p>
+      </div>
+      <div class="kassefeld">
+        <div class="eyebrow">Auszug vom</div>
+        <input class="search" type="date" id="kontoAuszugAm"
+               value="${esc(isoAusDeutsch(k.auszugAm) || D.heute)}" aria-label="Auszug vom">
+      </div>
+
       <p class="note kassefeld" id="kontoFehler"></p>
       <button class="btn" id="kontoSpeichern" style="margin-top:12px">Speichern</button>
-      <p class="note" style="margin-top:14px">Der Kontostand ist für alle Kegelbrüder sichtbar –
-        er steht in der App unter „Start" und beim Zahlungsweg.
+
+      <div class="list" style="margin-top:22px">
+        <div class="row"><div><div class="n">Kontostand (gerechnet)</div>
+          <div class="m">${k.stand ? 'Stand ' + esc(k.stand) : 'ohne Stand-Datum'}</div></div>
+          <div class="summe">${eur(b.kontostandBerechnet || 0)}</div></div>
+        ${diff === null || diff === undefined ? '' : `<div class="row">
+          <div><div class="n">Differenz zum Auszug</div>
+            <div class="m">${Math.abs(diff) < 0.005 ? 'alles erfasst'
+              : diff > 0 ? 'auf dem Konto liegt mehr' : 'auf dem Konto liegt weniger'}</div></div>
+          <div class="summe"${Math.abs(diff) >= 0.005 ? ' style="color:var(--warn)"' : ''}>${
+            (diff > 0 ? '+ ' : diff < 0 ? '− ' : '') + eur(Math.abs(diff))}</div></div>`}
+      </div>
+
+      <p class="note" style="margin-top:14px">Der gerechnete Kontostand ist für alle Kegelbrüder
+        sichtbar – er steht unter „Start" und beim Zahlungsweg.
         ${k.iban ? 'IBAN und Kontoinhaber bleiben davon unberührt.' : ''}</p>`;
   },
 
@@ -5263,6 +5914,13 @@ const KASSE_SICHTEN = {
         <div class="euro"><input class="search" id="umlageBetrag" inputmode="decimal" placeholder="z. B. 12,50" aria-label="Betrag"><span>€</span></div>
       </div>
       <div class="kassefeld">
+        <div class="eyebrow">Kategorie</div>
+        <div class="chips" id="umlageKats" style="margin:0;padding:2px 0">${
+          (kasseD().kategorienEin || []).map(k => `<button data-katein="${esc(k)}" aria-pressed="${k === umlageKategorie}">${esc(k)}</button>`).join('')
+          + (darfKasseAendern() ? '<button data-neuekatein="1" aria-pressed="false">+ Neue Kategorie</button>' : '')
+          || '<span class="note">Es sind noch keine Kategorien hinterlegt.</span>'}</div>
+      </div>
+      <div class="kassefeld">
         <div class="eyebrow">Notiz</div>
         <input class="search" id="umlageNotiz" maxlength="120" placeholder="z. B. Umlage-Rest Sommerfest" aria-label="Notiz">
       </div>
@@ -5276,7 +5934,7 @@ const KASSE_SICHTEN = {
         <div class="row${u.zeile && darfKasseAendern() ? ' kasserow' : ''}"${
           u.zeile && darfKasseAendern() ? ` data-buchung="umlage" data-zeile="${u.zeile}"` : ''}>
           <div><div class="n">${esc(u.notiz || 'ohne Notiz')}</div>
-            <div class="m">${dat(u.datum)}</div></div>
+            <div class="m">${dat(u.datum)}${u.kategorie ? ' · ' + esc(u.kategorie) : ''}</div></div>
           <div class="v">${eur(u.betrag)}${u.zeile && darfKasseAendern() ? '<span class="go">›</span>' : ''}</div>
         </div>`).join('')}</div>
         ${darfKasseAendern() ? '<p class="note" style="margin-top:8px">Zum Ändern oder Löschen einen Eintrag antippen.</p>' : ''}` : ''}`;
@@ -5290,10 +5948,20 @@ function zeichneKasse(sicht){
   // Wer nur zusehen darf, bekommt ausschließlich die Übersicht. Die anderen drei
   // Reiter sind reine Eingabemasken – sie ohne Schreibrecht anzuzeigen, wäre eine
   // Einladung zum Ausprobieren mit anschließender Fehlermeldung.
+  /* Wer nur zusehen darf, bekommt die drei Ansichten, die reine Listen sind.
+     Die übrigen sind Eingabemasken – sie ohne Schreibrecht anzuzeigen, wäre
+     eine Einladung zum Ausprobieren mit anschließender Fehlermeldung. */
   const nurBericht = !darfKasseAendern();
+  /* "Strafen" und "Spenden" rechnen aus den Einzelposten. Die liefert das
+     Backend nur an den Kassenwart und an seine Vertreter mit Einsicht – NICHT
+     an jeden Kegelbruder, sobald der Kassenbericht freigegeben ist. Ohne diese
+     Prüfung stünden dort ab dem Tag der Generalversammlung zwei Reiter, in
+     denen "noch nichts erfasst" steht, obwohl die halbe Saison drin ist. */
+  const hatPosten = !!(D.kasseDaten && D.kasseDaten.offene);
+  const NUR_LESEN = hatPosten ? ['uebersicht', 'strafen', 'spenden'] : ['uebersicht'];
   document.querySelectorAll('#kasseChips button').forEach(b =>
-    b.classList.toggle('hidden', nurBericht && b.dataset.kasse !== 'uebersicht'));
-  if (nurBericht) aktuelleKasseSicht = 'uebersicht';
+    b.classList.toggle('hidden', nurBericht && NUR_LESEN.indexOf(b.dataset.kasse) < 0));
+  if (nurBericht && NUR_LESEN.indexOf(aktuelleKasseSicht) < 0) aktuelleKasseSicht = 'uebersicht';
 
   $('kasseKopf').textContent = nurBericht
     ? (D.ich && D.ich.nurLesenKasse
@@ -5332,6 +6000,9 @@ async function kasseSenden(aktion, nutzlast, knopf, beschriftung, fehlerFeld){
     if (r.ausgaben) D.kasseDaten.ausgaben = r.ausgaben;
     if (r.umlage)   D.kasseDaten.umlage   = r.umlage;
     if (r.kategorien) D.kasseDaten.kategorien = r.kategorien;
+    if (r.kategorienEin) D.kasseDaten.kategorienEin = r.kategorienEin;
+    if (r.beitraege) D.kasseDaten.beitraege = r.beitraege;
+    if (r.runden)   D.runden = r.runden;
     if (r.kasse)    D.kasse = r.kasse;
     if (typeof r.offenSumme === 'number') D.offen = r.offenSumme;
     /* NACHTRAG 01.09.2026: Der Kassenbericht wurde bis heute nicht mitgeholt.
@@ -5440,7 +6111,7 @@ $('kasseBody').addEventListener('click', async e => {
 
   if (e.target.closest('button[data-neuekat]')){
     e.preventDefault(); e.stopPropagation();
-    kasseKategorieMaske();
+    kasseKategorieMaske('ausgabe');
     return;
   }
 
@@ -5453,10 +6124,69 @@ $('kasseBody').addEventListener('click', async e => {
 
   if (e.target.closest('#kontoSpeichern')){
     kasseFehler('kontoFehler', '');
+    /* Seit 1.38 geht ein Objekt raus: Der Kontostand selbst wird nicht mehr
+       geschickt, er wird gerechnet. */
     const r = await kasseSenden('kasseSetzen', {
-      kontostand: $('kontoBetrag').value, stand: $('kontoStand').value
+      kasse: {
+        anfang:   $('kontoAnfang')   ? $('kontoAnfang').value   : '',
+        anfangAm: $('kontoAnfangAm') ? $('kontoAnfangAm').value : '',
+        auszug:   $('kontoAuszug')   ? $('kontoAuszug').value   : '',
+        auszugAm: $('kontoAuszugAm') ? $('kontoAuszugAm').value : ''
+      }
     }, $('kontoSpeichern'), 'Speichern', 'kontoFehler');
-    if (r) hinweisleiste('Kontostand gespeichert.');
+    if (r){
+      /* Noch einmal zeichnen, diesmal ohne die getippten Werte
+         zurückzuschreiben – so stehen dort die Zahlen, die wirklich
+         gespeichert sind. */
+      kasseFelderIgnorieren = ['kontoAnfang', 'kontoAnfangAm', 'kontoAuszug', 'kontoAuszugAm'];
+      reiterZeichnen('kasse', true);
+      hinweisleiste('Gespeichert – der Kontostand ist neu gerechnet.');
+    }
+    return;
+  }
+
+  /* --------------------------------------------- Monatsbeiträge (1.38) */
+  const beitrag = e.target.closest('button[data-beitrag]');
+  if (beitrag){
+    e.preventDefault(); e.stopPropagation();
+    beitragOffen[beitrag.dataset.beitrag] = true;   // Karte bleibt offen
+    const an = beitrag.getAttribute('aria-checked') !== 'true';
+    // Sofort umlegen, damit der Finger eine Antwort bekommt; geht es schief,
+    // zeichnet kasseSenden den Reiter ohnehin wieder aus den echten Daten.
+    beitrag.setAttribute('aria-checked', an);
+    beitrag.disabled = true;
+    const r = await kasseSenden('beitragSetzen', {
+      monat: beitrag.dataset.beitrag, name: beitrag.dataset.name, bezahlt: an
+    }, null, null, null);
+    if (!r) { beitrag.setAttribute('aria-checked', !an); beitrag.disabled = false; }
+    return;
+  }
+
+  const monatKnopf = e.target.closest('button[data-beitragmonat]');
+  if (monatKnopf){
+    e.preventDefault(); e.stopPropagation();
+    beitragOffen[monatKnopf.dataset.beitragmonat] = true;
+    const an = monatKnopf.dataset.an === '1';
+    const r = await kasseSenden('beitragMonatSetzen', {
+      monat: monatKnopf.dataset.beitragmonat, bezahlt: an
+    }, monatKnopf, monatKnopf.textContent);
+    if (r) hinweisleiste(an
+      ? plural(r.geaendert || 0, 'Beitrag gebucht', 'Beiträge gebucht') + '.'
+      : plural(r.geaendert || 0, 'Beitrag zurückgenommen', 'Beiträge zurückgenommen') + '.');
+    return;
+  }
+
+  /* ------------------------------------- Kategorie einer Einnahme (1.38) */
+  if (e.target.closest('button[data-neuekatein]')){
+    e.preventDefault(); e.stopPropagation();
+    kasseKategorieMaske('umlage');
+    return;
+  }
+
+  const katEin = e.target.closest('button[data-katein]');
+  if (katEin){
+    umlageKategorie = katEin.dataset.katein;
+    document.querySelectorAll('#umlageKats button').forEach(x => x.setAttribute('aria-pressed', x === katEin));
     return;
   }
 
@@ -5477,12 +6207,14 @@ $('kasseBody').addEventListener('click', async e => {
 
   if (e.target.closest('#umlageSpeichern')){
     kasseFehler('umlageFehler', '');
+    if (!umlageKategorie){ kasseFehler('umlageFehler', 'Bitte eine Kategorie wählen.'); return; }
     if (!$('umlageNotiz').value.trim()){
       kasseFehler('umlageFehler', 'Bitte eine Notiz angeben – sonst lässt sich die Einnahme später nicht zuordnen.');
       return;
     }
     const r = await kasseSenden('umlageAnlegen', {
-      umlage: { datum: $('umlageDatum').value, betrag: $('umlageBetrag').value, notiz: $('umlageNotiz').value }
+      umlage: { datum: $('umlageDatum').value, betrag: $('umlageBetrag').value,
+                notiz: $('umlageNotiz').value, kategorie: umlageKategorie }
     }, $('umlageSpeichern'), 'Einnahme eintragen', 'umlageFehler');
     if (r){
       kasseFelderLeeren();
@@ -5699,6 +6431,23 @@ const FIREBASE_CDN = 'https://www.gstatic.com/firebasejs/10.12.2/';
 const pushKonfig = () => (self.KC_PUSH && self.KC_PUSH.projectId && self.KC_PUSH.vapidKey) ? self.KC_PUSH : null;
 const pushGeraet = () => speicher.lies('kc-push') || '';
 
+/* ---- Der Wunsch, nicht der Zustand (1.38) --------------------------------
+   Gemeldet am 07.09.2026: Auf einem Android-Gerät stellte sich der Schalter von
+   selbst wieder zurück.
+   Die Ursache steckte in der Frage, WORAUS der Schalter seinen Zustand nahm:
+   bis 1.37 aus dem gespeicherten Gerätekennzeichen von Firebase. Genau das
+   aber ist nichts Dauerhaftes – Android vergibt es neu, wenn es den Dienst
+   neu startet, die App länger nicht benutzt wurde oder der Speicher aufgeräumt
+   wird. War es weg, zeigte der Schalter "aus", obwohl niemand ihn angefasst
+   hatte.
+   Seit 1.38 steht im Gerät der WUNSCH ("an" oder "aus"). Der Schalter zeigt
+   diesen Wunsch; das Kennzeichen ist nur noch das Mittel, ihn umzusetzen, und
+   wird bei jedem Start stillschweigend nachgeholt, wenn es fehlt.
+   Und weil nichts eingetragen ist "an" heißt, sind Meldungen ab Werk
+   eingeschaltet – Entscheidung Johannes vom 07.09.2026. */
+const pushWunsch = () => (speicher.lies('kc-push-wunsch') || 'an') === 'an';
+function pushWunschSetzen(an){ speicher.schreib('kc-push-wunsch', an ? 'an' : 'aus'); }
+
 let firebaseBereit = null;
 
 function skriptLaden(url){
@@ -5736,10 +6485,12 @@ function zeichnePush(){
   block.classList.toggle('hidden', !moeglich);
   if (!moeglich) return;
 
-  const an = !!pushGeraet();
+  const an = pushWunsch() && Notification.permission !== 'denied';
   $('pushSwitch').setAttribute('aria-checked', an);
   $('pushInfo').textContent = an
-    ? 'Dieses Gerät bekommt Meldungen zu Terminen und Freigaben.'
+    ? (pushGeraet()
+        ? 'Dieses Gerät bekommt Meldungen zu Terminen und Freigaben.'
+        : 'Eingeschaltet – dieses Gerät meldet sich beim nächsten Start an.')
     : 'Termine und Freigaben landen sonst nur in der App.';
 
   // Auf dem iPhone stellt iOS Push ausschließlich zu, wenn die App über
@@ -5756,10 +6507,20 @@ function zeichnePush(){
   $('pushHinweis').classList.toggle('hidden', !hinweise.length);
 }
 
-async function pushEinschalten(){
+/**
+ * @param still  true = keine Frage an den Browser stellen. Wird beim Start
+ *   gebraucht: Dort ist kein Fingertipp im Spiel, und eine Erlaubnisfrage ohne
+ *   Fingertipp weisen manche Browser stillschweigend ab – die Frage wäre danach
+ *   für immer verbraucht. Steht die Erlaubnis schon, läuft alles Weitere.
+ */
+async function pushEinschalten(still){
   if (!(await firebaseLaden())) return { fehler: 'Der Benachrichtigungsdienst ließ sich nicht laden.' };
 
-  const erlaubnis = await Notification.requestPermission();
+  let erlaubnis = Notification.permission;
+  if (erlaubnis !== 'granted'){
+    if (still) return { fehler: 'Für Meldungen fehlt noch die Erlaubnis des Browsers.', still: true };
+    erlaubnis = await Notification.requestPermission();
+  }
   if (erlaubnis !== 'granted') return { fehler: 'Ohne Erlaubnis des Browsers geht es nicht.' };
 
   const reg = await navigator.serviceWorker.ready;
@@ -5773,6 +6534,15 @@ async function pushEinschalten(){
   }
   if (!geraet) return { fehler: 'Dieses Gerät konnte nicht angemeldet werden.' };
 
+  /* Hat sich das Kennzeichen nicht geändert, ist das Gerät im Backend längst
+     eingetragen – dann spart der stille Lauf beim Start eine Anfrage. Das
+     Backend vergisst ein Gerät nie von allein; nur Android tauscht das
+     Kennzeichen aus, und GENAU dieser Fall geht unten weiter durch. */
+  if (still && geraet === pushGeraet()){
+    pushEmpfangVorbereiten();
+    return { ok: true, unveraendert: true };
+  }
+
   /* Ohne try flog die Ausnahme bei Netzausfall aus dem Klick-Handler heraus:
      keine Meldung, kein Neuzeichnen – der Schalter blieb auf "an" stehen,
      obwohl das Gerät nicht angemeldet war. */
@@ -5784,8 +6554,49 @@ async function pushEinschalten(){
   }
   if (r.fehler) return r;
   speicher.schreib('kc-push', geraet);
+  pushWunschSetzen(true);
   pushEmpfangVorbereiten();
   return { ok: true };
+}
+
+/**
+ * Meldungen ohne Zutun einrichten (1.38).
+ *
+ * Läuft an zwei Stellen: direkt nach der Anmeldung mit dem Zugangscode – dort
+ * ist ein Fingertipp im Spiel und der Browser darf gefragt werden – und bei
+ * jedem Start, dann aber still.
+ *
+ * Der stille Lauf ist der wichtigere: Er holt ein Gerätekennzeichen nach, das
+ * Android zwischendurch weggeworfen oder erneuert hat, und meldet es dem
+ * Backend. Ohne ihn stand der Schalter zwar auf "an", das Gerät war aber bei
+ * keiner Meldung mehr eingetragen.
+ */
+async function pushEinrichtenAutomatisch(nachAnmeldung){
+  try {
+    if (!token || !D) return;
+    if (!pushWunsch()) return;
+    if (!pushKonfig() || D.pushMoeglich === false) return;
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+    if (Notification.permission === 'denied') return;
+    /* Auf dem iPhone stellt iOS Meldungen nur zu, wenn die App über
+       "Teilen → Zum Home-Bildschirm" installiert wurde. Im Safari-Tab würde die
+       Frage gestellt und trotzdem nie etwas ankommen – das wäre eine verbrannte
+       Frage für nichts. */
+    if (istApple() && !alsAppGestartet()) return;
+    if (Notification.permission !== 'granted' && !nachAnmeldung) return;
+    /* Ob wirklich etwas zu tun ist, entscheidet pushEinschalten(): Es holt das
+       Kennzeichen von Firebase und schickt es nur weiter, wenn es sich
+       geändert hat. Eine Abfrage auf empfangLaeuft stünde hier ins Leere –
+       der Merker wird erst gesetzt, wenn Firebase geladen ist. */
+
+    const r = await pushEinschalten(!nachAnmeldung);
+    if (r && r.fehler && !r.still) console.warn('Meldungen nicht eingerichtet:', r.fehler);
+  } catch (e){
+    // Meldungen sind Beiwerk – ein Fehler hier darf den Start nicht aufhalten.
+    console.warn('Meldungen nicht eingerichtet:', e);
+  } finally {
+    try { zeichnePush(); } catch (e){}
+  }
 }
 
 /**
@@ -5834,6 +6645,7 @@ async function pushAusschalten(){
     }
   }
   speicher.loesch('kc-push');
+  pushWunschSetzen(false);
   try {
     if (await firebaseLaden()) await firebase.messaging().deleteToken();
   } catch (e){ /* schon weg ist auch in Ordnung */ }
@@ -5843,8 +6655,13 @@ async function pushAusschalten(){
 let empfangLaeuft = false;
 async function pushEmpfangVorbereiten(){
   if (empfangLaeuft || !pushGeraet()) return;
-  if (!(await firebaseLaden())) return;
+  /* Der Merker wird VOR dem Warten gesetzt. Vorher stand er danach – und weil
+     zeigeApp() beim Start zweimal läuft (einmal aus dem Gerätespeicher, einmal
+     nach der Antwort des Backends), kamen beide Durchläufe an der Sperre
+     vorbei, solange Firebase noch lud. Ergebnis waren zwei Beobachter: jede
+     Push-Meldung erzeugte zwei Karten und – seit 1.38 – zwei Datenabrufe. */
   empfangLaeuft = true;
+  if (!(await firebaseLaden())){ empfangLaeuft = false; return; }
   firebase.messaging().onMessage(m => {
     // Seit Backend 1.16 stehen Titel und Text in "notification"; "data" trägt
     // weiterhin das Sprungziel. Beides wird gelesen, damit ältere Nachrichten
@@ -5852,6 +6669,10 @@ async function pushEmpfangVorbereiten(){
     const n = (m && m.notification) || {};
     const d = (m && m.data) || {};
     meldungZeigen({ titel: n.title || d.titel, text: n.body || d.text, ziel: d.ziel });
+    /* NEU 1.38: Eine Meldung heißt, dass sich etwas geändert hat – meistens
+       eine Freigabe oder ein Termin. Bis 1.37 stand die Karte da, die Daten
+       dahinter blieben aber alt, bis jemand die App herunterzog. */
+    aktualisieren(true);
   });
 }
 
@@ -5954,6 +6775,13 @@ const NEUERUNGEN = [
       'Termine, Ämter, Kegelbrüder, die Ehrentafel und die Kegeljahre davor.',
       'Wer amtierender König ist, steht auf der Startseite – sobald der Schriftführer die Ergebnisse freigegeben hat.',
       'Auf Wunsch eine Nachricht aufs Handy, wenn sich für dich etwas ändert. Einschalten über das Zahnrad oben rechts.'
+    ] },
+  { fassung: '1.38', punkte: [
+      'Neu unter „Verein“: die Runden nach §32 – wer aus welchem Anlass noch einen ausgeben muss, für alle sichtbar.',
+      'Alle Kegelabende und Veranstaltungen lassen sich in den Handy-Kalender holen. Zahnrad › Termine im Kalender.',
+      'Benachrichtigungen sind ab jetzt von Haus aus eingeschaltet. Ausschalten geht weiterhin über das Zahnrad.',
+      'Der Kontostand wird gerechnet statt eingetippt, und der Kassenwart pflegt auch die Monatsbeiträge in der App.',
+      'Für den Kegelkönig zählt nach §23 nur noch die Anwesenheit an den Kegelabenden – Veranstaltungen zählen dafür nicht mit.'
     ] }
 ];
 
@@ -6010,7 +6838,17 @@ function tourGrundKarten(){
       + 'sehen, was ein Abend kosten würde – gespeichert wird dabei nichts.' },
 
     { sym:'leute', t:'Verein',
-      x:'Die Warte mit allen Ämtern, die Kegelbrüder und alle Termine der Saison.' },
+      x:'Die Warte mit allen Ämtern, die Kegelbrüder, alle Termine der Saison – und unter '
+      + '„Runden“ die Liste nach §32: wer aus welchem Anlass noch einen ausgeben muss.' },
+
+    /* NEU 1.38. Das Abo ist der einzige Punkt der App, den man einmal
+       einrichtet und danach nie wieder anfasst – deshalb gehört er in die
+       Tour, sonst findet ihn niemand. */
+    { sym:'kalender', t:'Termine im Kalender',
+      x:'Über das Zahnrad › „Termine im Kalender“ holst du dir alle Kegelabende und '
+      + 'Veranstaltungen in den Kalender deines Handys. Wird ein Abend verschoben, zieht der '
+      + 'Kalender von allein nach.',
+      k:'Einmal einrichten, danach nie wieder. Auf dem iPhone genügt ein Tipp, auf Android läuft es über den Google Kalender.' },
 
     /* NEU am 01.09.2026: Der Tresor und die Ehrentafel kamen in der Tour bisher
        überhaupt nicht vor – dabei ist das der Teil, den man am ehesten von
@@ -6056,19 +6894,23 @@ function tourBereichKarten(bereich){
   if (bereich === 'kasse') return [{ sym:'geld', t:'Die Kasse',
     x: i.darfKasse
       ? 'Im Reiter „Kasse“ stehen die offenen Beträge nach Kegelbruder. Ist Geld eingegangen, '
-      + 'hakst du es ab – einzeln oder für alle Termine eines Kegelbruders auf einmal. Ein Haken '
-      + 'lässt sich zurücknehmen. Dazu Kontostand, Ausgaben und sonstige Einnahmen.'
+      + 'hakst du es ab – einzeln oder für alle Termine eines Kegelbruders auf einmal. Wird '
+      + 'weniger überwiesen, tilgt der Betrag die ältesten Posten zuerst, der Rest bleibt als '
+      + 'Anzahlung stehen. Dazu die Monatsbeiträge nach §14, Ausgaben, Einnahmen, Strafen und '
+      + 'Spenden – und das Konto: Anfangsbestand eintragen, Kontostand rechnet die App.'
       : 'Im Reiter „Kasse“ stehen die offenen Beträge nach Kegelbruder, dazu Kontostand, Ausgaben '
       + 'und sonstige Einnahmen.',
     k: i.darfKasse
       ? 'Alles, was du hier einträgst, gilt sofort.'
       : 'Du hast als Vertreter Einsicht bekommen: ansehen ja, ändern nein.' }];
   if (bereich === 'amt') return [{ sym:'balken', t:'Die Auswertung',
-    x:'Der Reiter „Amt“ zeigt die laufende Saison: 5 in die Vollen, alle 9, Pumpen, Anwesenheit, '
-    + 'Sonderwürfe, Strafen und Spenden – jeweils als Rangliste.',
+    x:'Der Reiter „Auswertung“ zeigt die laufende Saison: 5 in die Vollen, alle 9, Pumpen, '
+    + 'Anwesenheit und Sonderwürfe – jeweils als Rangliste. Strafen und Spenden stehen seit '
+    + '1.38 beim Kassenwart.',
     k: i.nurLesenAmt
       ? 'Du hast als Vertreter Einsicht bekommen: ansehen ja, ändern nein.'
-      : 'Königsfähig ist nach §23 nur, wer bei mindestens ' + (huerdeText() || '60 %') + ' der Abende dabei war. Die Zahlen '
+      : 'Königsfähig ist nach §23 nur, wer bei mindestens ' + (huerdeText() || '60 %') + ' der KEGELABENDE dabei war – '
+      + 'Veranstaltungen zählen dafür nicht mit. Die Zahlen '
       + 'sieht sonst niemand, solange du sie nicht freigibst.' }];
   if (bereich === 'stammdaten') return [{ sym:'stamm', t:'Statuten, Ämter, Mitglieder',
     x:'Über das Zahnrad › Stammdaten änderst du Beträge, Ämterbesetzungen und die Mitgliederliste. '
@@ -7440,12 +8282,12 @@ $('stammBody').addEventListener('click', e => {
   else if (r.dataset.t !== undefined)   stammStatutOeffnen(r.dataset.p, r.dataset.t);
 });
 
-$('stammSpeichern').addEventListener('click', () => { if (stammPrimaer) stammPrimaer(); });
+tippen($('stammSpeichern'), () => { if (stammPrimaer) stammPrimaer(); });
 
 /* Der rote Knopf ist immer zweistufig – der erste Druck fragt nach, der zweite
    führt aus. Ein Browser-Dialog kommt hier nicht in Frage: Er blockiert die
    ganze Seite, und auf dem iPhone sieht er aus, als käme er von Safari. */
-$('stammGefahr').addEventListener('click', () => {
+tippen($('stammGefahr'), () => {
   const k = $('stammGefahr');
   if (k.dataset.sicher !== 'ja'){
     k.dataset.sicher = 'ja';
