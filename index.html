@@ -1108,7 +1108,14 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    Datei sw.js verändert hat. Bleibt sie gleich, erscheint kein Hinweis
    "Neue Version verfügbar" und die Änderung wird frühestens beim übernächsten
    Start sichtbar. */
-const APP_VERSION = '1.38';
+/* 1.39 statt 1.38 (08.09.2026): Die Fassungsnummer 1.38 war gestern Abend
+   schon einmal im Repo – mit einem älteren index.html. Jedes Handy, das die
+   App seitdem geöffnet hat, hat jene Fassung unter dem Namen kc-v1.38 im
+   Gerätespeicher. Bliebe die Nummer stehen, sähe der Browser keinen neuen
+   Service Worker, meldete keine neue Fassung und die Hülle würde erst nach
+   einem vollständigen Neustart still ausgetauscht. Eine neue Nummer räumt
+   das in einem Zug auf. */
+const APP_VERSION = '1.39';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -6954,7 +6961,7 @@ const NEUERUNGEN = [
       'Wer amtierender König ist, steht auf der Startseite – sobald der Schriftführer die Ergebnisse freigegeben hat.',
       'Auf Wunsch eine Nachricht aufs Handy, wenn sich für dich etwas ändert. Einschalten über das Zahnrad oben rechts.'
     ] },
-  { fassung: '1.38', punkte: [
+  { fassung: '1.39', punkte: [
       'Neu unter „Verein“: die Runden nach §32 – wer aus welchem Anlass noch einen ausgeben muss, für alle sichtbar.',
       'Alle Kegelabende und Veranstaltungen lassen sich in den Handy-Kalender holen. Zahnrad › Termine im Kalender.',
       'Benachrichtigungen sind ab jetzt von Haus aus eingeschaltet. Ausschalten geht weiterhin über das Zahnrad.',
