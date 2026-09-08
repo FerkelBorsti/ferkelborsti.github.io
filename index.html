@@ -536,6 +536,10 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
 .row .v.absv{white-space:normal;text-align:right;max-width:60%;font-size:13.5px;line-height:1.35}
 
 
+/* Kein Gummiband am Seitenrand (1.40). Die App bringt ihr eigenes
+   "Runterziehen zum Aktualisieren" mit; das native Überscrollen darüber hinaus
+   schiebt auf dem iPhone nur die fest verankerte Menüleiste durchs Bild. */
+html, body{overscroll-behavior-y:none}
 .ziehen{position:fixed;top:0;left:0;right:0;max-width:var(--shell);margin:0 auto;z-index:8;
   display:flex;align-items:flex-end;justify-content:center;pointer-events:none;
   color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
@@ -639,8 +643,8 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
         </div>
         <div id="modeRunden" class="hidden">
           <p class="note" style="margin-top:16px">Wer nach §32 noch eine Runde ausgeben muss –
-            Geburtstag, neues Auto, Beförderung und der ganze Rest. Oben steht, wer am
-            längsten dran ist.</p>
+            Geburtstag, neues Auto, Beförderung, etc. Oben steht, welche Runden am
+            längsten offen sind.</p>
           <button class="btn ghost small hidden" id="rundeNeu" style="margin-top:14px">Runde eintragen</button>
           <div id="rundenBody" style="margin-top:16px"></div>
         </div>
@@ -1115,7 +1119,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    Service Worker, meldete keine neue Fassung und die Hülle würde erst nach
    einem vollständigen Neustart still ausgetauscht. Eine neue Nummer räumt
    das in einem Zug auf. */
-const APP_VERSION = '1.39';
+const APP_VERSION = '1.40';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -3541,12 +3545,12 @@ const SICHTEN = {
       ${bwBlock('alle 9', r=>r.alle9, true, r=>r.alle9+'×')}
       ${bwBlock('Sonderwürfe', gesamtSonder, true, r=>gesamtSonder(r)+'×')}
     </div>
-    <div class="tworow" style="margin-top:16px">
-      <div class="stat"><div class="eyebrow">Anwesenheit Verein</div>
-        <b>${Math.round(quote*100)} %</b><div class="sub">${A[0] ? A[0].termine : 0} Termine</div></div>
-      <div class="stat"><div class="eyebrow">Strafen gesamt</div>
-        <b>${eur(A.reduce((a,r)=>a+r.betrag,0))}</b><div class="sub">alle Kegelbrüder</div></div>
-    </div>
+    <!-- Die Kachel "Strafen gesamt" stand bis 1.39 daneben. Sie ist Geld und
+         gehoert zum Kassenwart – Entscheidung Johannes vom 08.09.2026. Damit
+         bleibt hier eine einzige Kachel, die deshalb ueber die volle Breite
+         laeuft statt in einem halbleeren Zweispalter zu haengen. -->
+    <div class="stat" style="margin-top:16px"><div class="eyebrow">Anwesenheit Verein</div>
+      <b>${Math.round(quote*100)} %</b><div class="sub">${A[0] ? A[0].termine : 0} Termine</div></div>
     `;
   },
   vollen(){
@@ -3755,7 +3759,7 @@ document.addEventListener('keydown', e => {
   ebene('lightbox', false); ebene('stammFrage', false); ebene('stammForm', false);
   ebene('stamm', false); ebene('verwaltung', false); ebene('settings', false);
   ebene('freistrafe', false); ebene('absForm', false); ebene('abschluss', false);
-  if (!$('erfassung').classList.contains('hidden')){ ebene('erfassung', false); ERF = null; }
+  if (!$('erfassung').classList.contains('hidden')) erfassungSchliessen();
   if (!$('tour').classList.contains('hidden')) tourBeenden();
 });
 window.addEventListener('online', () => { hinweisleiste(''); aktualisieren(); });
@@ -3831,9 +3835,72 @@ function schlangeDazu(aktion, nutzlast, beschriftung){
 
 let schlangeLaeuft = false;
 
+/* WACHHUND (1.40). Gemeldet am 08.09.2026: Der Knopf stand dauerhaft auf
+   "Sendet noch 3 …" und war gesperrt, die App liess sich nur durch einen
+   Neustart wieder in Gang bringen.
+   Ursache: "schlangeLaeuft" wird an genau einer Stelle wieder gelöst – im
+   finally weiter unten. Schiebt das Handy die App in den Hintergrund, friert
+   iOS die laufende Anfrage MIT ihrem Abbruch-Zeitgeber ein. Das await löst
+   dann nie auf, das finally läuft nie, und jeder weitere Anlauf kehrt in der
+   ersten Zeile wieder um. Dagegen zwei Sicherungen: ein Zeitstempel, nach dem
+   eine offensichtlich hängende Sendung verworfen wird, und eine harte
+   Zeitgrenze um jede einzelne Anfrage, die auch dann greift, wenn der
+   Abbruch-Zeitgeber der Anfrage selbst verschluckt wurde. */
+let schlangeSeit = 0;
+const SCHLANGE_HAENGT_AB = 4 * API_ZEITLIMIT;
+
+function mitZeitgrenze(versprechen, ms){
+  return new Promise((gut, schlecht) => {
+    const uhr = setTimeout(() => {
+      const f = new Error('Zeitüberschreitung'); f.name = 'AbortError'; schlecht(f);
+    }, ms);
+    versprechen.then(w => { clearTimeout(uhr); gut(w); },
+                     f => { clearTimeout(uhr); schlecht(f); });
+  });
+}
+
 async function schlangeSenden(){
-  if (schlangeLaeuft || !token) return;
+  if (schlangeLaeuft){
+    if (Date.now() - schlangeSeit < SCHLANGE_HAENGT_AB) return;
+    schlangeLaeuft = false;          // hängengeblieben – Sperre verfällt
+  }
+  /* Ohne Anmeldung kann nichts rausgehen. Bis 1.39 wurde hier stumm
+     umgekehrt, OHNE den Wunsch nach einer Übertragung zu lösen – lief die
+     Anmeldung ab, während eine Übertragung anstand, blieb der Knopf für immer
+     auf "Sendet noch …" stehen. */
+  if (!token){
+    if (erfSyncGewuenscht){ erfSyncGewuenscht = false; erfZeichnen(); }
+    return;
+  }
   schlangeLaeuft = true;
+  schlangeSeit = Date.now();
+
+  /* Ein fachlicher Fehler (unbekannte Strafart, gerechnete Zeile) wird durch
+     Wiederholen nicht besser. Der Auftrag fliegt aus der Schlange, damit er
+     nicht alles dahinter blockiert, und wird sichtbar festgehalten. */
+  const merke = (text, fehler) => {
+    const w = abgelehnte();
+    w.push({ text: text, fehler: fehler, wann: Date.now() });
+    abgelehnteSchreib(w);
+  };
+  /* Ein abgelehnter Eintrag muss auch aus der Anzeige verschwinden. Bis
+     1.28 blieb der Wert im Bildschirm des Schriftführers stehen und wurde
+     obendrein als "gesendet" gezählt – am Ende fehlte die Strafe in der
+     Auswertung, obwohl sie den ganzen Abend sichtbar war. */
+  const zuruecknehmen = a => {
+    const e = a && a.nutzlast && a.nutzlast.eintrag;
+    if (!e || a.aktion !== 'erfassungBuchen') return;
+    if (!ERF || !ERF.werte || !ERF.werte[e.name]) return;
+    // Nur auf dem Abend zurücknehmen, zu dem der Eintrag gehört – sonst
+    // wird beim Wechsel auf einen anderen Abend am falschen Bildschirm
+    // abgezogen.
+    if (ERF.datum !== e.datum || ERF.art !== e.art) return;
+    const alt = Number(ERF.werte[e.name][e.zeile] || 0);
+    const neu = Math.round((alt - Number(e.delta || 0)) * 100) / 100;
+    if (neu > 0) ERF.werte[e.name][e.zeile] = neu;
+    else delete ERF.werte[e.name][e.zeile];
+  };
+
   try {
     while (schlange().length){
       // Aufeinanderfolgende Eintragungen gehen gebündelt raus. Nach einer
@@ -3844,44 +3911,42 @@ async function schlangeSenden(){
       while (n < l.length && n < 40 && l[n].aktion === 'erfassungBuchen') n++;
 
       let antwort, anzahl;
+      schlangeSeit = Date.now();
       try {
         if (n >= 2){
           anzahl = n;
-          antwort = await api('erfassungBuchenViele',
-            { token: token, eintraege: l.slice(0, n).map(x => x.nutzlast.eintrag) }, 1);
+          antwort = await mitZeitgrenze(api('erfassungBuchenViele',
+            { token: token, eintraege: l.slice(0, n).map(x => x.nutzlast.eintrag) }, 1),
+            API_ZEITLIMIT + 5000);
         } else {
           anzahl = 1;
-          antwort = await api(l[0].aktion, Object.assign({ token: token }, l[0].nutzlast), 1);
+          antwort = await mitZeitgrenze(
+            api(l[0].aktion, Object.assign({ token: token }, l[0].nutzlast), 1),
+            API_ZEITLIMIT + 5000);
         }
       } catch (e) {
+        /* EIN EINTRAG DARF NICHT ALLES DAHINTER BLOCKIEREN (1.40).
+           Bis 1.39 wurde hier nur abgebrochen. Ein Eintrag, der aus einem
+           technischen Grund IMMER scheitert, blieb damit für alle Zeiten an
+           erster Stelle liegen – und mit ihm alles, was danach kam. Es gab
+           keinen Weg, ihn loszuwerden. Jetzt zählt jeder Eintrag seine
+           vergeblichen Anläufe; nach dem fünften wandert er sichtbar nach
+           "Nicht angekommen", und der Rest der Schlange kommt wieder in
+           Bewegung. */
+        const rest = schlange();
+        if (rest.length){
+          rest[0].fehlversuche = (rest[0].fehlversuche || 0) + 1;
+          if (rest[0].fehlversuche >= 5){
+            merke(rest[0].text || rest[0].aktion, fehlerGrund(e));
+            zuruecknehmen(rest[0]);
+            schlangeSchreib(rest.slice(1));
+            erfZeichnen(); erfKopfZeichnen();
+            continue;
+          }
+          schlangeSchreib(rest);
+        }
         break;                       // kein Netz – der Rest bleibt liegen
       }
-
-      // Ein fachlicher Fehler (unbekannte Strafart, gerechnete Zeile) wird durch
-      // Wiederholen nicht besser. Der Auftrag fliegt aus der Schlange, damit er
-      // nicht alles dahinter blockiert, und wird sichtbar festgehalten.
-      const merke = (text, fehler) => {
-        const w = abgelehnte();
-        w.push({ text: text, fehler: fehler, wann: Date.now() });
-        abgelehnteSchreib(w);
-      };
-      /* Ein abgelehnter Eintrag muss auch aus der Anzeige verschwinden. Bis
-         1.28 blieb der Wert im Bildschirm des Schriftführers stehen und wurde
-         obendrein als "gesendet" gezählt – am Ende fehlte die Strafe in der
-         Auswertung, obwohl sie den ganzen Abend sichtbar war. */
-      const zuruecknehmen = a => {
-        const e = a && a.nutzlast && a.nutzlast.eintrag;
-        if (!e || a.aktion !== 'erfassungBuchen') return;
-        if (!ERF || !ERF.werte || !ERF.werte[e.name]) return;
-        // Nur auf dem Abend zurücknehmen, zu dem der Eintrag gehört – sonst
-        // wird beim Wechsel auf einen anderen Abend am falschen Bildschirm
-        // abgezogen.
-        if (ERF.datum !== e.datum || ERF.art !== e.art) return;
-        const alt = Number(ERF.werte[e.name][e.zeile] || 0);
-        const neu = Math.round((alt - Number(e.delta || 0)) * 100) / 100;
-        if (neu > 0) ERF.werte[e.name][e.zeile] = neu;
-        else delete ERF.werte[e.name][e.zeile];
-      };
 
       let abgewiesen = 0;
       if (antwort && antwort.fehler){
@@ -3924,7 +3989,12 @@ async function schlangeSenden(){
     if (erfSyncGewuenscht){
       if (!schlange().length){
         erfSyncGewuenscht = false;
-        if ($('erfSync')) erfSyncAnfordern(); else erfZeichnen();
+        /* Auf ERF prüfen, nicht auf den Knopf: Beim Schliessen der Ebene wird
+           sie nur versteckt, der Knopf steht also weiter im Dokument. Bis 1.39
+           lief die Anforderung dann mit ERF = null los, stolperte über
+           ERF.datum und meldete das als "Keine Verbindung" – die Übertragung
+           wurde nie angefordert. */
+        if (ERF && $('erfSync')) erfSyncAnfordern(); else erfZeichnen();
       } else {
         /* Es blieb etwas liegen – dann ist die Übertragung nicht sinnvoll, und
            der Knopf darf nicht ewig auf "Sendet noch …" stehen bleiben. */
@@ -4030,41 +4100,113 @@ async function erfassungOeffnen(datum, art){
   if (!ERF || ERF.datum !== datum || ERF.art !== art) erfGesendet = 0;
   erfSicht = 'liste'; erfMann = ''; erfSammelZeile = ''; erfTippen = '';
   erfSyncStand = null; clearTimeout(erfSyncUhr);
+  /* AUFRÄUMEN BEIM ÖFFNEN (1.40). Zwei Werte blieben bis 1.39 stehen:
+     - erfSyncGewuenscht: War es einmal hängengeblieben, sagte der Knopf auch
+       nach dem Schliessen und erneuten Öffnen noch "Sendet noch …".
+     - ERF: Scheitert das Laden, zeigte der Kopf den neuen Abend, während ERF
+       noch am ALTEN hing – alles, was danach ERF.datum liest, arbeitete am
+       falschen Abend. */
+  erfSyncGewuenscht = false;
+  ERF = null;
+  const lauf = ++erfLauf;
   ebene('erfassung', true);
   erfLaedt = true;
   $('erfTitel').textContent = (art === 'Kegelabend' ? 'Kegelabend' : 'Veranstaltung') + ' ' + dat(datum);
   $('erfBody').innerHTML = '<p class="note">Der Abend wird geladen …</p>';
   erfKopfZeichnen();
+  let r = null;
   try {
-    // Erst leeren, was noch in der Schlange liegt, dann lesen. Sonst käme ein
-    // Blattstand zurück, in dem die letzten Eintragungen noch fehlen – sie
-    // gingen zwar hinterher trotzdem raus, aber die Anzeige wäre kurz falsch.
-    await schlangeSenden();
-    let r = await api('erfassungLesen', { token: token, datum: datum, art: art }, API_VERSUCHE);
-    if (r.fehler){ erfBody('<p class="note warnton">' + esc(r.fehler) + '</p>'); return; }
-    if (!r.existiert){
-      erfBody(`<p class="note">Für diesen Termin ist noch keine Strafenliste angelegt.
-        Sie enthält danach alle Strafarten und alle Kegelbrüder – du musst nichts vorbereiten.</p>
-        <button class="btn" id="erfAnlegen" style="margin-top:14px">Strafenliste anlegen</button>`);
-      $('erfAnlegen').addEventListener('click', async ev => {
-        ev.target.disabled = true; ev.target.textContent = 'Moment …';
-        try {
-          const a = await api('erfassungAnlegen', { token: token, datum: datum, art: art }, API_VERSUCHE);
-          if (a.fehler){ erfBody('<p class="note warnton">' + esc(a.fehler) + '</p>'); return; }
-          ERF = Object.assign({ datum: datum }, a); erfZeichnen();
-        } catch (e){ erfBody('<p class="note warnton">Keine Verbindung.</p>'); }
-      });
-      return;
-    }
-    ERF = Object.assign({ datum: datum }, r);
-    erfZeichnen();
+    /* Erst leeren, was noch in der Schlange liegt, dann lesen. Sonst käme ein
+       Blattstand zurück, in dem die letzten Eintragungen noch fehlen – sie
+       gingen zwar hinterher trotzdem raus, aber die Anzeige wäre kurz falsch.
+
+       NEU 1.40: aber nicht mehr unbegrenzt. Gemeldet am 08.09.2026 stand
+       "Der Abend wird geladen …" minutenlang. Liegen zwölf Eintragungen in
+       der Schlange, die jede für sich einen Skript-Lauf brauchen, wartet die
+       Anzeige hier still vor sich hin, obwohl alles funktioniert. Nach
+       LADEN_WARTET_MAX wird der Abend trotzdem gelesen; was noch unterwegs
+       ist, steht im Kopf und geht im Hintergrund weiter raus. */
+    try { await mitZeitgrenze(schlangeSenden(), LADEN_WARTET_MAX); } catch (e){}
+    if (lauf !== erfLauf) return;
+    r = await api('erfassungLesen', { token: token, datum: datum, art: art }, API_VERSUCHE);
   } catch (e){
-    erfBody('<p class="note warnton">Keine Verbindung – der Abend konnte nicht geladen werden. '
-      + 'Was du jetzt einträgst, würde ins Leere laufen.</p>');
-  } finally {
-    erfLaedt = false;
-    erfKopfZeichnen();
+    if (lauf !== erfLauf) return;
+    erfBody('<p class="note warnton">Der Abend konnte nicht geladen werden: '
+      + esc(fehlerGrund(e)) + '. Was du jetzt einträgst, würde ins Leere laufen.</p>');
+    erfLaedt = false; erfKopfZeichnen();
+    return;
   }
+  if (lauf !== erfLauf) return;
+  erfLaedt = false;
+  erfKopfZeichnen();
+
+  if (r.fehler){ erfBody('<p class="note warnton">' + esc(r.fehler) + '</p>'); return; }
+  if (!r.existiert){
+    erfBody(`<p class="note">Für diesen Termin ist noch keine Strafenliste angelegt.
+      Sie enthält danach alle Strafarten und alle Kegelbrüder – du musst nichts vorbereiten.</p>
+      <button class="btn" id="erfAnlegen" style="margin-top:14px">Strafenliste anlegen</button>`);
+    $('erfAnlegen').addEventListener('click', async ev => {
+      ev.target.disabled = true; ev.target.textContent = 'Moment …';
+      try {
+        const a = await api('erfassungAnlegen', { token: token, datum: datum, art: art }, API_VERSUCHE);
+        if (lauf !== erfLauf) return;
+        if (a.fehler){ erfBody('<p class="note warnton">' + esc(a.fehler) + '</p>'); return; }
+        ERF = Object.assign({ datum: datum, art: art }, a); erfZeichnen(); erfSyncNachsehen();
+      } catch (e){ if (lauf === erfLauf) erfBody('<p class="note warnton">Keine Verbindung.</p>'); }
+    });
+    return;
+  }
+
+  ERF = Object.assign({ datum: datum }, r);
+  /* Das Zeichnen liegt bewusst NICHT mehr im try des Ladens. Bis 1.39 landete
+     jeder Fehler beim Aufbauen der Liste in derselben Meldung wie ein
+     Netzfehler – "Keine Verbindung", obwohl die Daten längst da waren. */
+  try { erfZeichnen(); }
+  catch (e){
+    console.error(e);
+    erfBody('<p class="note warnton">Der Abend kam an, liess sich aber nicht anzeigen. '
+      + 'Bitte dem Betreuer der App Bescheid sagen.</p>');
+    return;
+  }
+  /* Und nachsehen, ob für diesen Abend noch eine Übertragung offen ist oder
+     eine gelaufen ist. Bis 1.39 wurde der Übertragungsstand NUR nach einem
+     Klick geholt – eine offene Anforderung aus einer früheren Sitzung war
+     unsichtbar, eine erledigte auch. */
+  erfSyncNachsehen();
+}
+
+/* Beim Schliessen wird alles gelöst, was zu diesem Abend gehört. Bis 1.39
+   wurde hier nur die Ebene versteckt und ERF geleert – der Wunsch nach einer
+   Übertragung, die Verfolgung und der alte Inhalt blieben stehen. */
+function erfassungSchliessen(){
+  clearTimeout(erfSyncUhr);
+  erfLauf++;
+  ebene('erfassung', false);
+  ERF = null;
+  erfSyncStand = null;
+  erfSyncGewuenscht = false;
+  const b = $('erfBody');
+  if (b) b.innerHTML = '';
+}
+
+/* Zählt bei jedem Öffnen hoch. Antworten eines älteren Ladevorgangs, die erst
+   danach eintreffen, erkennen daran, dass sie nicht mehr gemeint sind. */
+let erfLauf = 0;
+const LADEN_WARTET_MAX = 12000;
+
+/* Holt den Übertragungsstand des offenen Abends und hängt sich, wenn dort noch
+   etwas offen ist, an die Verfolgung. */
+async function erfSyncNachsehen(){
+  if (!ERF) return;
+  const lauf = erfLauf, d = ERF.datum, a = ERF.art;
+  try {
+    const r = await api('syncStand', { token: token, datum: d, art: a }, 1);
+    if (lauf !== erfLauf || !ERF || ERF.datum !== d || ERF.art !== a) return;
+    if (!r || r.fehler || !r.status || r.status === 'keine') return;
+    erfSyncStand = r;
+    erfZeichnen();
+    if (r.status === 'offen') erfSyncVerfolgen(0);
+  } catch (e){}
 }
 
 function erfBody(h){ $('erfBody').innerHTML = h; }
@@ -4225,9 +4367,20 @@ function erfSyncBlock(){
       : laeuft ? 'Angefordert …' : 'Jetzt übertragen'}</button>
     ${st.status ? `<p class="note ${fertig ? '' : 'warnton'}" style="margin-top:10px">${
       fertig ? 'Übertragen am ' + esc(st.erledigt || '') + (st.meldung ? ' · ' + esc(st.meldung) : '')
-             : laeuft ? 'Angefordert um ' + esc((st.angefordert || '').slice(11, 16))
-                        + ' Uhr. Das läuft von allein weiter.'
+             : laeuft ? esc(angefordertText(st.angefordert))
              : esc(st.meldung || '')}</p>` : ''}`;
+}
+
+/* Bis 1.39 stand hier fest "Angefordert um " + angefordert.slice(11,16) + " Uhr".
+   Gemeldet am 08.09.2026 stand auf dem Handy "Angefordert um  Uhr" – ohne Zeit.
+   Zwei Gründe: Das Backend gab beim frisch angelegten Eintrag gar keinen
+   Zeitstempel zurück, und das feste Abschneiden ab Stelle 11 trifft nur genau
+   ein Format. Jetzt wird die Uhrzeit gesucht statt abgezählt – und wo keine
+   steht, entfällt der Satzteil, statt eine Lücke zu drucken. */
+function angefordertText(wert){
+  const t = /(\d{1,2}:\d{2})/.exec(String(wert || ''));
+  return (t ? 'Angefordert um ' + t[1] + ' Uhr. ' : 'Angefordert. ')
+       + 'Das läuft von allein weiter.';
 }
 
 /* Merkt sich, dass übertragen werden soll, während die Schlange noch läuft. */
@@ -4260,14 +4413,23 @@ function erfSyncStarten(){
 
 async function erfSyncAnfordern(){
   const b = $('erfSync');
+  if (!ERF || !b) return;
+  const lauf = erfLauf;
   b.disabled = true; b.textContent = 'Moment …';
   try {
     const r = await api('syncAnfordern', { token: token, datum: ERF.datum, art: ERF.art }, API_VERSUCHE);
+    if (lauf !== erfLauf) return;
     if (r.fehler){ hinweisleiste(r.fehler, 'warn'); b.disabled = false; b.textContent = 'Jetzt übertragen'; return; }
-    erfSyncStand = { status: 'offen', angefordert: r.seit || '' };
+    /* Gibt das Backend keinen Zeitstempel her (ältere Fassung), nimmt die App
+       ihre eigene Uhr. Besser eine Uhrzeit auf die Sekunde genau daneben als
+       gar keine. */
+    erfSyncStand = { status: 'offen',
+                     angefordert: r.seit || new Date().toLocaleTimeString('de-DE',
+                       { hour: '2-digit', minute: '2-digit' }) };
     erfZeichnen();
     erfSyncVerfolgen(0);
   } catch (e){
+    if (lauf !== erfLauf) return;
     hinweisleiste('Keine Verbindung – die Übertragung wurde nicht angefordert.', 'warn');
     b.disabled = false; b.textContent = 'Jetzt übertragen';
   }
@@ -4285,10 +4447,21 @@ function erfSyncVerfolgen(versuch){
     erfZeichnen();
     return;
   }
+  /* Die Nachfrage merkt sich, zu welchem Abend sie gehört. Bis 1.39 konnte
+     eine Antwort, die während des Wechsels auf einen anderen Abend eintraf,
+     dessen Stand überschreiben und eine zweite Verfolgung nebenher starten. */
+  const lauf = erfLauf, d = ERF ? ERF.datum : '', a = ERF ? ERF.art : '';
   erfSyncUhr = setTimeout(async () => {
-    if (!ERF) return;
+    if (lauf !== erfLauf || !ERF || ERF.datum !== d || ERF.art !== a){
+      /* Der Abend ist zu. Den Stand NICHT auf "offen" stehen lassen – sonst
+         wäre der Knopf beim nächsten Öffnen gesperrt, ohne dass noch jemand
+         nachfragt. */
+      if (lauf === erfLauf && !ERF) erfSyncStand = null;
+      return;
+    }
     try {
-      const r = await api('syncStand', { token: token, datum: ERF.datum, art: ERF.art }, 1);
+      const r = await api('syncStand', { token: token, datum: d, art: a }, 1);
+      if (lauf !== erfLauf || !ERF || ERF.datum !== d || ERF.art !== a) return;
       if (r && r.status && r.status !== 'offen'){ erfSyncStand = r; erfZeichnen(); return; }
     } catch (e){}
     erfSyncVerfolgen(versuch + 1);
@@ -4555,7 +4728,7 @@ function erfSammelZeichnen(){
     () => erfBuchen(b.dataset.sam, z.label, schritt)));
 }
 
-$('closeErfassung').addEventListener('click', () => { ebene('erfassung', false); ERF = null; });
+$('closeErfassung').addEventListener('click', erfassungSchliessen);
 window.addEventListener('online', () => schlangeSenden());
 
 window.addEventListener('offline', () => hinweisleiste('Offline – ' + standText(), 'warn'));
@@ -5149,8 +5322,26 @@ $('freiSeg').addEventListener('click', e => {
   let letzterSchub = -1;
 
   const nachfuehren = () => {
-    const schub = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-    const tastatur = schub > TASTATUR_AB;
+    /* NACHTRAG 08.09.2026. Gemeldet: "Beim Runterscrollen kann man es schaffen,
+       dass man die Menüleiste in den Bildschirm zieht. Sie geht von selber
+       wieder runter." Genau das war eine Nebenwirkung dieser Rechnung: Beim
+       Gummiband-Effekt am oberen Rand meldet iOS ein NEGATIVES offsetTop – der
+       sichtbare Bereich beginnt oberhalb des angenommenen. Minus mal minus
+       ergab einen Schub von mehreren hundert Pixeln, und die Leiste wanderte
+       mitten ins Bild. Der Bereich ist dabei aber gar nicht kleiner geworden.
+       Deshalb gilt jetzt: Ist nichts verkleinert, wird auch nichts geschoben. */
+    const kleiner = window.innerHeight - vv.height;
+    if (kleiner < 1){
+      nav.classList.remove('tastatur');
+      if (letzterSchub !== 0){
+        letzterSchub = 0;
+        document.documentElement.style.setProperty('--nav-schub', '0px');
+      }
+      return;
+    }
+    const schub = Math.min(kleiner,
+      Math.max(0, Math.round(kleiner - Math.max(0, vv.offsetTop))));
+    const tastatur = kleiner > TASTATUR_AB;
     nav.classList.toggle('tastatur', tastatur);
     const wert = tastatur ? 0 : schub;
     if (wert === letzterSchub) return;
@@ -5188,6 +5379,14 @@ function standIstAlt(){
 function beiRueckkehrNachsehen(){
   if (document.hidden) return;
   if (!token || !D) return;
+  /* Zuerst das, was liegengeblieben ist. Ein eingefrorener Sendevorgang wird
+     dabei über den Wachhund in schlangeSenden verworfen und neu gestartet –
+     ohne diesen Anstoss bliebe der Knopf "Sendet noch …" für immer stehen
+     (gemeldet am 08.09.2026). */
+  if (schlange().length) schlangeSenden();
+  /* Und wenn eine Übertragung offen ist, wieder nachfassen: Die Verfolgung
+     hängt an einer Kette von Zeitgebern, und die verwirft iOS im Hintergrund. */
+  if (ERF && erfSyncStand && erfSyncStand.status === 'offen') erfSyncVerfolgen(0);
   if (!standIstAlt()) return;
   aktualisieren(true);
 }
@@ -6960,6 +7159,12 @@ const NEUERUNGEN = [
       'Termine, Ämter, Kegelbrüder, die Ehrentafel und die Kegeljahre davor.',
       'Wer amtierender König ist, steht auf der Startseite – sobald der Schriftführer die Ergebnisse freigegeben hat.',
       'Auf Wunsch eine Nachricht aufs Handy, wenn sich für dich etwas ändert. Einschalten über das Zahnrad oben rechts.'
+    ] },
+  { fassung: '1.40', punkte: [
+      'Die Übertragung der Strafen bleibt nicht mehr hängen: Der Knopf sagt jetzt immer, woran es liegt, und beim Öffnen eines Abends steht da, ob eine Übertragung noch läuft oder schon durch ist.',
+      'Ein Eintrag, der aus technischen Gründen nicht rausgeht, blockiert nicht mehr alles dahinter – er landet sichtbar unter „Nicht angekommen“.',
+      'Die Menüleiste bleibt beim Scrollen unten stehen.',
+      'Abende laden spürbar schneller, und das Tippen an der Bahn geht flüssiger.'
     ] },
   { fassung: '1.39', punkte: [
       'Neu unter „Verein“: die Runden nach §32 – wer aus welchem Anlass noch einen ausgeben muss, für alle sichtbar.',
