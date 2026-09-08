@@ -1439,7 +1439,7 @@ const API_EINMALIG = [
   'postenSetzen', 'kasseSetzen', 'erfassungAnlegen', 'freigabeSetzen',
   // Mit 1.38 dazugekommen.
   'beitragSetzen', 'beitragMonatSetzen', 'rundeAnlegen', 'rundeSetzen',
-  'rundeLoeschen', 'kalenderErneuern'
+  'rundeLoeschen', 'kalenderErneuern', 'korrekturLoeschen'
 ];
 
 /* Aktionen, die nur LESEN. Alles andere bekommt seit 1.38 eine Sendekennung –
@@ -2025,10 +2025,20 @@ function aendAnsehen(bereich){
 function zeichneStart(){
   const t = D.naechsterTermin;
   const la = D.letzterAbend;
+  /* Seit 1.38 steht hier ALLES, was er dem Verein schuldet – Strafen und
+     Monatsbeiträge nach §14 (Wunsch Johannes vom 07.09.2026). Vorher stand da
+     nur die Strafensumme; wer drei Beiträge offen hatte, las 0,00 € und hielt
+     sich für quitt. Der Rückfall greift bei einem Backend älter als 1.36. */
+  const beitragOffen = Number(D.offenBeitrag) || 0;
+  const offenGesamt = (typeof D.offenGesamt === 'number') ? D.offenGesamt : D.offen;
   let h = `<div class="card">
-      <div class="eyebrow">Deine offenen Strafen</div>
-      <div class="amount ${D.offen > 0 ? '' : 'zero'}">${eur(D.offen)}</div>
-      <div class="sub">${plural(D.meineTermine.filter(x=>!x.bezahlt).length,'Termin offen','Termine offen')} · ${esc(standText())}</div>
+      <div class="eyebrow">${beitragOffen > 0 ? 'Dein offener Betrag' : 'Deine offenen Strafen'}</div>
+      <div class="amount ${offenGesamt > 0 ? '' : 'zero'}">${eur(offenGesamt)}</div>
+      <div class="sub">${beitragOffen > 0
+        ? eur(D.offen) + ' Strafen · ' + eur(beitragOffen) + ' Monatsbeitrag ('
+          + plural(D.offenBeitragMonate || 0, 'Monat', 'Monate') + ')'
+        : plural(D.meineTermine.filter(x=>!x.bezahlt).length,'Termin offen','Termine offen')
+      } · ${esc(standText())}</div>
     </div>
 
     ${abschlussKarte()}
@@ -2124,18 +2134,26 @@ function abmeldeFuss(t){
 /* Empfaenger, IBAN, Betrag, Verwendungszweck – jedes Feld einzeln antippbar. */
 function zahlfelder(){
   const felder = [];
-  const zweck = 'Strafen Kegelverein';
+  /* Der Betrag ist seit 1.38 die Gesamtschuld – Strafen plus Monatsbeiträge.
+     Wer beides offen hat, überweist einmal; der Verwendungszweck sagt dann,
+     was drinsteckt. */
+  const beitragOffen = Number(D.offenBeitrag) || 0;
+  const gesamt = (typeof D.offenGesamt === 'number') ? D.offenGesamt : D.offen;
+  const zweck = beitragOffen > 0 ? 'Strafen und Beiträge Kegelverein' : 'Strafen Kegelverein';
   if (D.kasse.iban) felder.push({ k:'Empfänger', v: D.kasse.inhaber || 'KC Knüppeldick', mono:false });
   felder.push({ k:'IBAN', v: D.kasse.iban ? String(D.kasse.iban).replace(/\s/g,'').replace(/(.{4})/g,'$1 ').trim() : '',
                 kopie: String(D.kasse.iban || '').replace(/\s/g,''), mono:true });
-  felder.push({ k:'Betrag', v: eur(D.offen), kopie: (Number(D.offen)||0).toFixed(2).replace('.',','), mono:true });
+  felder.push({ k:'Betrag', v: eur(gesamt), kopie: (Number(gesamt)||0).toFixed(2).replace('.',','), mono:true,
+                zusatz: beitragOffen > 0
+                  ? 'darin ' + eur(beitragOffen) + ' Monatsbeitrag – der Rest sind Strafen' : '' });
   felder.push({ k:'Verwendungszweck', v: zweck, mono:false });
   const gueltig = felder.filter(f => f.v);
   if (!gueltig.length) return `<div class="row"><div class="n">IBAN nicht hinterlegt.</div></div>`;
   return `<div id="zahlfelder">${gueltig.map(f => `<button class="zahl" type="button" data-kopie="${esc(f.kopie != null ? f.kopie : f.v)}">
-    <div class="tx"><b>${esc(f.k)}</b><span class="${f.mono ? 'mono' : ''}">${esc(f.v)}</span></div>
+    <div class="tx"><b>${esc(f.k)}</b><span class="${f.mono ? 'mono' : ''}">${esc(f.v)}</span>${
+      f.zusatz ? `<span style="font-size:11.5px">${esc(f.zusatz)}</span>` : ''}</div>
     <span class="cp">Kopieren</span></button>`).join('')}
-    <button class="zahl" type="button" data-kopie="${esc([D.kasse.inhaber || 'KC Knüppeldick', String(D.kasse.iban||'').replace(/\s/g,''), (Number(D.offen)||0).toFixed(2).replace('.',',') + ' EUR', zweck].join('\n'))}">
+    <button class="zahl" type="button" data-kopie="${esc([D.kasse.inhaber || 'KC Knüppeldick', String(D.kasse.iban||'').replace(/\s/g,''), (Number(gesamt)||0).toFixed(2).replace('.',',') + ' EUR', zweck].join('\n'))}">
       <div class="tx"><b>Alles zusammen</b><span>Empfänger, IBAN, Betrag und Zweck als Block</span></div>
       <span class="cp">Kopieren</span></button></div>`;
 }
@@ -4917,12 +4935,85 @@ function fsKorrekturZeichnen(){
       offenen Beträgen. Die ursprüngliche Zeile bleibt stehen – gelöscht wird nichts.</p>
     ${FS.allePosten === false ? `<p class="note" style="margin-top:10px">Hier stehen nur die freien
       Strafen. Was an einem Kegelabend falsch erfasst wurde, änderst du besser dort, wo es entstanden
-      ist – im Abend selbst – und überträgst noch einmal.</p>` : ''}`;
+      ist – im Abend selbst – und überträgst noch einmal.</p>` : ''}
+
+    ${fsKorrekturListe()}`;
 
   fsFehler(fsFehlerText);
   $('fsPostenWahl').addEventListener('click', () => { fsFelderSichern(); fsSuche = ''; fsSchritt = 'posten'; fsZeichnen(); });
   $('fsBetrag').addEventListener('input', () => { fsBetragText = $('fsBetrag').value; });
   $('fsSpeichern').addEventListener('click', () => fsSenden($('fsSpeichern')));
+  $('freiBody').querySelectorAll('button[data-korrweg]').forEach(b =>
+    b.addEventListener('click', () => fsKorrekturZuruecknehmen(Number(b.dataset.korrweg), b)));
+}
+
+/* ---------------------------------------- Korrektur zurücknehmen (1.38) */
+/* Eine Zahlung ließ sich zurücknehmen, eine Aussetzung auch – eine gebuchte
+   Korrektur bis 1.37 nicht. Wer sich vertippt hatte, musste in die Tabelle.
+
+   Die Liste hängt bewusst NICHT am gewählten Posten: Eine Korrektur, die den
+   Posten auf null gebracht hat, lässt ihn aus den offenen Beträgen
+   verschwinden – und genau die will man zurücknehmen können. Deshalb stehen
+   hier die zuletzt gebuchten Korrekturen für sich, unabhängig davon, ob oben
+   ein Posten gewählt ist. */
+function fsKorrekturListe(){
+  const liste = (FS && FS.korrekturen) || [];
+  if (!liste.length) return '';
+  return `
+    <div class="eyebrow" style="margin:24px 0 10px">Gebuchte Korrekturen</div>
+    <div class="list">${liste.map((k, i) => `<div class="row">
+      <div><div class="n">${esc(k.name)} · <span style="color:var(--accent)">− ${eur(Math.abs(k.betrag))}</span></div>
+        <div class="m">${dat(k.datum)} · ${esc(k.quelle)}</div>
+        <div class="m">${esc(k.bezug || k.strafart)}</div></div>
+      <button class="btn ghost small" data-korrweg="${i}" data-sicher="">Zurücknehmen</button>
+    </div>`).join('')}</div>
+    <p class="note" style="margin-top:8px">Zurücknehmen leert die Zeile in den Rohdaten; der offene
+      Betrag steht danach wieder da, wo er vor der Korrektur stand. Im Protokoll bleibt beides
+      stehen – die Buchung und die Rücknahme.</p>`;
+}
+
+async function fsKorrekturZuruecknehmen(nr, knopf){
+  const k = ((FS && FS.korrekturen) || [])[nr];
+  if (!k) return;
+
+  // Zweistufig wie überall, wo etwas nicht zurückzuholen ist.
+  if (knopf.dataset.sicher !== 'ja'){
+    $('freiBody').querySelectorAll('button[data-korrweg]').forEach(b => {
+      b.dataset.sicher = ''; b.textContent = 'Zurücknehmen';
+    });
+    knopf.dataset.sicher = 'ja';
+    knopf.textContent = 'Wirklich?';
+    setTimeout(() => {
+      if (knopf.dataset.sicher === 'ja'){ knopf.dataset.sicher = ''; knopf.textContent = 'Zurücknehmen'; }
+    }, 8000);
+    return;
+  }
+
+  fsFehler('');
+  knopf.dataset.sicher = '';
+  knopf.disabled = true;
+  knopf.textContent = 'Moment …';
+  try {
+    const r = await api('korrekturLoeschen', { token: token, eintrag: {
+      zeile: k.zeile, datum: k.datum, name: k.name, quelle: k.quelle,
+      strafart: k.strafart, betrag: k.betrag
+    } }, API_VERSUCHE);
+    if (r.fehler){ fsFehler(r.fehler); return; }
+    eigeneSchreibung();
+    hinweisleiste(k.name + ': Korrektur über ' + eur(Math.abs(k.betrag))
+                + ' zurückgenommen – offen sind wieder ' + eur(r.offen || 0) + '.');
+    if (r.warnung) setTimeout(() => hinweisleiste(r.warnung, 'warn'), LEISTE_DAUER + 200);
+    fsPosten = null;          // der alte Stand des Postens stimmt jetzt nicht mehr
+    fsBetragText = '';
+    fsLaden();                // holt die Liste der Korrekturen frisch
+    aktualisieren(true);
+  } catch (e){
+    fsFehler(schreibFehlerText(e, 'die Rücknahme'));
+    letzterApiFehler = fehlerGrund(e);
+  } finally {
+    knopf.disabled = false;
+    knopf.textContent = 'Zurücknehmen';
+  }
 }
 
 function fsPostenZeichnen(){
@@ -5236,9 +5327,29 @@ function offenNachMann(){
     if (rest > 0 && !postenRuht(o)) map[o.name].summe += rest;
     map[o.name].posten.push(o);
   });
+  /* NEU 1.38: Die Monatsbeiträge gehören dazu. "Offen" soll alles sein, was
+     der Verein noch zu bekommen hat (Wunsch Johannes vom 07.09.2026) – und
+     wer NUR Beiträge schuldet, taucht sonst in der Kasse gar nicht auf.
+     Der Beitrag steht bewusst nicht als Posten in der Liste: Er hat kein
+     Fälligkeitsdatum aus dem Blatt, keinen §20-Zuschlag und lässt sich hier
+     auch nicht abhaken – das geht im eigenen Reiter. Er hängt deshalb als
+     eigener Wert an der Gruppe. */
+  const bt = kasseD().beitraege;
+  const jeMann = (bt && bt.jeMann) || {};
+  Object.keys(jeMann).forEach(n => {
+    const k = jeMann[n];
+    if (!k || !(k.betrag > 0)) return;
+    if (!map[n]) map[n] = { name: n, summe: 0, posten: [] };
+    map[n].beitrag = k.betrag;
+    map[n].beitragMonate = k.monate;
+  });
+
   return Object.keys(map).map(k => {
     const m = map[k];
-    m.summe = Math.round(m.summe * 100) / 100;
+    m.beitrag = Math.round((m.beitrag || 0) * 100) / 100;
+    m.beitragMonate = m.beitragMonate || 0;
+    m.strafen = Math.round(m.summe * 100) / 100;
+    m.summe = Math.round((m.summe + m.beitrag) * 100) / 100;
     m.posten.sort((a, b) => a.datum < b.datum ? -1 : 1);
     return m;
   // Sortiert nach Namen (Wunsch vom 31.08.2026): Der Kassenwart sucht einen
@@ -5536,9 +5647,16 @@ const KASSE_SICHTEN = {
       <div class="list" style="margin-top:16px">
         ${zeile('Offen gesamt',
                 b.schuldner
-                  ? plural(b.schuldner, 'Kegelbruder hat offene Posten', 'Kegelbrüder haben offene Posten')
+                  ? plural(b.schuldner, 'Kegelbruder schuldet noch etwas', 'Kegelbrüder schulden noch etwas')
                   : 'alles beglichen',
                 eur(b.offen))}
+        ${b.beitraegeOffen > 0 ? zeile('Davon Strafen', 'unter „Offene Beträge“ abzuhaken',
+                eur(b.offenStrafen === undefined ? b.offen : b.offenStrafen)) : ''}
+        ${b.beitraegeOffen > 0 ? zeile('Davon Monatsbeiträge',
+                b.beitraegeSchuldner
+                  ? plural(b.beitraegeSchuldner, 'Kegelbruder im Rückstand', 'Kegelbrüder im Rückstand')
+                  : 'nach §14',
+                eur(b.beitraegeOffen)) : ''}
         ${zeile('Davon überfällig',
                 b.ueberfaellig > 0
                   ? '<span class="frist">Frist verstrichen – §20 greift</span>'
@@ -5552,7 +5670,7 @@ const KASSE_SICHTEN = {
         ${zeile('Eingegangen', 'bezahlte Strafen dieser Saison', eur(b.bezahlt))}
         ${b.teilzahlungen > 0
             ? zeile('Davon Anzahlungen', 'auf Posten, die noch offen sind', eur(b.teilzahlungen)) : ''}
-        ${zeile('Zahlungsquote', 'von ' + eur(b.gefordert) + ' gefordert', b.quote + ' %')}
+        ${zeile('Zahlungsquote', 'von ' + eur(b.gefordert) + ' geforderten Strafen', b.quote + ' %')}
         ${zeile('Spenden', 'auf Strafen aufgerundet', eur(b.spenden))}
         ${zeile('Monatsbeiträge', b.beitraegeOffen > 0
             ? eur(b.beitraegeOffen) + ' noch offen' : 'vollständig eingegangen',
@@ -5585,10 +5703,12 @@ const KASSE_SICHTEN = {
   },
 
   /* --------------------------------------------- Monatsbeiträge nach §14 */
-  /* Entscheidung Johannes vom 07.09.2026: je Kegelbruder und Monat abhaken.
-     Damit das nicht in Klickarbeit ausartet, hat jeder Monat einen Knopf für
-     alle auf einmal – der Dauerauftrag läuft schließlich in aller Regel bei
-     allen. Wer nicht gezahlt hat, wird danach einzeln wieder abgewählt. */
+  /* Entscheidung Johannes vom 08.09.2026: Der Beitrag läuft per Dauerauftrag
+     und gilt deshalb als BEZAHLT, solange nichts anderes vermerkt ist. Das
+     Blatt im Hintergrund hält nur die Ausnahmen – der Kassenwart trägt ein, wo
+     einmal nichts gekommen ist, und tut sonst gar nichts.
+     Für die Anzeige heißt das: Ein Schalter steht auf "an", solange kein
+     Rückstand vermerkt ist. Abwählen heißt "nicht bezahlt". */
   beitraege(){
     const bt = kasseD().beitraege;
     if (!bt || !bt.monate || !bt.monate.length){
@@ -5597,53 +5717,67 @@ const KASSE_SICHTEN = {
     }
     if (!(bt.satz > 0)){
       return '<p class="note" style="margin-top:16px">In §14 ist kein Betrag hinterlegt. '
-           + 'Solange dort nichts steht, lässt sich kein Beitrag buchen.</p>';
+           + 'Solange dort nichts steht, lässt sich kein Rückstand vermerken.</p>';
     }
 
-    const da = {};
-    (bt.eintraege || []).forEach(e => da[e.monat + '|' + e.name] = e);
+    // Schlüssel der Ausnahmen: hier steht drin, wer NICHT gezahlt hat.
+    const offen = {};
+    (bt.eintraege || []).forEach(e => offen[e.monat + '|' + e.name] = e);
     const aendern = darfKasseAendern();
 
     const kopf = `<div class="list" style="margin-top:16px">
       <div class="row"><div><div class="n">Eingegangen</div>
-        <div class="m">${eur(bt.satz)} je Kegelbruder und Monat</div></div>
+        <div class="m">${eur(bt.satz)} je Kegelbruder und Monat · Beitragsjahr ab Juni</div></div>
         <div class="summe">${eur(bt.bezahlt)}</div></div>
-      <div class="row"><div><div class="n">Noch offen</div>
-        <div class="m">von ${eur(bt.soll)} für ${plural(bt.monate.length, 'Monat', 'Monate')}</div></div>
+      <div class="row"><div><div class="n">Im Rückstand</div>
+        <div class="m">${(bt.eintraege || []).length
+          ? plural((bt.eintraege || []).length, 'Vermerk', 'Vermerke')
+            + (bt.offenAlt > 0 ? ' · davon ' + eur(bt.offenAlt) + ' aus früheren Jahren' : '')
+          : 'nichts vermerkt – alle Daueraufträge laufen'}</div></div>
         <div class="summe"${bt.offen > 0 ? ' style="color:var(--warn)"' : ''}>${eur(bt.offen)}</div></div>
-    </div>`;
+    </div>
+    <p class="note" style="margin-top:12px">Der Beitrag gilt als bezahlt, solange hier nichts
+      anderes steht – der Dauerauftrag läuft ja. Kam einmal nichts, den Kegelbruder im
+      betreffenden Monat abwählen.</p>`;
 
     // Der laufende Monat oben – dort wird gearbeitet.
     const karten = bt.monate.slice().reverse().map(m => {
-      const bezahlt = bt.mitglieder.filter(n => da[m.m + '|' + n]);
-      const alle = bezahlt.length === bt.mitglieder.length;
-      // Aufgeklappt ist, woran gerade gearbeitet wird – sonst alles Unfertige.
-      const auf = beitragOffen[m.m] !== undefined ? beitragOffen[m.m] : !alle;
+      const rueck = bt.mitglieder.filter(n => offen[m.m + '|' + n]);
+      const alles = rueck.length === 0;
+      const summe = rueck.reduce((su, n) => su + offen[m.m + '|' + n].betrag, 0);
+      /* Aufgeklappt ist, woran gerade gearbeitet wird – sonst nur die Monate
+         mit einem Rückstand. Ein Monat, in dem alles läuft, muss niemand
+         aufklappen; genau das ist der Normalfall. */
+      const auf = beitragOffen[m.m] !== undefined ? beitragOffen[m.m] : !alles;
       return `<details class="jahrkarte"${auf ? ' open' : ''}><summary>
-          <div class="group-head"><span>${esc(m.name)}</span>
-            <span class="pill ${alle ? 'grau' : 'open'}">${bezahlt.length} / ${bt.mitglieder.length}</span></div>
-          <div class="teaser"><div class="kein">${eur(bezahlt.reduce((su, n) => su + da[m.m + '|' + n].betrag, 0))}
-            ${alle ? '· vollständig' : '· ' + (bt.mitglieder.length - bezahlt.length) + ' offen'}</div></div>
+          <div class="group-head"><span>${esc(m.name)}${m.imJahr === false ? ' · Vorjahr' : ''}</span>
+            <span class="pill ${alles ? 'grau' : 'open'}">${
+              alles ? 'vollständig' : eur(summe) + ' offen'}</span></div>
+          <div class="teaser"><div class="kein">${alles
+            ? 'alle ' + bt.mitglieder.length + ' bezahlt'
+            : plural(rueck.length, 'Kegelbruder im Rückstand', 'Kegelbrüder im Rückstand')}</div></div>
         </summary>
         <div class="hblock"><div class="list">${bt.mitglieder.map(n => {
-          const e = da[m.m + '|' + n];
+          const e = offen[m.m + '|' + n];
           return `<div class="setrow">
             <div><div class="lbl">${esc(n)}</div>
-              <div class="dsc">${e ? eur(e.betrag) + (e.am ? ' · ' + dat(e.am) : '') : 'offen'}</div></div>
-            <button class="switch" role="switch" aria-checked="${e ? 'true' : 'false'}"
+              <div class="dsc">${e
+                ? '<span class="frist">offen · ' + eur(e.betrag) + (e.am ? ' · vermerkt ' + dat(e.am) : '') + '</span>'
+                : 'bezahlt'}</div></div>
+            <button class="switch" role="switch" aria-checked="${e ? 'false' : 'true'}"
                     ${aendern ? `data-beitrag="${esc(m.m)}" data-name="${esc(n)}"` : 'disabled'}
                     aria-label="${esc(n)} ${esc(m.name)}"></button></div>`;
         }).join('')}</div>
-        ${aendern ? `<button class="btn ghost small" style="margin-top:12px"
-            data-beitragmonat="${esc(m.m)}" data-an="${alle ? '0' : '1'}">${
-            alle ? 'Ganzen Monat zurücknehmen' : 'Alle abhaken'}</button>` : ''}
+        ${aendern && !alles ? `<button class="btn ghost small" style="margin-top:12px"
+            data-beitragmonat="${esc(m.m)}">Alle Rückstände dieses Monats aufheben</button>` : ''}
         </div>
       </details>`;
     }).join('');
 
     return kopf + '<div style="margin-top:14px">' + karten + '</div>'
-         + '<p class="note" style="margin-top:12px">Der Betrag kommt aus §14. Ändert er sich, gilt '
-         + 'der neue Satz für neue Haken – bereits gebuchte Monate bleiben stehen, wie sie waren.</p>';
+         + '<p class="note" style="margin-top:12px">Das Beitragsjahr läuft nach §31 vom 1. Juni bis '
+         + 'zum 31. Mai – der Mai gehört also noch zur ablaufenden Saison. Ein Rückstand überlebt den '
+         + 'Jahreswechsel und steht weiter hier, bis er beglichen ist. Der Betrag kommt aus §14.</p>';
   },
 
   /* ------------------------------------------- Strafen und Spenden (1.38) */
@@ -5701,10 +5835,21 @@ const KASSE_SICHTEN = {
     kasseAbgehakt = kasseD().offene.filter(o => o.bezahlt)
                                    .sort((a, b) => a.datum < b.datum ? 1 : -1);
 
+    /* Seit 1.38 steht hier ALLES, was der Verein zu bekommen hat – Strafen und
+       Monatsbeiträge zusammen. Darunter aufgeschlüsselt, damit klar bleibt,
+       welcher Teil sich hier abhaken lässt und welcher im Beitrags-Reiter. */
+    const strafenGesamt = Math.round(gruppen.reduce((s, g) => s + (g.strafen || 0), 0) * 100) / 100;
+    const beitragGesamt = Math.round(gruppen.reduce((s, g) => s + (g.beitrag || 0), 0) * 100) / 100;
     const kopf = `<div class="list" style="margin-top:16px"><div class="row">
       <div><div class="n">Offen gesamt</div>
         <div class="m">${gruppen.length ? plural(gruppen.length, 'Kegelbruder', 'Kegelbrüder') : 'alles beglichen'}</div></div>
-      <div class="summe">${eur(gesamt)}</div></div></div>`;
+      <div class="summe">${eur(gesamt)}</div></div>
+      ${beitragGesamt > 0 ? `<div class="row">
+        <div><div class="n">Davon Strafen</div><div class="m">hier abzuhaken</div></div>
+        <div class="v">${eur(strafenGesamt)}</div></div>
+      <div class="row">
+        <div><div class="n">Davon Monatsbeiträge</div><div class="m">im Reiter „Monatsbeiträge“ abzuhaken</div></div>
+        <div class="v">${eur(beitragGesamt)}</div></div>` : ''}</div>`;
 
     const karte = g => {
       const ruhend = g.posten.filter(postenRuht).length;
@@ -5758,16 +5903,33 @@ const KASSE_SICHTEN = {
             : ''}
         </div></div>` : '';
 
+      /* Der Monatsbeitrag hängt an der Gruppe, nicht an den Posten – er kommt
+         aus einem anderen Blatt und wird auch woanders abgehakt. Er steht
+         deshalb als eigener Block und nicht als Zeile zwischen den Strafen. */
+      const beitragBlock = g.beitrag > 0 ? `<div class="hblock">
+          <div class="group-head"><span>Monatsbeiträge §14</span>
+            <span class="pill open">${eur(g.beitrag)}</span></div>
+          <div class="row"><div><div class="n">${plural(g.beitragMonate, 'Monat offen', 'Monate offen')}</div>
+            <div class="m">Abhaken im Reiter „Monatsbeiträge“ – hier nicht.</div></div>
+            <div class="v">${eur(g.beitrag)}</div></div>
+        </div>` : '';
+
+      const teaser = [
+        g.posten.length ? plural(g.posten.length, 'Posten', 'Posten') : '',
+        g.beitrag > 0 ? plural(g.beitragMonate, 'Monat Beitrag', 'Monate Beitrag') : '',
+        ruhend ? ruhend + ' ausgesetzt' : '',
+        naechste ? 'fällig ' + dat(naechste) : '',
+        ueber ? 'überfällig' : ''
+      ].filter(Boolean).join(' · ');
+
       return `<details class="jahrkarte"><summary>
           <div class="group-head"><span>${esc(g.name)}</span>
             <span class="pill ${g.summe > 0 ? 'open' : 'grau'}">${eur(g.summe)}</span></div>
-          <div class="teaser"><div class="kein">${plural(g.posten.length, 'Posten', 'Posten')}${
-            ruhend ? ' · ' + ruhend + ' ausgesetzt' : ''}${
-            naechste ? ' · fällig ' + dat(naechste) : ''}${
-            ueber ? ' · überfällig' : ''}</div></div>
+          <div class="teaser"><div class="kein">${teaser || 'nichts offen'}</div></div>
         </summary>
-        <div class="hblock"><div class="group-head"><span>Offene Posten</span>${
-          ueber ? '<span class="pill open">§20 läuft</span>' : ''}</div>${zeilen}</div>
+        ${g.posten.length ? `<div class="hblock"><div class="group-head"><span>Offene Posten</span>${
+          ueber ? '<span class="pill open">§20 läuft</span>' : ''}</div>${zeilen}</div>` : ''}
+        ${beitragBlock}
         ${knoepfe}
       </details>`;
     };
@@ -6004,7 +6166,11 @@ async function kasseSenden(aktion, nutzlast, knopf, beschriftung, fehlerFeld){
     if (r.beitraege) D.kasseDaten.beitraege = r.beitraege;
     if (r.runden)   D.runden = r.runden;
     if (r.kasse)    D.kasse = r.kasse;
-    if (typeof r.offenSumme === 'number') D.offen = r.offenSumme;
+    if (typeof r.offenSumme === 'number'){
+      D.offen = r.offenSumme;
+      // Die Startseite zeigt seit 1.38 Strafen UND Beiträge zusammen.
+      D.offenGesamt = Math.round((r.offenSumme + (D.offenBeitrag || 0)) * 100) / 100;
+    }
     /* NACHTRAG 01.09.2026: Der Kassenbericht wurde bis heute nicht mitgeholt.
        Die Liste zeigte danach zwei Ausgaben über 149,90 €, die Übersicht einen
        Chip weiter unverändert einen Eintrag über 49,90 €. Seit heute schickt
@@ -6079,7 +6245,11 @@ $('kasseBody').addEventListener('click', async e => {
   if (zahlung){
     e.preventDefault(); e.stopPropagation();
     const mann = offenNachMann().filter(g => g.name === zahlung.dataset.zahlung)[0];
-    if (mann) kasseZahlungMaske(mann.name, echteForderungen(mann), mann.summe);
+    /* Bewusst mann.strafen und nicht mann.summe: Über diese Maske werden die
+       Strafposten abgehakt. Der Monatsbeitrag wird im eigenen Reiter gebucht –
+       stünde er im Vorschlag, würde die Differenz beim Abhaken als Spende
+       verbucht, für Geld, das nie auf eine Strafe gezahlt wurde. */
+    if (mann) kasseZahlungMaske(mann.name, echteForderungen(mann), mann.strafen);
     return;
   }
 
@@ -6150,6 +6320,8 @@ $('kasseBody').addEventListener('click', async e => {
   if (beitrag){
     e.preventDefault(); e.stopPropagation();
     beitragOffen[beitrag.dataset.beitrag] = true;   // Karte bleibt offen
+    /* "an" heißt hier BEZAHLT. Der Schalter steht von Haus aus auf an;
+       abwählen vermerkt einen Rückstand. */
     const an = beitrag.getAttribute('aria-checked') !== 'true';
     // Sofort umlegen, damit der Finger eine Antwort bekommt; geht es schief,
     // zeichnet kasseSenden den Reiter ohnehin wieder aus den echten Daten.
@@ -6158,7 +6330,10 @@ $('kasseBody').addEventListener('click', async e => {
     const r = await kasseSenden('beitragSetzen', {
       monat: beitrag.dataset.beitrag, name: beitrag.dataset.name, bezahlt: an
     }, null, null, null);
-    if (!r) { beitrag.setAttribute('aria-checked', !an); beitrag.disabled = false; }
+    if (!r) { beitrag.setAttribute('aria-checked', !an); beitrag.disabled = false; return; }
+    /* Der eigene Rückstand auf der Startseite und die Gruppen in den offenen
+       Beträgen hängen an Zahlen, die nur der volle Datenabruf mitbringt. */
+    aktualisieren(true);
     return;
   }
 
@@ -6166,13 +6341,16 @@ $('kasseBody').addEventListener('click', async e => {
   if (monatKnopf){
     e.preventDefault(); e.stopPropagation();
     beitragOffen[monatKnopf.dataset.beitragmonat] = true;
-    const an = monatKnopf.dataset.an === '1';
+    /* Es gibt nur eine Richtung: alle Rückstände eines Monats aufheben. Einen
+       ganzen Monat auf offen zu setzen wäre ein Knopf für einen Fall, den es
+       nicht gibt – und einer, den man versehentlich drückt. */
     const r = await kasseSenden('beitragMonatSetzen', {
-      monat: monatKnopf.dataset.beitragmonat, bezahlt: an
-    }, monatKnopf, monatKnopf.textContent);
-    if (r) hinweisleiste(an
-      ? plural(r.geaendert || 0, 'Beitrag gebucht', 'Beiträge gebucht') + '.'
-      : plural(r.geaendert || 0, 'Beitrag zurückgenommen', 'Beiträge zurückgenommen') + '.');
+      monat: monatKnopf.dataset.beitragmonat, bezahlt: true
+    }, monatKnopf, 'Alle Rückstände dieses Monats aufheben');
+    if (r){
+      hinweisleiste(plural(r.geaendert || 0, 'Rückstand aufgehoben', 'Rückstände aufgehoben') + '.');
+      aktualisieren(true);
+    }
     return;
   }
 
@@ -6780,7 +6958,7 @@ const NEUERUNGEN = [
       'Neu unter „Verein“: die Runden nach §32 – wer aus welchem Anlass noch einen ausgeben muss, für alle sichtbar.',
       'Alle Kegelabende und Veranstaltungen lassen sich in den Handy-Kalender holen. Zahnrad › Termine im Kalender.',
       'Benachrichtigungen sind ab jetzt von Haus aus eingeschaltet. Ausschalten geht weiterhin über das Zahnrad.',
-      'Der Kontostand wird gerechnet statt eingetippt, und der Kassenwart pflegt auch die Monatsbeiträge in der App.',
+      'Der Kontostand wird gerechnet statt eingetippt, und die Monatsbeiträge nach §14 stehen jetzt auch in der App – dein offener Betrag auf der Startseite enthält sie.',
       'Für den Kegelkönig zählt nach §23 nur noch die Anwesenheit an den Kegelabenden – Veranstaltungen zählen dafür nicht mit.'
     ] }
 ];
@@ -6884,7 +7062,8 @@ function tourBereichKarten(bereich){
       k:'Ohne Empfang wird gesammelt und später von allein nachgeschickt. Der Papierzettel bleibt trotzdem der Beleg.' }];
     if (i.darfKorrektur) k.push({ sym:'liste', t:'Freie Strafe und Korrektur',
       x:'Unter Verein › Termine legst du eine freie Strafe an – für alles, was zu keinem Abend '
-      + 'gehört. Und du kannst einen Eintrag korrigieren, wenn beim Erfassen etwas danebengegangen ist.' });
+      + 'gehört. Und du kannst einen Eintrag korrigieren, wenn beim Erfassen etwas danebengegangen ist.',
+      k:'Unten in der Korrektur-Maske stehen die zuletzt gebuchten Korrekturen – eine falsch gebuchte nimmst du dort mit zwei Tippern wieder heraus.' });
     return k;
   }
   if (bereich === 'termine') return [{ sym:'kalender', t:'Termine anlegen',
@@ -6896,8 +7075,9 @@ function tourBereichKarten(bereich){
       ? 'Im Reiter „Kasse“ stehen die offenen Beträge nach Kegelbruder. Ist Geld eingegangen, '
       + 'hakst du es ab – einzeln oder für alle Termine eines Kegelbruders auf einmal. Wird '
       + 'weniger überwiesen, tilgt der Betrag die ältesten Posten zuerst, der Rest bleibt als '
-      + 'Anzahlung stehen. Dazu die Monatsbeiträge nach §14, Ausgaben, Einnahmen, Strafen und '
-      + 'Spenden – und das Konto: Anfangsbestand eintragen, Kontostand rechnet die App.'
+      + 'Anzahlung stehen. Dazu die Monatsbeiträge nach §14 – die gelten als bezahlt, solange du '
+      + 'nichts anderes vermerkst –, Ausgaben, Einnahmen, Strafen und Spenden. Und das Konto: '
+      + 'Anfangsbestand eintragen, den Kontostand rechnet die App.'
       : 'Im Reiter „Kasse“ stehen die offenen Beträge nach Kegelbruder, dazu Kontostand, Ausgaben '
       + 'und sonstige Einnahmen.',
     k: i.darfKasse
