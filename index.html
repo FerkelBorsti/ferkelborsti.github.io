@@ -206,6 +206,16 @@ main{flex:1;padding:20px 18px calc(112px + env(safe-area-inset-bottom));display:
    Hochkant wirkte sie neben der leeren Haelfte wie ein Fehler. */
 .stat.breit{display:flex;align-items:center;justify-content:space-between;gap:14px}
 .stat.breit b{margin-top:0}
+/* Die Anwesenheit des Vereins (1.41). Eine nackte Prozentzahl über die volle
+   Breite sah aus wie ein Rest. Jetzt steht links, wie es ausgegangen ist,
+   rechts, woraus es sich rechnet, und der Balken darunter macht aus der Zahl
+   ein Bild. */
+.quote .kopf{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.quote .kopf b{margin-top:6px}
+.quote .rechts{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;
+  text-align:right;white-space:nowrap}
+.quote .bar{height:7px;margin-top:11px;background:var(--line)}
+.quote .sub{margin-top:9px}
 /* Countdown an einer Abschnittsueberschrift. */
 h2.sec.mitchip{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .chip{font-family:'Archivo',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.08em;
@@ -466,21 +476,31 @@ button.row.erfmann:focus-visible{outline:2px solid var(--accent);outline-offset:
    Zeichendurchgang – auf dem iPhone der einzige Grund, warum die Liste beim
    Scrollen haken konnte. Der Farbwert von --nav-bg ist ohnehin fast deckend;
    der Unterschied ist mit bloßem Auge nicht zu sehen, die Kosten sind null. */
-/* MENÜLEISTE, Stand 1.38.
-   Gemeldet am 07.09.2026: Die Leiste stand zeitweise nicht am unteren Rand,
-   sondern schwebte mitten im Bild. Ursache ist nicht ein Fehler im Aufbau,
-   sondern das, was Handy-Browser mit "position:fixed" machen, sobald sich der
-   sichtbare Bereich ändert – aufklappende Tastatur, ein- und ausfahrende
-   Adressleiste, Drehen des Geräts. "unten" ist dann für einen Moment (und
-   manchmal dauerhaft) nicht mehr dort, wo der Bildschirm aufhört.
-   Gegenmittel, alle drei zusammen:
-     1. interactive-widget=resizes-content im Kopf der Seite,
-     2. --nav-schub: der Abstand zwischen sichtbarem und angenommenem Rand
-        wird per JavaScript nachgeführt (siehe "Menüleiste nachführen"),
-     3. bei offener Tastatur verschwindet die Leiste ganz – sie hat dort
-        ohnehin nichts zu suchen und nimmt dem Eingabefeld den Platz weg. */
-nav.tabs{position:fixed;bottom:0;left:0;right:0;max-width:var(--shell);margin:0 auto;background:var(--nav-bg);border-top:1px solid var(--line);display:grid;grid-auto-flow:column;grid-auto-columns:1fr;padding:8px 4px calc(8px + env(safe-area-inset-bottom));z-index:6;
-  transform:translateY(calc(-1 * var(--nav-schub, 0px)));will-change:transform}
+/* MENÜLEISTE, Stand 1.41.
+
+   Die Geschichte in drei Sätzen, damit sie niemand ein viertes Mal aufrollt:
+
+   Am 07.09.2026 wurde gemeldet, die Leiste stehe zeitweise nicht unten. Die
+   Antwort in 1.38 war eine Nachführung: Der Abstand zwischen dem, was der
+   Browser für "unten" hält, und dem, was man sieht, wurde gemessen und die
+   Leiste um diesen Betrag verschoben. Das hat mehr kaputt gemacht, als es
+   heilte – am 08.09. ließ sich die Leiste beim Überscrollen ins Bild ziehen
+   (negatives offsetTop), und am 09.09. stand sie im Browser auf dem iPad
+   dauerhaft zu hoch: Dort ist window.innerHeight um die Höhe der Safari-Leisten
+   GRÖSSER als visualViewport.height, ganz ohne Tastatur und ohne Überscrollen.
+   Die Rechnung ergab also immer einen Schub, und die Leiste hing rund hundert
+   Pixel über dem Rand. In der installierten App fiel es nicht auf – die hat
+   keine Browser-Leisten.
+
+   Seit 1.41 wird nichts mehr verschoben. "position:fixed; bottom:0" verankert
+   auf iOS wie auf Android am sichtbaren Bereich; das genügt, und es hat vorher
+   jahrelang genügt. Geblieben ist nur der Fall, für den es wirklich einen
+   Eingriff braucht: Bei offener Tastatur verschwindet die Leiste ganz – sie hat
+   dort nichts zu suchen und nimmt dem Eingabefeld den Platz weg. Erkannt wird
+   das jetzt daran, ob ein Eingabefeld den Fokus hat, nicht mehr an einer
+   Pixel-Schwelle, die auf jedem Gerät anders ausfällt. Dazu weiterhin
+   interactive-widget=resizes-content im Kopf der Seite. */
+nav.tabs{position:fixed;bottom:0;left:0;right:0;max-width:var(--shell);margin:0 auto;background:var(--nav-bg);border-top:1px solid var(--line);display:grid;grid-auto-flow:column;grid-auto-columns:1fr;padding:8px 4px calc(8px + env(safe-area-inset-bottom));z-index:6}
 nav.tabs.tastatur{transform:translateY(130%);pointer-events:none}
 nav.tabs button{background:none;border:none;color:var(--muted);font-family:inherit;font-size:11px;font-weight:600;letter-spacing:.03em;padding:6px 2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;border-radius:10px}
 nav.tabs button svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
@@ -536,10 +556,14 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
 .row .v.absv{white-space:normal;text-align:right;max-width:60%;font-size:13.5px;line-height:1.35}
 
 
-/* Kein Gummiband am Seitenrand (1.40). Die App bringt ihr eigenes
-   "Runterziehen zum Aktualisieren" mit; das native Überscrollen darüber hinaus
-   schiebt auf dem iPhone nur die fest verankerte Menüleiste durchs Bild. */
-html, body{overscroll-behavior-y:none}
+/* Das Gummiband am Seitenrand ist seit 1.41 wieder erlaubt. In 1.40 war es
+   abgeschaltet worden, weil sich die Menüleiste dabei ins Bild ziehen ließ –
+   das lag aber nicht am Gummiband, sondern an der Nachführung der Leiste, die
+   es dabei falsch gerechnet hat. Die ist weg (siehe nav.tabs), also darf sich
+   die Seite wieder anfassen wie gewohnt.
+   Johannes am 09.09.2026: "Das das Gummiband aus der App raus ist, finde ich
+   etwas schade, da es in der Vergangenheit ja schonmal reibungslos funktioniert
+   hat." */
 .ziehen{position:fixed;top:0;left:0;right:0;max-width:var(--shell);margin:0 auto;z-index:8;
   display:flex;align-items:flex-end;justify-content:center;pointer-events:none;
   color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
@@ -1119,7 +1143,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    Service Worker, meldete keine neue Fassung und die Hülle würde erst nach
    einem vollständigen Neustart still ausgetauscht. Eine neue Nummer räumt
    das in einem Zug auf. */
-const APP_VERSION = '1.40';
+const APP_VERSION = '1.41';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -3515,6 +3539,26 @@ function bwBlock(titel, key, mehrIstBesser, fmt, fuss){
     + fuss1;
 }
 
+/* Die Anwesenheit des ganzen Vereins als eine Kachel: Anteil gross, die
+   Rechnung dahinter klein daneben, darunter der Balken. Gezaehlt werden alle
+   Veranstaltungen, nicht nur die Kegelabende – die Hürde für den Kegelkönig
+   nach §23 ist etwas anderes und steht oben bei "5 in die Vollen". */
+function anwesenheitKachel(A){
+  const dabei    = A.reduce((a, r) => a + (r.da || 0), 0);
+  const moeglich = A.reduce((a, r) => a + (r.termine || 0), 0);
+  const prozent  = moeglich ? Math.round(dabei / moeglich * 100) : 0;
+  const termine  = A[0] ? (A[0].termine || 0) : 0;
+  return `<div class="stat quote" style="margin-top:16px">
+    <div class="eyebrow">Anwesenheit Verein</div>
+    <div class="kopf">
+      <b>${prozent} %</b>
+      <span class="rechts">${dabei} von ${moeglich}</span>
+    </div>
+    <div class="bar"><i style="width:${Math.max(0, Math.min(100, prozent))}%"></i></div>
+    <div class="sub">bei ${plural(termine, 'Termin', 'Terminen')} und ${plural(A.length, 'Kegelbruder', 'Kegelbrüdern')}</div>
+  </div>`;
+}
+
 /* Balken-Rangliste wie bei "5 in die Vollen"; sub() liefert optional eine
    erklaerende Zeile unter dem Namen. */
 function rangliste(list, key, fmt, sub){
@@ -3547,10 +3591,9 @@ const SICHTEN = {
     </div>
     <!-- Die Kachel "Strafen gesamt" stand bis 1.39 daneben. Sie ist Geld und
          gehoert zum Kassenwart – Entscheidung Johannes vom 08.09.2026. Damit
-         bleibt hier eine einzige Kachel, die deshalb ueber die volle Breite
-         laeuft statt in einem halbleeren Zweispalter zu haengen. -->
-    <div class="stat" style="margin-top:16px"><div class="eyebrow">Anwesenheit Verein</div>
-      <b>${Math.round(quote*100)} %</b><div class="sub">${A[0] ? A[0].termine : 0} Termine</div></div>
+         bleibt hier eine einzige Kachel, die seit 1.41 die volle Breite auch
+         nutzt, statt sie nur einzunehmen. -->
+    ${anwesenheitKachel(A)}
     `;
   },
   vollen(){
@@ -5302,60 +5345,37 @@ $('freiSeg').addEventListener('click', e => {
   fsZeichnen();
 });
 
-/* ------------------------------------------- Menüleiste nachführen (1.38) */
-/* Siehe die lange Begründung im Stilteil bei "nav.tabs". Kurz: Handy-Browser
-   verschieben den sichtbaren Bereich, ohne dass sich das Layout ändert. Was
-   hier passiert, ist deshalb einfach: Wir messen den Abstand zwischen dem, was
-   der Browser für "unten" hält, und dem, was man wirklich sieht – und schieben
-   die Leiste um genau diesen Abstand nach oben.
+/* --------------------------------------- Menüleiste bei Tastatur (1.41) */
+/* Siehe die Begründung im Stilteil bei "nav.tabs". Verschoben wird nichts
+   mehr – die Leiste hängt an position:fixed und bleibt dort, wo sie hingehört.
+   Übrig bleibt der eine Fall, in dem sie stören würde: Steht die Tastatur
+   offen, ist unten kein Platz für sie, und sie würde dem Eingabefeld die
+   Sicht nehmen.
 
-   Gibt es visualViewport nicht (sehr alte Browser), bleibt alles wie vorher:
-   --nav-schub ist dann nie gesetzt und der Voreinstellungswert 0px gilt. */
+   Erkannt wird das am Fokus, nicht an einer Pixel-Schwelle. Die Schwelle war
+   der Fehler: Wie viele Pixel eine Tastatur einnimmt, ist auf jedem Gerät
+   anders, und auf dem iPad melden die Safari-Leisten dieselbe Art von
+   Unterschied, ganz ohne Tastatur. */
 (function(){
-  const vv = window.visualViewport;
-  if (!vv) return;
   const nav = $('tabs');
-  /* Ab wie vielen Pixeln Unterschied gilt die Tastatur als offen. Eine
-     Adressleiste ist rund 45–60 px hoch, eine Tastatur immer über 200 –
-     150 liegt sicher dazwischen. */
-  const TASTATUR_AB = 150;
-  let letzterSchub = -1;
+  if (!nav) return;
+  const istEingabe = el => !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'
+                                 || el.isContentEditable === true);
+  /* Ein Kontrollkästchen oder ein Datumsfeld holt keine Schreibtastatur nach
+     oben – bei denen soll die Leiste stehen bleiben. */
+  const OHNE_TASTATUR = ['checkbox', 'radio', 'button', 'submit', 'reset', 'file', 'range', 'color'];
+  const holtTastatur = el => istEingabe(el)
+    && !(el.tagName === 'INPUT' && OHNE_TASTATUR.indexOf(String(el.type).toLowerCase()) >= 0);
 
-  const nachfuehren = () => {
-    /* NACHTRAG 08.09.2026. Gemeldet: "Beim Runterscrollen kann man es schaffen,
-       dass man die Menüleiste in den Bildschirm zieht. Sie geht von selber
-       wieder runter." Genau das war eine Nebenwirkung dieser Rechnung: Beim
-       Gummiband-Effekt am oberen Rand meldet iOS ein NEGATIVES offsetTop – der
-       sichtbare Bereich beginnt oberhalb des angenommenen. Minus mal minus
-       ergab einen Schub von mehreren hundert Pixeln, und die Leiste wanderte
-       mitten ins Bild. Der Bereich ist dabei aber gar nicht kleiner geworden.
-       Deshalb gilt jetzt: Ist nichts verkleinert, wird auch nichts geschoben. */
-    const kleiner = window.innerHeight - vv.height;
-    if (kleiner < 1){
-      nav.classList.remove('tastatur');
-      if (letzterSchub !== 0){
-        letzterSchub = 0;
-        document.documentElement.style.setProperty('--nav-schub', '0px');
-      }
-      return;
-    }
-    const schub = Math.min(kleiner,
-      Math.max(0, Math.round(kleiner - Math.max(0, vv.offsetTop))));
-    const tastatur = kleiner > TASTATUR_AB;
-    nav.classList.toggle('tastatur', tastatur);
-    const wert = tastatur ? 0 : schub;
-    if (wert === letzterSchub) return;
-    letzterSchub = wert;
-    document.documentElement.style.setProperty('--nav-schub', wert + 'px');
-  };
+  const nachsehen = () => nav.classList.toggle('tastatur', holtTastatur(document.activeElement));
 
-  vv.addEventListener('resize', nachfuehren);
-  vv.addEventListener('scroll', nachfuehren);
-  window.addEventListener('orientationchange', () => setTimeout(nachfuehren, 300));
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) setTimeout(nachfuehren, 120);
-  });
-  nachfuehren();
+  document.addEventListener('focusin', nachsehen);
+  document.addEventListener('focusout', () => setTimeout(nachsehen, 0));
+  /* Wechselt jemand den Reiter oder schließt eine Maske, während ein Feld noch
+     den Fokus hatte, bleibt "focusout" manchmal aus. */
+  window.addEventListener('pageshow', nachsehen);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) nachsehen(); });
+  nachsehen();
 })();
 
 /* ------------------------------------ Beim Zurückkehren nachsehen (1.38) */
@@ -7159,6 +7179,11 @@ const NEUERUNGEN = [
       'Termine, Ämter, Kegelbrüder, die Ehrentafel und die Kegeljahre davor.',
       'Wer amtierender König ist, steht auf der Startseite – sobald der Schriftführer die Ergebnisse freigegeben hat.',
       'Auf Wunsch eine Nachricht aufs Handy, wenn sich für dich etwas ändert. Einschalten über das Zahnrad oben rechts.'
+    ] },
+  { fassung: '1.41', punkte: [
+      'Die Menüleiste sitzt jetzt auch im Browser dort, wo sie hingehört – bisher hing sie auf dem iPad rund hundert Pixel zu hoch.',
+      'Das Runterziehen am Seitenrand federt wieder wie gewohnt.',
+      'Die Anwesenheit des Vereins zeigt jetzt auch, woraus sie sich rechnet, samt Balken.'
     ] },
   { fassung: '1.40', punkte: [
       'Die Übertragung der Strafen bleibt nicht mehr hängen: Der Knopf sagt jetzt immer, woran es liegt, und beim Öffnen eines Abends steht da, ob eine Übertragung noch läuft oder schon durch ist.',
