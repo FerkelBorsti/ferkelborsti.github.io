@@ -1143,7 +1143,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    Service Worker, meldete keine neue Fassung und die Hülle würde erst nach
    einem vollständigen Neustart still ausgetauscht. Eine neue Nummer räumt
    das in einem Zug auf. */
-const APP_VERSION = '1.41';
+const APP_VERSION = '1.42';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -5902,7 +5902,14 @@ const KASSE_SICHTEN = {
             ? eur(b.beitraegeOffen) + ' noch offen' : 'vollständig eingegangen',
             eur(b.beitraegeBezahlt || 0))}
         ${zeile('Sonstige Einnahmen', 'Umlage-Reste und Ähnliches', eur(b.umlage))}
-        ${zeile('Verspätungszuschläge', 'in den offenen Posten enthalten', eur(b.zuschlaege))}
+        ${zeile('Verspätungszuschläge',
+                b.zuschlaegeKassiert === undefined
+                  ? 'in den offenen Posten enthalten'
+                  : (b.zuschlaege > 0
+                      ? eur(b.zuschlaegeKassiert) + ' kassiert · '
+                        + eur(b.zuschlaegeOffen) + ' noch offen'
+                      : 'in dieser Saison keine angefallen'),
+                eur(b.zuschlaege))}
       </div>
 
       <div class="list" style="margin-top:14px">
