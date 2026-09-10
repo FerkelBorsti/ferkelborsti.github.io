@@ -329,6 +329,36 @@ svg.orden.big{width:19px;height:19px}
    Nicht "hier steht eine Frist" – sonst ist die Farbe nach drei Tagen Tapete.
    Deshalb steht .frist an jeder Fristanzeige, aber nur bedingt gesetzt. */
 .frist,.deadline.frist,.deadline.frist b{color:var(--warn);font-weight:600}
+
+/* --- An- und Abmeldung (1.44) --- */
+.rmblock{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.rmstand{font-size:14px;font-weight:700}
+.rmstand.ja{color:var(--ok)}
+.rmstand.nein{color:var(--muted)}
+.rmstand.wartet{color:var(--warn)}
+.rmzwei{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.rmalk{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.rmalk .tx{display:flex;flex-direction:column;min-width:0}
+.rmalk .tx b{font-size:13.5px}
+.rmalk .tx span{font-size:11.5px;color:var(--muted)}
+.pill{border:1px solid var(--line);background:transparent;color:var(--muted);
+  border-radius:999px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer;flex:0 0 auto}
+.pill.an{border-color:var(--accent);color:var(--accent)}
+.rmzaehl{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
+  margin-top:12px;padding:11px 13px;border:1px solid var(--line);border-radius:12px;
+  background:transparent;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;text-align:left}
+.rmzaehl .cp{font-size:11.5px;color:var(--muted);font-weight:600;flex:0 0 auto}
+.rmrow .n{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rmrow .n .sub{font-size:11.5px;color:var(--muted)}
+.rmtags{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;flex:0 0 auto}
+.tag{font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;
+  border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.tag.ja{color:var(--ok);border-color:var(--ok)}
+.tag.wartet{color:var(--warn);border-color:var(--warn)}
+.tag.alk{color:var(--accent);border-color:var(--accent)}
+.warnkarte{border-color:var(--warn)}
+.setrow.vorbelegt .lbl{color:var(--muted)}
+.setrow.vorbelegt .tag{margin-left:6px;vertical-align:middle}
 .row .m.frist,.kassepost .m.frist{color:var(--warn);font-weight:600}
 
 /* Bester / Schlechtester */
@@ -944,10 +974,42 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
         <input enterkeyhint="done" class="search" id="terminOrt" placeholder="z. B. Gaststätte Warburg" maxlength="80" aria-label="Ort">
       </div>
 
+      <!-- AN- UND ABMELDUNG (1.44). Die Tabelle entscheidet, wie ein Termin
+           laeuft, nicht der Code: Spalte H sagt WIE, Spalte I bis WANN. -->
+      <div>
+        <div class="eyebrow" style="margin-bottom:10px">Rückmeldung</div>
+        <div class="seg" id="terminRm">
+          <button data-rm="Abmeldung" aria-pressed="true">Abmelden</button>
+          <button data-rm="Anmeldung" aria-pressed="false">Anmelden</button>
+          <button data-rm="keine" aria-pressed="false">keine</button>
+        </div>
+        <p class="note" style="margin-top:8px" id="terminRmNote"></p>
+      </div>
+
+      <div id="terminSchlussFeld">
+        <div class="eyebrow" style="margin-bottom:10px">Anmeldeschluss</div>
+        <input class="search" type="datetime-local" id="terminSchluss" aria-label="Anmeldeschluss">
+        <p class="note" style="margin-top:8px">Ab fünf Tagen vorher bekommt jeder ohne Rückmeldung
+          täglich um 12:00 Uhr eine Erinnerung. Bleibt das Feld leer, gilt der Beginn.</p>
+      </div>
+
       <p class="note hidden" id="terminFehler" style="color:var(--accent);font-weight:600"></p>
 
       <button class="btn" id="terminSpeichern">Speichern</button>
       <button class="btn ghost hidden" id="terminLoeschen">Termin löschen</button>
+    </div>
+  </div>
+
+  <!-- WER KOMMT? Die Namensliste zu einem Termin (1.44) -->
+  <div class="sheet hidden" id="rmListe" role="dialog" aria-label="Wer kommt">
+    <div class="sheet-in">
+      <div class="sheet-head">
+        <h2 id="rmListeTitel">Wer kommt?</h2>
+        <button class="iconbtn" id="rmListeSchliessen" aria-label="Schließen">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div id="rmListeBody"></div>
     </div>
   </div>
 
@@ -1143,7 +1205,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    Service Worker, meldete keine neue Fassung und die Hülle würde erst nach
    einem vollständigen Neustart still ausgetauscht. Eine neue Nummer räumt
    das in einem Zug auf. */
-const APP_VERSION = '1.43';
+const APP_VERSION = '1.44';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -1480,7 +1542,7 @@ const API_EINMALIG = [
 /* Aktionen, die nur LESEN. Alles andere bekommt seit 1.38 eine Sendekennung –
    siehe unten. */
 const API_LESEN = ['daten', 'anmelden', 'historie', 'stammdaten', 'erfassungLesen',
-                   'syncStand', 'abschlussVorschau', 'freiStrafeDaten'];
+                   'syncStand', 'abschlussVorschau', 'freiStrafeDaten', 'rmVorschlaege'];
 
 /* ---- Sendekennung (1.38) --------------------------------------------------
    Gemeldet am 07.09.2026: "Zahlung buchen" musste mehrfach getippt werden, und
@@ -2076,6 +2138,8 @@ function zeichneStart(){
       } · ${esc(standText())}</div>
     </div>
 
+    ${rmAntragKarte()}
+
     ${abschlussKarte()}
 
     ${aendKarte()}
@@ -2097,7 +2161,7 @@ function zeichneStart(){
       <div class="action" style="margin-top:14px">
         <div><div class="when">${esc(wochentag(t.datum))}, ${dat(t.datum)}</div>
           <div class="sub">${esc([t.ort, t.beginn ? t.beginn + ' Uhr' : ''].filter(String).join(' · ') || 'Zeit folgt')}</div></div>
-        ${t.art === 'Kegelabend' ? abmeldeFuss(t) : ''}
+        ${rmBlock(t)}
         ${darfErfassen() && t.datum === D.heute
           ? `<button class="btn" id="startErfassen" style="margin-top:12px">Strafen erfassen</button>` : ''}
       </div>`;
@@ -3091,7 +3155,13 @@ function zeichneTermine(){
   $('terminList').innerHTML = D.termine.map(t => {
     const vorbei = t.datum < heute;
     const naechster = !vorbei && t.datum === (D.naechsterTermin||{}).datum;
+    /* "Wer kommt?" steht bei JEDEM kommenden Termin, nicht nur beim nächsten –
+       und für jeden Kegelbruder, nicht nur für Ämter. Das ist der Sinn der
+       Liste: Wer überlegt, ob er zur Kegelfahrt mitfährt, entscheidet auch
+       danach, wer sonst mitfährt. */
+    const hatRm = !vorbei && !!rmStand(t.datum);
     const rechts = (naechster ? '<span class="pill open">als Nächstes</span>' : '')
+      + (hatRm ? `<button class="btn ghost small" data-rm-liste="${esc(t.datum)}">Wer kommt?</button>` : '')
       + (darfErfassen() ? `<button class="btn ghost small" data-erf="${esc(t.datum)}" data-art="${esc(t.art)}">Erfassen</button>` : '')
       + (darf && !vorbei ? `<button class="btn ghost small" data-termin="${esc(t.datum)}" data-art="${esc(t.art)}">Ändern</button>` : '');
     return `<div class="row terminzeile" style="${vorbei ? 'opacity:.55' : ''}">
@@ -3341,7 +3411,34 @@ function terminArtSetzen(art){
   $('terminBezNote').textContent = art === 'Kegelabend'
     ? 'Beim Kegelabend darf das Feld leer bleiben.'
     : 'Pflichtfeld bei einer Veranstaltung.';
+  /* Der Rückmelde-Modus zieht mit der Art mit. Umstellen kann man ihn danach
+     von Hand – es gibt Veranstaltungen, bei denen niemand zusagen muss. */
+  if ($('terminRm')) terminRmSetzen(art === 'Veranstaltung' ? 'Anmeldung' : 'Abmeldung');
 }
+
+/* Der Rückmelde-Modus in der Terminmaske (1.44).
+   "Abmelden" heißt opt-out: wer nichts tut, ist dabei – so läuft der
+   Kegelabend. "Anmelden" heißt opt-in: wer nichts tut, ist NICHT dabei – so
+   muss eine Veranstaltung laufen, sonst kann niemand planen. */
+function terminRmAktiv(){
+  const b = document.querySelector('#terminRm button[aria-pressed="true"]');
+  return b ? b.dataset.rm : 'Abmeldung';
+}
+function terminRmSetzen(modus){
+  const m = /^anmeldung$/i.test(modus) ? 'Anmeldung'
+          : /^keine$/i.test(modus) ? 'keine' : 'Abmeldung';
+  document.querySelectorAll('#terminRm button').forEach(b =>
+    b.setAttribute('aria-pressed', b.dataset.rm === m));
+  $('terminRmNote').textContent = m === 'Anmeldung'
+    ? 'Wer nicht zusagt, ist nicht dabei. Für Veranstaltungen, die geplant werden müssen.'
+    : m === 'keine'
+      ? 'Es wird nicht nachgefragt. Der Termin steht nur im Kalender.'
+      : 'Wer nichts tut, ist dabei. Abgemeldet wird bis eine Stunde vor Beginn (§2).';
+  $('terminSchlussFeld').classList.toggle('hidden', m !== 'Anmeldung');
+}
+
+document.querySelectorAll('#terminRm button').forEach(b =>
+  b.addEventListener('click', () => terminRmSetzen(b.dataset.rm)));
 
 function terminFehler(text){
   const e = $('terminFehler');
@@ -3359,6 +3456,8 @@ function terminSheetOeffnen(alt){
   $('terminEnde').value   = t.ende || '';
   $('terminBez').value    = t.bezeichnung || '';
   $('terminOrt').value    = t.ort || '';
+  terminRmSetzen(t.rueckmeldung || ((t.art || 'Kegelabend') === 'Veranstaltung' ? 'Anmeldung' : 'Abmeldung'));
+  $('terminSchluss').value = (t.rueckmeldeschluss || '').slice(0, 16);
   const l = $('terminLoeschen');
   l.classList.toggle('hidden', !alt);
   l.textContent = 'Termin löschen';
@@ -3431,7 +3530,9 @@ $('terminSpeichern').addEventListener('click', async () => {
     ende: $('terminEnde').value,
     art: terminArtAktiv(),
     bezeichnung: $('terminBez').value.trim(),
-    ort: $('terminOrt').value.trim()
+    ort: $('terminOrt').value.trim(),
+    rueckmeldung: terminRmAktiv(),
+    rueckmeldeschluss: $('terminSchluss').value || ''
   };
   if (!daten.datum){ terminFehler('Bitte ein Datum wählen.'); return; }
   if (daten.art === 'Veranstaltung' && !daten.bezeichnung){
@@ -3768,7 +3869,7 @@ $('tabs').addEventListener('click', e => {
    bleibt hängen und man landet nach dem Schließen an einer anderen Stelle. */
 let gemerkteHoehe = 0;
 function ebenenOffen(){
-  return ['settings', 'verwaltung', 'stamm', 'stammForm', 'stammFrage', 'terminSheet', 'erfassung', 'freistrafe', 'abschluss', 'absForm', 'lightbox', 'tour']
+  return ['settings', 'verwaltung', 'stamm', 'stammForm', 'stammFrage', 'terminSheet', 'rmListe', 'erfassung', 'freistrafe', 'abschluss', 'absForm', 'lightbox', 'tour']
     .some(id => $(id) && !$(id).classList.contains('hidden'));
 }
 function hintergrundPruefen(){
@@ -3821,6 +3922,7 @@ document.addEventListener('keydown', e => {
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
+  ebene('rmListe', false);
   ebene('lightbox', false); ebene('stammFrage', false); ebene('stammForm', false);
   ebene('stamm', false); ebene('verwaltung', false); ebene('settings', false);
   ebene('freistrafe', false); ebene('absForm', false); ebene('abschluss', false);
@@ -3828,6 +3930,305 @@ document.addEventListener('keydown', e => {
   if (!$('tour').classList.contains('hidden')) tourBeenden();
 });
 window.addEventListener('online', () => { hinweisleiste(''); aktualisieren(); });
+
+
+/* ================================================== An- und Abmeldung (1.44)
+   Gebaut nach der Festlegung vom 10.09.2026.
+
+   DREI DINGE, die hier bewusst NICHT passieren:
+   - Es wird keine Anwesenheit gesetzt. Wer zusagt und nicht kommt, ist nicht
+     anwesend; das entscheidet allein das X im Termin-Blatt.
+   - Es wird keine Strafe gebucht. Die App schlaegt vor, der Schriftfuehrer hakt ab.
+   - Es wird kein §18-Haekchen gesetzt. Die Vorschau sagt voraus, mehr nicht.
+
+   BEIM KEGELABEND gibt es nur "dabei" und "abgemeldet" – keine dritte Zahl.
+   Wer nichts tut, ist dabei, und eine Spalte "ohne Rueckmeldung" waere eine
+   Zahl ohne Bedeutung (ausdrueckliche Entscheidung Johannes, 10.09.2026). */
+
+function rmDaten(){ return (D && D.rueckmeldungen) || null; }
+
+function rmStand(datum){
+  const r = rmDaten();
+  if (!r || !r.termine) return null;
+  return r.termine.filter(t => t.datum === datum)[0] || null;
+}
+
+/** Der ganze Rueckmelde-Block unter der Terminkarte auf der Startseite. */
+function rmBlock(t){
+  const s = rmStand(t.datum);
+  /* Kein Stand da – altes Backend oder das Modul ist ausgefallen. Dann bleibt
+     es beim Verhalten bis 1.43: der Hinweis auf die Frist, sonst nichts. */
+  if (!s) return t.art === 'Kegelabend' ? abmeldeFuss(t) : '';
+  if (s.modus === 'keine') return '';
+
+  const ich = s.ich || {};
+  const zu  = ich.stand === 'zu';
+  const beantragt = ich.stand === 'beantragt';
+  const abgelehnt = ich.stand === 'abgelehnt';
+
+  let h = '<div class="rmblock">';
+
+  // --- Der eigene Stand in einem Satz
+  h += '<div class="rmstand ' + (zu ? 'ja' : beantragt ? 'wartet' : 'nein') + '">'
+     + (s.kegelabend
+        ? (zu ? 'Du bist dabei.' : 'Du hast dich abgemeldet.')
+        : beantragt ? 'Deine Zusage liegt beim Kegelvater.'
+        : abgelehnt ? 'Deine späte Zusage wurde abgelehnt.'
+        : zu ? 'Du bist angemeldet.'
+        : ich.stand === 'offen' ? 'Du hast noch nicht geantwortet.'
+        : 'Du bist nicht dabei.')
+     + '</div>';
+
+  // --- Die Knoepfe
+  if (s.eingefroren){
+    h += '<p class="note" style="margin:10px 0 0">Der Termin hat begonnen – '
+       + 'Rückmeldungen sind geschlossen.</p>';
+  } else if (beantragt){
+    h += '<p class="note" style="margin:10px 0 0">Sobald einer der beiden Kegelväter '
+       + 'entschieden hat, bekommst du eine Nachricht.</p>';
+  } else if (s.kegelabend){
+    h += '<button class="btn ' + (zu ? 'ghost' : '') + '" data-rm-antwort="'
+       + (zu ? 'ab' : 'zu') + '" data-rm-datum="' + esc(t.datum) + '" style="margin-top:12px">'
+       + (zu ? 'Ich kann nicht' : 'Doch dabei') + '</button>';
+  } else {
+    h += '<div class="rmzwei" style="margin-top:12px">'
+       + '<button class="btn' + (zu ? '' : ' ghost') + '" data-rm-antwort="zu" data-rm-datum="'
+       + esc(t.datum) + '">Bin dabei</button>'
+       + '<button class="btn' + (zu ? ' ghost' : '') + '" data-rm-antwort="ab" data-rm-datum="'
+       + esc(t.datum) + '">Bin nicht dabei</button></div>';
+    if (s.fristVorbei && !zu){
+      h += '<p class="note" style="margin:10px 0 0">Die Anmeldefrist ist verstrichen. '
+         + 'Eine Zusage muss der Kegelvater bestätigen.</p>';
+    }
+  }
+
+  // --- Alkohol: nur beim Kegelabend, nur wenn er dabei ist. §18 zaehlt die
+  //     Trinkenden unter den ANWESENDEN – wer nicht kommt, zaehlt gar nicht.
+  if (s.kegelabend && zu && !s.eingefroren){
+    h += '<div class="rmalk" style="margin-top:12px">'
+       + '<div class="tx"><b>Ich trinke Alkohol</b><span>'
+       + (ich.alkoholBestaetigt ? 'für diesen Abend bestätigt' : 'aus deiner Voreinstellung')
+       + '</span></div>'
+       + '<button class="pill' + (ich.alkohol ? ' an' : '') + '" data-rm-alk="'
+       + (ich.alkohol ? 'nein' : 'ja') + '" data-rm-datum="' + esc(t.datum) + '">'
+       + (ich.alkohol ? 'Ja' : 'Nein') + '</button></div>';
+  }
+
+  // --- Die Zaehlzeile, antippbar
+  h += rmZaehlZeile(s, t.datum);
+
+  // --- Die Frist als Fusszeile
+  h += s.kegelabend ? abmeldeFuss(t) : rmSchlussFuss(s);
+
+  return h + '</div>';
+}
+
+/** "9 dabei · 2 abgemeldet" – beim Kegelabend ohne dritte Zahl. */
+function rmZaehlZeile(s, datum){
+  const z = s.zaehler || {};
+  let text;
+  if (s.kegelabend){
+    text = (z.zu || 0) + ' dabei · ' + (z.ab || 0) + ' abgemeldet';
+  } else if (s.fristVorbei){
+    text = (z.zu || 0) + ' Teilnehmer · ' + (z.ab || 0) + ' nicht dabei'
+         + (z.beantragt ? ' · ' + z.beantragt + ' beantragt' : '');
+  } else {
+    text = (z.zu || 0) + ' angemeldet · ' + (z.ab || 0) + ' abgesagt · '
+         + (z.offen || 0) + ' ohne Rückmeldung';
+  }
+  return '<button class="rmzaehl" data-rm-liste="' + esc(datum) + '">'
+       + '<span>' + esc(text) + '</span><span class="cp">Ansehen</span></button>';
+}
+
+function rmSchlussFuss(s){
+  if (!s.frist) return '';
+  const vorbei = s.fristVorbei;
+  return '<div class="deadline kartenfuss' + (vorbei ? ' frist' : '') + '">'
+       + (vorbei
+          ? 'Der Anmeldeschluss ist verstrichen.'
+          : 'Anmeldung bis <b>' + esc(rmFristText(s.frist)) + '</b>.')
+       + '</div>';
+}
+
+function rmFristText(iso){
+  const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  if (!m) return String(iso || '');
+  return m[3] + '.' + m[2] + '.' + m[1] + ', ' + m[4] + ':' + m[5] + ' Uhr';
+}
+
+/* ---------------------------------------------------------- Antragskarte */
+
+/* Beide Kegelvaeter duerfen entscheiden; wer zuerst tippt, entscheidet
+   (Johannes, 10.09.2026). Ueber den EIGENEN Antrag entscheidet niemand – das
+   filtert schon das Backend heraus. */
+function rmAntragKarte(){
+  const r = rmDaten();
+  if (!r || !r.antraege || !r.antraege.length) return '';
+  return r.antraege.map(a => `<div class="card warnkarte" style="margin-top:16px">
+      <div class="eyebrow">Späte Anmeldung</div>
+      <div class="sub" style="margin-top:6px"><b>${esc(a.name)}</b> möchte noch zu
+        ${esc(a.bezeichnung || a.art)} am ${dat(a.datum)}.</div>
+      ${a.notiz ? `<div class="sub" style="margin-top:4px">„${esc(a.notiz)}“</div>` : ''}
+      ${a.zeit ? `<div class="sub" style="margin-top:4px">Beantragt am ${esc(a.zeit)}</div>` : ''}
+      <div class="rmzwei" style="margin-top:12px">
+        <button class="btn" data-rm-ja="${esc(a.datum)}" data-rm-wer="${esc(a.name)}">Zusagen</button>
+        <button class="btn ghost" data-rm-nein="${esc(a.datum)}" data-rm-wer="${esc(a.name)}">Ablehnen</button>
+      </div>
+    </div>`).join('');
+}
+
+/* ------------------------------------------------------------- Namensliste */
+
+function rmListeOeffnen(datum){
+  const s = rmStand(datum);
+  if (!s) return;
+  $('rmListeTitel').textContent = (s.bezeichnung || s.art) + ' · ' + dat(datum);
+
+  const reihe = e => {
+    const marke = e.stand === 'zu' ? 'ja'
+                : e.stand === 'beantragt' ? 'wartet' : 'nein';
+    const wort = e.stand === 'zu' ? (s.kegelabend ? 'dabei' : 'angemeldet')
+               : e.stand === 'beantragt' ? 'beantragt'
+               : e.stand === 'offen' ? 'ohne Rückmeldung'
+               : e.stand === 'abgelehnt' ? 'abgelehnt'
+               : (s.kegelabend ? 'abgemeldet' : 'nicht dabei');
+    const zusatz = [];
+    /* "still" heisst: Er hat nie etwas getippt. Dann steht da auch kein
+       Zeitpunkt – eine erfundene Uhrzeit waere bei §2 das Gegenteil eines
+       Belegs. */
+    if (!e.still && e.zeit) zusatz.push(e.zeit.slice(0, 16).replace('T', ' ').replace(/-/g, '.'));
+    if (e.spaet) zusatz.push('nach Fristablauf');
+    if (e.erfasser && e.erfasser !== e.name) zusatz.push('eingetragen von ' + e.erfasser);
+    return `<div class="row rmrow">
+      <div class="n"><b>${esc(e.name)}</b>
+        ${e.notiz ? `<span class="sub">„${esc(e.notiz)}“</span>` : ''}
+        ${zusatz.length ? `<span class="sub">${esc(zusatz.join(' · '))}</span>` : ''}</div>
+      <div class="rmtags">
+        ${s.kegelabend && e.stand === 'zu'
+          ? `<span class="tag ${e.alkohol ? 'alk' : ''}">${e.alkohol ? 'Alkohol' : 'ohne'}</span>` : ''}
+        <span class="tag ${marke}">${esc(wort)}</span>
+      </div></div>`;
+  };
+
+  const sortiert = (s.liste || []).slice().sort((a, b) => {
+    const rang = x => x.stand === 'zu' ? 0 : x.stand === 'beantragt' ? 1 : x.stand === 'offen' ? 2 : 3;
+    return rang(a) - rang(b) || a.name.localeCompare(b.name);
+  });
+
+  let h = `<p class="note">${esc(rmZaehlText(s))}</p>
+    <div class="list" style="margin-top:14px">${sortiert.map(reihe).join('')}</div>`;
+
+  // Die §18-Vorschau bekommt, wer sie braucht: Kassenwart und Schriftfuehrer.
+  if (s.p18 && (D.ich.darfKasseSehen || D.ich.schriftfuehrer)) h += rm18Karte(s.p18);
+
+  $('rmListeBody').innerHTML = h;
+  ebene('rmListe', true);
+  $('rmListe').scrollTop = 0;
+}
+
+function rmZaehlText(s){
+  const z = s.zaehler || {};
+  if (s.kegelabend) return z.zu + ' dabei, ' + z.ab + ' abgemeldet.';
+  return s.fristVorbei
+    ? z.zu + ' Teilnehmer, ' + z.ab + ' nicht dabei.'
+    : z.zu + ' angemeldet, ' + z.ab + ' abgesagt, ' + z.offen + ' ohne Rückmeldung.';
+}
+
+/* §18: "Bei mangelnder Beteiligung (4 Alkohol trinkende Kegelbrueder oder
+   weniger) haben die anwesenden Kegelbrueder das Recht, auf Kosten der
+   Kegelkasse zu trinken." Die Logik ist umgekehrt zur Intuition: Die Kasse
+   braucht Geld, wenn WENIGE trinken. */
+function rm18Karte(p){
+  const greift = p.greift;
+  return `<div class="card ${greift ? 'warnkarte' : ''}" style="margin-top:18px">
+    <div class="eyebrow">§18 · Vorschau</div>
+    <div class="sub" style="margin-top:6px">${p.trinker} von ${p.dabei} Anwesenden
+      trinken Alkohol. Die Schwelle liegt bei ${p.schwelle}.</div>
+    ${greift
+      ? `<div class="sub" style="margin-top:8px"><b>§18 greift voraussichtlich.</b>
+           Dann trinken alle ${p.dabei} Anwesenden auf Vereinskosten –
+           rund ${eur(p.vorhalten)} vorhalten. Durchschnittsstrafe gedeckelt
+           auf ${eur(p.deckel)}.</div>`
+      : `<div class="sub" style="margin-top:8px">§18 greift nach heutigem Stand nicht.</div>`}
+    ${p.unsicher
+      ? `<p class="note" style="margin:10px 0 0">${plural(p.unsicher, 'Angabe stammt', 'Angaben stammen')}
+           aus einer Voreinstellung, die noch nie gepflegt wurde. Die Zahl kann kippen.</p>` : ''}
+    <p class="note" style="margin:10px 0 0">Das ist eine Vorschau, kein Beschluss.
+      Gesetzt wird §18 am Abend, nach den tatsächlich Anwesenden.</p>
+  </div>`;
+}
+
+/* ------------------------------------------------------------- Senden */
+
+async function rmSenden(datum, felder, knopf){
+  const alt = knopf ? knopf.textContent : '';
+  if (knopf){ knopf.disabled = true; knopf.textContent = 'Moment …'; }
+  try {
+    const r = await api('rueckmeldung',
+      { token: token, eintrag: Object.assign({ datum: datum }, felder) }, API_VERSUCHE);
+    if (r.fehler){ hinweisleiste(r.fehler); return false; }
+    eigeneSchreibung();
+    if (r.rueckmeldungen) D.rueckmeldungen = r.rueckmeldungen;
+    standSichern();
+    alleReiterNeu();
+    if (r.hinweis) hinweisleiste(r.hinweis);
+    return true;
+  } catch (e){
+    hinweisleiste(schreibFehlerText(e, 'die Rückmeldung'));
+    return false;
+  } finally {
+    if (knopf){ knopf.disabled = false; knopf.textContent = alt; }
+  }
+}
+
+async function rmAntragSenden(datum, wer, ja, knopf){
+  let grund = '';
+  if (!ja){
+    /* Ein Grund ist freiwillig – aber er kommt beim Antragsteller an, und ohne
+       ihn steht dort nur "abgelehnt". */
+    grund = window.prompt('Grund für die Ablehnung (darf leer bleiben):', '') || '';
+  }
+  const alt = knopf ? knopf.textContent : '';
+  if (knopf){ knopf.disabled = true; knopf.textContent = 'Moment …'; }
+  try {
+    const r = await api('antragEntscheiden',
+      { token: token, eintrag: { datum: datum, name: wer, zusagen: !!ja, grund: grund } },
+      API_VERSUCHE);
+    if (r.fehler){ hinweisleiste(r.fehler); return; }
+    eigeneSchreibung();
+    if (r.rueckmeldungen) D.rueckmeldungen = r.rueckmeldungen;
+    standSichern();
+    alleReiterNeu();
+    hinweisleiste(r.hinweis || (ja ? wer + ' ist dabei.' : 'Abgelehnt.'));
+  } catch (e){
+    hinweisleiste(schreibFehlerText(e, 'die Entscheidung'));
+  } finally {
+    if (knopf){ knopf.disabled = false; knopf.textContent = alt; }
+  }
+}
+
+/* Ein Empfaenger fuer alles – die Knoepfe werden bei jedem Neuzeichnen neu
+   gebaut, einzeln angehaengte Empfaenger waeren nach dem ersten Datenabruf tot. */
+document.addEventListener('click', e => {
+  const antwort = e.target.closest('[data-rm-antwort]');
+  if (antwort){
+    rmSenden(antwort.dataset.rmDatum, { antwort: antwort.dataset.rmAntwort }, antwort);
+    return;
+  }
+  const alk = e.target.closest('[data-rm-alk]');
+  if (alk){
+    rmSenden(alk.dataset.rmDatum, { antwort: 'zu', alkohol: alk.dataset.rmAlk }, alk);
+    return;
+  }
+  const liste = e.target.closest('[data-rm-liste]');
+  if (liste){ rmListeOeffnen(liste.dataset.rmListe); return; }
+  const ja = e.target.closest('[data-rm-ja]');
+  if (ja){ rmAntragSenden(ja.dataset.rmJa, ja.dataset.rmWer, true, ja); return; }
+  const nein = e.target.closest('[data-rm-nein]');
+  if (nein){ rmAntragSenden(nein.dataset.rmNein, nein.dataset.rmWer, false, nein); return; }
+});
+
+$('rmListeSchliessen').addEventListener('click', () => ebene('rmListe', false));
 
 /* ============================================== Strafen erfassen (1.14) */
 /* Erfasst wird vom Kegelbruder aus: Man tippt den an, der sich die Strafe
@@ -4155,7 +4556,13 @@ function erfAnwesenheit(name, anwesend){
   if (!anwesend && i >= 0) ERF.anwesend.splice(i, 1);
   erfSchalter('anwesenheit', name, anwesend, 'Anwesenheit ' + name);
   erfZeichnen();
+  /* Die Vorschläge nach §2 hängen daran, wer als anwesend markiert ist –
+     also nach jeder Änderung neu holen. Läuft nebenher; die Anzeige wartet
+     nicht darauf, sonst ruckelte jedes Antippen. */
+  clearTimeout(erfVorschlagUhr);
+  erfVorschlagUhr = setTimeout(erfVorschlaegeHolen, 600);
 }
+let erfVorschlagUhr = null;
 
 /* ----------------------------------------------------------- Öffnen */
 async function erfassungOeffnen(datum, art){
@@ -4172,6 +4579,8 @@ async function erfassungOeffnen(datum, art){
        noch am ALTEN hing – alles, was danach ERF.datum liest, arbeitete am
        falschen Abend. */
   erfSyncGewuenscht = false;
+  erfVorschlaege = null;
+  clearTimeout(erfVorschlagUhr);
   ERF = null;
   const lauf = ++erfLauf;
   ebene('erfassung', true);
@@ -4238,6 +4647,7 @@ async function erfassungOeffnen(datum, art){
      Klick geholt – eine offene Anforderung aus einer früheren Sitzung war
      unsichtbar, eine erledigte auch. */
   erfSyncNachsehen();
+  erfVorschlaegeHolen();
 }
 
 /* Beim Schliessen wird alles gelöst, was zu diesem Abend gehört. Bis 1.39
@@ -4250,6 +4660,8 @@ function erfassungSchliessen(){
   ERF = null;
   erfSyncStand = null;
   erfSyncGewuenscht = false;
+  erfVorschlaege = null;
+  clearTimeout(erfVorschlagUhr);
   const b = $('erfBody');
   if (b) b.innerHTML = '';
 }
@@ -4383,6 +4795,8 @@ function erfListeZeichnen(){
         <div class="m">${kegeln ? 'ohne Durchschnitt für Abwesende' : 'Stand dieser Erfassung'}</div></div>
       <div class="v">${eur(gesamt)}</div></div></div>`;
 
+  h += erfVorschlagBlock();
+
   h += erfSyncBlock();
 
   const w = abgelehnte();
@@ -4403,6 +4817,10 @@ function erfListeZeichnen(){
     erfSchalter('p18', '', ERF.p18, '§18 ' + (ERF.p18 ? 'gesetzt' : 'entfernt'));
     erfZeichnen();
   });
+  $('erfBody').querySelectorAll('button[data-vs-ja]').forEach(b => b.addEventListener('click',
+    () => erfVorschlagUebernehmen(b.dataset.vsJa)));
+  $('erfBody').querySelectorAll('button[data-vs-nein]').forEach(b => b.addEventListener('click',
+    () => erfVorschlagVerwerfen(b.dataset.vsNein)));
   if ($('erfFehlerWeg')) $('erfFehlerWeg').addEventListener('click', () => { abgelehnteSchreib([]); erfZeichnen(); });
   if ($('erfSync')) $('erfSync').addEventListener('click', erfSyncStarten);
   $('erfBody').querySelectorAll('button[data-mann]').forEach(b =>
@@ -4714,11 +5132,19 @@ function erfGeldspiel(name){
 
 function erfAnwesenheitZeichnen(){
   const kegeln = ERF.art !== 'Veranstaltung';
+  /* VORBELEGUNG (1.44). Wer zugesagt hat, steht grau vorgeschlagen da – aber
+     erst ein Tipp auf "Alle Zugesagten übernehmen" macht daraus Anwesenheit.
+     Stillschweigend übernehmen waere der teuerste Fehler der ganzen Funktion:
+     Wer zusagt und nicht kommt, zoege einen falschen Abenddurchschnitt, eine
+     falsche Quote nach §23 und falsche Fehltage nach §12 nach sich. */
+  const vorschlag = erfZugesagte();
   const zeile = m => {
     const da = ERF.anwesend.indexOf(m) >= 0;
     const gast = /^gast/i.test(m);
-    return `<div class="setrow">
-      <div style="flex:1"><div class="lbl">${esc(m)}</div>
+    const vorbelegt = !da && vorschlag.indexOf(m) >= 0;
+    return `<div class="setrow${vorbelegt ? ' vorbelegt' : ''}">
+      <div style="flex:1"><div class="lbl">${esc(m)}${
+        vorbelegt ? ' <span class="tag">hat zugesagt</span>' : ''}</div>
         ${gast ? `<input enterkeyhint="done" class="search" style="margin-top:8px;padding:9px 12px;font-size:14px"
             data-gast="${esc(m)}" placeholder="Name des Gastes" value="${esc(ERF.gaeste[m] || '')}"
             aria-label="Name für ${esc(m)}">` : ''}</div>
@@ -4730,8 +5156,15 @@ function erfAnwesenheitZeichnen(){
     <p class="note">Hält fest, wer da war.${kegeln
       ? ' Daraus entsteht der Abenddurchschnitt nach §17 – und damit das, was die Abwesenden zahlen.'
       : ' Bei einer Veranstaltung gibt es keinen Durchschnitt; der Eintrag hält nur fest, wer dabei war.'}</p>
+    ${erfVorbelegBlock(vorschlag)}
     <div class="list" style="margin-top:16px">${ERF.mitglieder.map(zeile).join('')}</div>`);
   $('erfZurueck').addEventListener('click', () => { erfSicht = 'liste'; erfZeichnen(); });
+  if ($('erfVorbelegen')) $('erfVorbelegen').addEventListener('click', () => {
+    vorschlag.filter(m => ERF.anwesend.indexOf(m) < 0)
+             .forEach(m => erfAnwesenheit(m, true));
+    hinweisleiste(plural(vorschlag.length, 'Zusage übernommen', 'Zusagen übernommen'));
+    erfZeichnen();
+  });
   $('erfBody').querySelectorAll('button[data-anw]').forEach(b => b.addEventListener('click', () =>
     erfAnwesenheit(b.dataset.anw, b.getAttribute('aria-checked') !== 'true')));
   $('erfBody').querySelectorAll('input[data-gast]').forEach(inp => inp.addEventListener('change', () => {
@@ -4739,6 +5172,96 @@ function erfAnwesenheitZeichnen(){
     ERF.gaeste[m] = inp.value.trim();
     erfSchalter('gast', m, inp.value.trim(), 'Gastname ' + m);
   }));
+}
+
+/** Wer fuer diesen Abend zugesagt hat – Grundlage der Vorbelegung. */
+function erfZugesagte(){
+  const s = rmStand(ERF.datum);
+  if (!s) return [];
+  return (s.liste || []).filter(e => e.stand === 'zu').map(e => e.name)
+    .filter(nm => ERF.mitglieder.indexOf(nm) >= 0);
+}
+
+function erfVorbelegBlock(vorschlag){
+  const offen = vorschlag.filter(m => ERF.anwesend.indexOf(m) < 0);
+  if (!offen.length) return '';
+  return `<div class="card" style="margin-top:16px">
+    <div class="eyebrow">Aus den Rückmeldungen</div>
+    <div class="sub" style="margin-top:6px">${plural(offen.length, 'Kegelbruder hat', 'Kegelbrüder haben')}
+      zugesagt und ${offen.length === 1 ? 'ist' : 'sind'} noch nicht als anwesend markiert.</div>
+    <button class="btn ghost" id="erfVorbelegen" style="margin-top:12px">Alle Zugesagten übernehmen</button>
+    <p class="note" style="margin:10px 0 0">Eine Zusage ist keine Anwesenheit – prüfe die Liste,
+      bevor du sie übernimmst.</p>
+  </div>`;
+}
+
+/* --------------------------------------------- Vorschläge nach §2 (1.44)
+   Erscheint in der Erfassung, sobald jemand als anwesend markiert ist. Die
+   App BUCHT NICHTS: sie zeigt je Fall einen Vorschlag, der Schriftfuehrer
+   uebernimmt oder verwirft ihn mit Grund. Ob ein Fehlen entschuldigt war,
+   kann kein Knopfdruck wissen – deshalb entscheidet hier ein Mensch. */
+let erfVorschlaege = null;      // null = noch nicht geholt
+let erfVorschlagLauf = 0;
+
+async function erfVorschlaegeHolen(){
+  if (!ERF || !ERF.anwesend.length) { erfVorschlaege = null; return; }
+  const lauf = ++erfVorschlagLauf;
+  try {
+    const r = await api('rmVorschlaege',
+      { token: token, datum: ERF.datum, anwesende: ERF.anwesend.slice() });
+    if (lauf !== erfVorschlagLauf || !ERF) return;
+    erfVorschlaege = r && r.ok ? r : null;
+  } catch (e) { erfVorschlaege = null; }
+  if (erfSicht === 'liste') erfZeichnen();
+}
+
+function erfVorschlagBlock(){
+  const v = erfVorschlaege;
+  if (!v || !v.vorschlaege || !v.vorschlaege.length) return '';
+  const zeile = x => `<div class="row rmrow">
+      <div class="n"><b>${esc(x.name)}</b>
+        <span class="sub">${esc(x.fall)}${x.zeit ? ' · ' + esc(x.zeit.slice(0, 16).replace('T', ' ')) : ''}</span>
+        ${x.notiz ? `<span class="sub">„${esc(x.notiz)}“</span>` : ''}</div>
+      <div class="v">${eur(x.betrag)}</div>
+    </div>
+    <div class="rmzwei" style="margin:0 0 10px">
+      <button class="btn small" data-vs-ja="${esc(x.name)}">Übernehmen</button>
+      <button class="btn ghost small" data-vs-nein="${esc(x.name)}">Verwerfen</button>
+    </div>`;
+  return `<div class="list" style="margin-top:20px">
+      <div class="group-head"><span>Vorschläge nach §2</span><span>${v.vorschlaege.length}</span></div>
+      ${v.vorschlaege.map(zeile).join('')}
+    </div>
+    <p class="note" style="margin-top:8px">Die Durchschnittsstrafe nach §17 rechnet das Blatt
+      ohnehin – vorgeschlagen wird allein der Zuschlag nach §2. Verwerfen fragt nach dem Grund;
+      er landet im Protokoll.</p>`;
+}
+
+async function erfVorschlagUebernehmen(name){
+  const art = (erfVorschlaege && erfVorschlaege.vorschlaege
+    .filter(x => x.name === name).map(x => x.strafart)[0]) || '';
+  const zeile = ERF.zeilen.filter(z => z.label === art)[0]
+    || ERF.zeilen.filter(z => anzeigeLabel(z.label) === anzeigeLabel(art))[0];
+  if (!zeile){
+    hinweisleiste('Die Strafart „' + art + '" steht nicht im Blatt dieses Abends.');
+    return;
+  }
+  /* Gebucht wird ueber denselben Weg wie jede andere Strafe – ein zweiter
+     Schreibpfad waere ein zweiter Ort, an dem etwas schieflaufen kann. */
+  erfBuchen(name, zeile.label, 1, 'Vorschlag §2 übernommen');
+  erfVorschlaege.vorschlaege = erfVorschlaege.vorschlaege.filter(x => x.name !== name);
+  erfZeichnen();
+}
+
+async function erfVorschlagVerwerfen(name){
+  const grund = window.prompt('Warum bekommt ' + name + ' die Strafe nicht?\n'
+    + '(krank, Notfall, mündlich abgemeldet – darf leer bleiben)', '') || '';
+  try {
+    await api('rmVerwerfen', { token: token, eintrag: { datum: ERF.datum, name: name, grund: grund } });
+  } catch (e) { /* Das Protokoll ist wichtig, aber nicht wichtiger als der Abend. */ }
+  erfVorschlaege.vorschlaege = erfVorschlaege.vorschlaege.filter(x => x.name !== name);
+  erfZeichnen();
+  hinweisleiste('Verworfen – der Grund steht im Protokoll.');
 }
 
 /* "Mehrere auf einmal": erst die Strafart, dann alle Betroffenen antippen.
@@ -5978,11 +6501,40 @@ function kasseBuchungMaske(art, e){
       } });
 }
 
+/* §18-VORSCHAU FÜR DEN KASSENWART (1.44)
+   Steht ganz oben in der Übersicht, weil sie das einzige ist, wofür er Geld
+   VORHER bereithalten muss. Die Logik ist umgekehrt zur Intuition: Die Kasse
+   zahlt, wenn WENIGE trinken – bei vier Alkohol trinkenden Kegelbrüdern oder
+   weniger trinken alle Anwesenden auf Vereinskosten.
+
+   Gezeigt wird nur der nächste Kegelabend. Eine Vorschau über die halbe
+   Saison wäre eine Zahlenreihe, die sich täglich ändert und die niemand liest. */
+function kasse18Block(){
+  const r = rmDaten();
+  if (!r || !r.termine) return '';
+  const s = r.termine.filter(t => t.kegelabend && t.p18)[0];
+  if (!s || !s.p18) return '';
+  const p = s.p18;
+  if (!p.greift) return '';          // kein Alarm, wenn nichts anliegt
+  return `<div class="card warnkarte" style="margin-top:16px">
+    <div class="eyebrow">§18 am ${dat(s.datum)}</div>
+    <div class="amount">${eur(p.vorhalten)}</div>
+    <div class="sub">${p.trinker} von ${p.dabei} Anwesenden trinken Alkohol –
+      Schwelle ${p.schwelle}. Dann geht die Zeche auf die Kasse.</div>
+    <p class="note" style="margin:12px 0 0">Geschätzt mit ${eur(p.jeKopf)} je Kopf aus den
+      bisherigen Ausgaben „Frei Suff“.${p.unsicher
+        ? ' ' + plural(p.unsicher, 'Angabe stammt', 'Angaben stammen')
+          + ' aus einer ungepflegten Voreinstellung – die Zahl kann kippen.' : ''}
+      Vorschau, kein Beschluss: §18 setzt der Schriftführer am Abend.</p>
+  </div>`;
+}
+
 const KASSE_SICHTEN = {
 
   uebersicht(){
     const b = D.kassenbericht;
-    if (!b) return '<p class="note" style="margin-top:16px">Noch keine Kassenzahlen vorhanden.</p>';
+    if (!b) return kasse18Block()
+      || '<p class="note" style="margin-top:16px">Noch keine Kassenzahlen vorhanden.</p>';
 
     const zeile = (titel, unter, wert, betont) => `<div class="row">
       <div><div class="n">${titel}</div>${unter ? `<div class="m">${unter}</div>` : ''}</div>
@@ -6023,7 +6575,7 @@ const KASSE_SICHTEN = {
             Math.abs(diff) >= 0.005)}
       </div>`;
 
-    return `
+    return kasse18Block() + `
       <div class="list" style="margin-top:16px">
         ${zeile('Offen gesamt',
                 b.schuldner
@@ -8735,7 +9287,8 @@ function stammMitgliederBody(){
     </div><div class="list">` + liste.map(m => `
     <div class="row stammrow" data-mit="${esc(m.name)}" style="${m.aktiv ? '' : 'opacity:.55'}">
       <div><div class="n">${esc(m.name)}</div>
-        <div class="m">${esc(m.typ)} · ${m.aktiv ? 'aktiv' : 'inaktiv'}${m.eintritt ? ' · seit ' + dat(m.eintritt) : ''}${m.austritt ? ' · aus ' + dat(m.austritt) : ''}</div></div>
+        <div class="m">${esc(m.typ)} · ${m.aktiv ? 'aktiv' : 'inaktiv'}${m.eintritt ? ' · seit ' + dat(m.eintritt) : ''}${m.austritt ? ' · aus ' + dat(m.austritt) : ''}${
+          m.typ !== 'Gast' && m.aktiv && !m.alkoholGesetzt ? ' · <strong style="color:var(--warn)">Alkohol fehlt</strong>' : ''}</div></div>
       <span class="go">›</span></div>`).join('') + '</div>';
 }
 
@@ -8750,10 +9303,19 @@ function stammMitgliedOeffnen(name){
     { art: 'haken', label: 'Aktiv', id: 'stammMAktiv', wert: !!m.aktiv,
       note: 'Wer austritt, verschwindet aus den künftigen Abenden – seine bisherigen bleiben vollständig erhalten.' },
     { art: 'datum', label: 'Eintritt', id: 'stammMEin', wert: m.eintritt || '' },
-    { art: 'datum', label: 'Austritt', id: 'stammMAus', wert: m.austritt || '' }
+    { art: 'datum', label: 'Austritt', id: 'stammMAus', wert: m.austritt || '' },
+    /* Die Voreinstellung für §18 (1.44). Ein "keine Angabe" gibt es nicht –
+       deshalb ein Haken und kein drittes Feld. Ist die Zelle im Blatt noch
+       leer, steht der Haken auf "nein"; das ist die für die Kasse teurere
+       Annahme, und die Lücke wird oben in der Liste angezeigt. */
+    { art: 'haken', label: 'Trinkt beim Kegeln Alkohol', id: 'stammMAlk', wert: !!m.alkohol,
+      note: m.alkoholGesetzt
+        ? 'Voreinstellung für jeden Kegelabend. Umstellen kann er sie am Abend selbst.'
+        : 'Für ihn ist noch nichts hinterlegt – bitte einmal setzen. Solange das fehlt, rechnet die §18-Vorschau mit „nein“.' }
   ], 'Speichern', () => stammSenden('mitgliedSetzen', {
     mitglied: { name: m.name, aktiv: stammHaken('stammMAktiv'),
-                eintritt: stammWert('stammMEin'), austritt: stammWert('stammMAus') }
+                eintritt: stammWert('stammMEin'), austritt: stammWert('stammMAus'),
+                alkohol: stammHaken('stammMAlk') ? 'ja' : 'nein' }
   }, $('stammSpeichern')));
 }
 
@@ -8772,10 +9334,17 @@ function stammNeuesMitgliedMaske(){
       note: 'So, wie er künftig überall auftauchen soll.' },
     { art: 'datum', label: 'Eintritt', id: 'stammNME', wert: (D && D.heute) || '' },
     { art: 'haken', label: 'Als Gast führen', id: 'stammNMG', wert: false,
-      note: 'Gäste tauchen in der App nicht auf und bekommen keinen Zugang.' }
+      note: 'Gäste tauchen in der App nicht auf und bekommen keinen Zugang.' },
+    /* PFLICHT bei einem Mitglied (1.44). Daran hängt die §18-Vorschau, und ein
+       "keine Angabe" gibt es dort nicht. Deshalb wird hier gefragt statt
+       später nachgetragen – eine leere Zelle ist genau die Lücke, die wir
+       nicht wollen. Bei einem Gast fällt die Frage weg: §18 zählt Kegelbrüder. */
+    { art: 'haken', label: 'Trinkt beim Kegeln Alkohol', id: 'stammNMA', wert: true,
+      note: 'Voreinstellung für jeden Kegelabend. Sie zählt bei §18 mit und lässt sich pro Abend umstellen.' }
   ], 'Anlegen', () => stammSenden('mitgliedAnlegen', {
     mitglied: { name: stammWert('stammNMN'), eintritt: stammWert('stammNME'),
-                typ: stammHaken('stammNMG') ? 'Gast' : 'Mitglied' }
+                typ: stammHaken('stammNMG') ? 'Gast' : 'Mitglied',
+                alkohol: stammHaken('stammNMA') ? 'ja' : 'nein' }
   }, $('stammSpeichern')));
 }
 
