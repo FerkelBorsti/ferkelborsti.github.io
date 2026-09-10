@@ -583,7 +583,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
   <section id="view-login" class="login">
     <img class="logo" id="logo-full" alt="KC Knüppeldick">
     <p>Gib deinen persönlichen Zugangscode ein. Danach bleibt dieses Gerät angemeldet.</p>
-    <input class="codefield" id="code" placeholder="ABCD-EFGH" maxlength="9" autocomplete="off"
+    <input enterkeyhint="go" class="codefield" id="code" placeholder="ABCD-EFGH" maxlength="9" autocomplete="off"
            spellcheck="false" autocapitalize="characters" aria-label="Zugangscode">
     <div class="err" id="err"></div>
     <button class="btn" id="loginBtn">Anmelden</button>
@@ -624,14 +624,14 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
           <p class="note" style="margin-top:16px">Alle Paragraphen zum Nachlesen – antippen klappt den
             Text auf. Steht rechts ein Betrag, ist es eine Strafe; bei §4 hängt die komplette
             Preisliste darunter. Gesucht wird über Nummer, Bezeichnung und Beschreibung.</p>
-          <input class="search" id="statutSearch" placeholder="Paragraph oder Strafe suchen …"
+          <input enterkeyhint="done" class="search" id="statutSearch" placeholder="Paragraph oder Strafe suchen …"
                  aria-label="Statuten durchsuchen" style="margin-top:14px">
           <div class="list" id="statutList" style="margin-top:14px"></div>
         </div>
         <div id="modeRechnen" class="hidden">
           <p class="note" style="margin-top:16px">Was würde dich ein Abend kosten? Antippen und
             zusammenzählen – rein zum Überschlagen, es wird nichts gespeichert.</p>
-          <input class="search" id="calcSearch" placeholder="Strafe suchen …" aria-label="Strafe suchen" style="margin-top:12px">
+          <input enterkeyhint="done" class="search" id="calcSearch" placeholder="Strafe suchen …" aria-label="Strafe suchen" style="margin-top:12px">
           <div class="list" id="calcList" style="margin-top:14px"></div>
         </div>
       </section>
@@ -935,13 +935,13 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
 
       <div>
         <div class="eyebrow" style="margin-bottom:10px">Bezeichnung</div>
-        <input class="search" id="terminBez" placeholder="z. B. Frühschoppen" maxlength="80" aria-label="Bezeichnung">
+        <input enterkeyhint="done" class="search" id="terminBez" placeholder="z. B. Frühschoppen" maxlength="80" aria-label="Bezeichnung">
         <p class="note" style="margin-top:8px" id="terminBezNote">Beim Kegelabend darf das Feld leer bleiben.</p>
       </div>
 
       <div>
         <div class="eyebrow" style="margin-bottom:10px">Ort</div>
-        <input class="search" id="terminOrt" placeholder="z. B. Gaststätte Warburg" maxlength="80" aria-label="Ort">
+        <input enterkeyhint="done" class="search" id="terminOrt" placeholder="z. B. Gaststätte Warburg" maxlength="80" aria-label="Ort">
       </div>
 
       <p class="note hidden" id="terminFehler" style="color:var(--accent);font-weight:600"></p>
@@ -1143,7 +1143,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    Service Worker, meldete keine neue Fassung und die Hülle würde erst nach
    einem vollständigen Neustart still ausgetauscht. Eine neue Nummer räumt
    das in einem Zug auf. */
-const APP_VERSION = '1.42';
+const APP_VERSION = '1.43';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -1950,8 +1950,8 @@ function zeigeApp(){
      die App stillschweigend mit 0 weiter – so ist die Ehrentafel drei
      Fassungen lang leer geblieben, ohne dass es jemandem auffiel. */
   if (D.blattFehler && D.blattFehler.length){
-    hinweisleiste('In den Tabellen fehlt: ' + D.blattFehler.join(', ')
-                + '. Bitte beim Schriftführer melden – die Zahlen sind unvollständig.', 'warn');
+    hinweisleiste('Ein Teil der Daten ist gerade nicht erreichbar: ' + D.blattFehler.join(', ')
+                + '. Bitte dem Betreuer der App Bescheid sagen – die Zahlen sind unvollständig.', 'warn');
   }
 
   /* Nur der sichtbare Reiter wird gezeichnet, die übrigen werden als
@@ -3797,6 +3797,28 @@ $('reloadBtn').addEventListener('click', () => { ebene('settings', false); hinwe
 $('badge-small').addEventListener('click', () => ebene('lightbox', true));
 $('showLogo').addEventListener('click', () => { ebene('settings', false); ebene('lightbox', true); });
 $('lightbox').addEventListener('click', () => ebene('lightbox', false));
+/* ENTER SCHLIESST DIE TASTATUR (1.43).
+   Gemeldet am 10.09.2026: Auf der Tastatur fehlt das Zeichen zum Einklappen.
+   Bei Schreibfeldern liegt das nur an einem fehlenden Attribut – enterkeyhint
+   beschriftet die Rückgabetaste mit "Fertig", und hier wird sie ausgewertet:
+   Feld verlassen, Tastatur zu.
+
+   Die BETRAGSFELDER bleiben bewusst außen vor. Der Ziffernblock des iPhones
+   hat gar keine Rückgabetaste, und es gibt kein Attribut, das eine hinzufügt;
+   dafür bräuchte es eine selbstgebaute Leiste über der Tastatur. Entscheidung
+   Johannes vom 10.09.2026: erst einmal nicht. */
+const OHNE_ENTER = ['checkbox', 'radio', 'button', 'submit', 'reset', 'file', 'range', 'color'];
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const el = e.target;
+  if (!el || el.tagName !== 'INPUT') return;
+  if (OHNE_ENTER.indexOf(String(el.type || 'text').toLowerCase()) >= 0) return;
+  if (el.id === 'code') return;        // dort meldet Enter an, siehe anmelden()
+  if (el.id === 'erfTippFeld') return; // dort übernimmt Enter den Wert
+  e.preventDefault();
+  el.blur();
+});
+
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   ebene('lightbox', false); ebene('stammFrage', false); ebene('stammForm', false);
@@ -4606,7 +4628,7 @@ function erfMannZeichnen(){
       ${erfasst.map(z => erfZaehlZeile(name, z)).join('')}</div>`;
   }
 
-  h += `<input class="search" id="erfSuche" placeholder="Strafe suchen …"
+  h += `<input enterkeyhint="done" class="search" id="erfSuche" placeholder="Strafe suchen …"
       aria-label="Strafe suchen" style="margin-top:16px" value="${esc(erfSuchtext || '')}">
     <p class="note" style="margin-top:8px">Plus und Minus zählen einzeln. Ein Tipp auf die
       Beschriftung öffnet die Direkteingabe.</p>
@@ -4672,7 +4694,7 @@ function erfGeldspiel(name){
         aria-label="Betrag in Euro" style="flex:1">
       <span class="v" style="font-size:20px">€</span>
     </div>
-    <input class="search" id="gsGrund" placeholder="Grund, z. B. Kloppen 3. Runde"
+    <input enterkeyhint="done" class="search" id="gsGrund" placeholder="Grund, z. B. Kloppen 3. Runde"
       aria-label="Grund" style="margin-top:10px">
     <p class="note warnton hidden" id="gsFehler" style="margin-top:10px"></p>
     <button class="btn" id="gsOk" style="margin-top:14px">Eintragen</button>
@@ -4697,7 +4719,7 @@ function erfAnwesenheitZeichnen(){
     const gast = /^gast/i.test(m);
     return `<div class="setrow">
       <div style="flex:1"><div class="lbl">${esc(m)}</div>
-        ${gast ? `<input class="search" style="margin-top:8px;padding:9px 12px;font-size:14px"
+        ${gast ? `<input enterkeyhint="done" class="search" style="margin-top:8px;padding:9px 12px;font-size:14px"
             data-gast="${esc(m)}" placeholder="Name des Gastes" value="${esc(ERF.gaeste[m] || '')}"
             aria-label="Name für ${esc(m)}">` : ''}</div>
       <button class="switch" role="switch" aria-checked="${da}" data-anw="${esc(m)}" aria-label="${esc(m)}"></button>
@@ -4730,7 +4752,7 @@ function erfSammelZeichnen(){
       <h2 class="sec" style="margin-top:16px">Mehrere auf einmal</h2>
       <p class="note">Erst die Strafe wählen, dann alle antippen, die sie kassiert haben.
         Gedacht für den Anfang: zu spät gekommen, Orden oder Shirt vergessen.</p>
-      <input class="search" id="erfSuche" placeholder="Strafe suchen …" style="margin-top:14px"
+      <input enterkeyhint="done" class="search" id="erfSuche" placeholder="Strafe suchen …" style="margin-top:14px"
         aria-label="Strafe suchen" value="${esc(erfSuchtext || '')}">
       <div class="list" style="margin-top:12px">
         ${auswahl.map(z => `<button class="row erfmann" data-wahl="${esc(z.label)}">
@@ -4798,7 +4820,13 @@ let FS = null;                  // Antwort von freiStrafeDaten
 let fsKennung = '';             // Kennung des laufenden Vorgangs, siehe fsZuruecksetzen
 let fsSicht = 'strafe';         // strafe | korrektur
 let fsSchritt = 'form';         // form | wahl | posten
-let fsMann = '';
+/* MEHRERE AUF EINMAL (1.43).
+   Gewünscht am 10.09.2026: "Bei den Freien Strafen soll auch eine
+   Mehrfachauswahl der Mitglieder möglich sein." Bis 1.42 war das genau ein
+   Name. Jetzt eine Liste – wer schon drin steht, fliegt beim zweiten Tippen
+   wieder raus. Gebucht wird für jeden eine eigene Strafe, so wie es auch
+   wäre, wenn man sie nacheinander einträgt. */
+let fsMaenner = [];
 let fsStrafart = '';
 let fsEigene = false;           // eigene Bezeichnung statt einer Strafart aus den Statuten
 let fsAnzahl = 1;
@@ -4846,7 +4874,7 @@ function fsZuruecksetzen(){
 function fsOeffnen(sicht){
   fsSicht = (sicht === 'korrektur' || !darfErfassen()) ? 'korrektur' : 'strafe';
   FS = null;
-  fsMann = '';
+  fsMaenner = [];
   fsZuruecksetzen();
   ebene('freistrafe', true);
   fsSegZeichnen();
@@ -4955,13 +4983,20 @@ function fsZeichnen(){
 
 /* ------------------------------------------------------- Strafe */
 
+/* Die Gewählten in einer Zeile. Ab vier Namen wird gezählt statt aufgezählt –
+   sonst läuft die Zusammenfassung unten über zwei Zeilen. */
+function fsMaennerText(){
+  if (fsMaenner.length <= 3) return fsMaenner.join(', ');
+  return fsMaenner.slice(0, 2).join(', ') + ' und ' + (fsMaenner.length - 2) + ' weitere';
+}
+
 function fsStrafeZeichnen(){
   const preis = fsPreisVon(fsStrafart);
   const betrag = fsBetragZahl();
   const eigenerBetrag = fsEigene || fsAbweichend;
 
   const maenner = FS.kegelbrueder.map(n =>
-    `<button data-fsmann="${esc(n)}" aria-pressed="${n === fsMann}">${esc(n)}</button>`).join('');
+    `<button data-fsmann="${esc(n)}" aria-pressed="${fsMaenner.indexOf(n) >= 0}">${esc(n)}</button>`).join('');
 
   const strafZeile = fsEigene
     ? `<div class="n">Eigene Bezeichnung</div><div class="m">Betrag wird von Hand eingetragen</div>`
@@ -4971,8 +5006,11 @@ function fsStrafeZeichnen(){
 
   $('freiBody').innerHTML = `
     <div style="margin-top:16px">
-      <div class="eyebrow" style="margin-bottom:10px">Kegelbruder</div>
+      <div class="eyebrow" style="margin-bottom:10px">Kegelbrüder${
+        fsMaenner.length > 1 ? ' · ' + fsMaenner.length + ' gewählt' : ''}</div>
       <div class="chips" id="fsMaenner" style="margin:0;padding:2px 0">${maenner}</div>
+      <p class="note" style="margin-top:8px">Mehrere antippen geht – jeder bekommt dieselbe Strafe
+        einzeln gebucht. Noch einmal tippen nimmt wieder heraus.</p>
     </div>
 
     <div style="margin-top:18px">
@@ -4986,9 +5024,9 @@ function fsStrafeZeichnen(){
     ${fsEigene ? `
     <div style="margin-top:18px">
       <div class="eyebrow" style="margin-bottom:10px">Bezeichnung</div>
-      <input class="search" id="fsBezeichnung" maxlength="120" placeholder="z. B. Kegel nicht vorgezeigt (§5.1)"
+      <input enterkeyhint="done" class="search" id="fsBezeichnung" maxlength="120" placeholder="z. B. Kegel nicht vorgezeigt (§5.1)"
              value="${esc(fsBezeichnung)}" aria-label="Bezeichnung">
-      <p class="note" style="margin-top:8px">Steht später genau so in den Rohdaten und im offenen Betrag.</p>
+      <p class="note" style="margin-top:8px">Genau so steht es später auch im offenen Betrag.</p>
     </div>` : ''}
 
     ${(!fsEigene && !fsAbweichend && preis > 0) ? `
@@ -5024,17 +5062,20 @@ function fsStrafeZeichnen(){
 
     <div style="margin-top:18px">
       <div class="eyebrow" style="margin-bottom:10px">Bezug oder Notiz</div>
-      <input class="search" id="fsBezug" maxlength="200" placeholder="freiwillig, z. B. Frühschoppen"
+      <input enterkeyhint="done" class="search" id="fsBezug" maxlength="200" placeholder="freiwillig, z. B. Frühschoppen"
              value="${esc(fsBezug)}" aria-label="Bezug oder Notiz">
     </div>
 
     <div class="list" style="margin-top:18px"><div class="row">
-      <div><div class="n">${fsMann ? esc(fsMann) : 'Noch kein Kegelbruder'}</div>
+      <div><div class="n">${fsMaenner.length ? esc(fsMaennerText()) : 'Noch kein Kegelbruder'}</div>
         <div class="m">${fsStrafartText() ? esc(fsStrafartText()) : 'noch keine Strafart'}${fsDatum ? ' · ' + dat(fsDatum) : ''}</div></div>
-      <div class="summe">${betrag > 0 ? eur(betrag) : '–'}</div></div></div>
+      <div class="summe">${betrag > 0
+        ? (fsMaenner.length > 1 ? eur(betrag * fsMaenner.length) : eur(betrag))
+        : '–'}</div></div></div>
 
     <p class="note hidden" id="fsFehler" style="color:var(--accent);font-weight:600;margin-top:12px"></p>
-    <button class="btn" id="fsSpeichern" style="margin-top:14px">Strafe eintragen</button>
+    <button class="btn" id="fsSpeichern" style="margin-top:14px">${
+      fsMaenner.length > 1 ? fsMaenner.length + ' Strafen eintragen' : 'Strafe eintragen'}</button>
 
     ${(FS.letzte || []).length ? `
     <details class="kasse" style="margin-top:22px;border:1px solid var(--line);border-radius:var(--radius)">
@@ -5048,8 +5089,16 @@ function fsStrafeZeichnen(){
     </details>` : ''}`;
 
   fsFehler(fsFehlerText);
+  chipsHerstellen();   // die Namensleiste stand sonst wieder am ersten Namen
   $('fsMaenner').querySelectorAll('button[data-fsmann]').forEach(b =>
-    b.addEventListener('click', () => { fsFelderSichern(); fsMann = b.dataset.fsmann; fsFehler(''); fsZeichnen(); }));
+    b.addEventListener('click', () => {
+      fsFelderSichern();
+      const n = b.dataset.fsmann;
+      const i = fsMaenner.indexOf(n);
+      if (i >= 0) fsMaenner.splice(i, 1); else fsMaenner.push(n);
+      fsFehler('');
+      fsZeichnen();
+    }));
   $('fsStrafartWahl').addEventListener('click', () => { fsFelderSichern(); fsSuche = ''; fsSchritt = 'wahl'; fsZeichnen(); });
   $('freiBody').querySelectorAll('button[data-fsanzahl]').forEach(b =>
     b.addEventListener('click', () => {
@@ -5076,7 +5125,7 @@ function fsWahlZeichnen(){
   const liste = (FS.strafarten || []).filter(s => !suche || s.t.toLowerCase().indexOf(suche) >= 0);
   $('freiBody').innerHTML = `
     <button class="btn ghost small" id="fsZurueck" style="margin-top:16px">← Zurück</button>
-    <input class="search" id="fsSuche" placeholder="Strafart suchen …" style="margin-top:14px"
+    <input enterkeyhint="done" class="search" id="fsSuche" placeholder="Strafart suchen …" style="margin-top:14px"
            aria-label="Strafart suchen" value="${esc(fsSuche)}">
     <div class="list" style="margin-top:12px">
       <button class="row erfmann" data-fswahl="__eigene__" style="width:100%">
@@ -5142,9 +5191,9 @@ function fsKorrekturZeichnen(){
 
     <div style="margin-top:18px">
       <div class="eyebrow" style="margin-bottom:10px">Grund</div>
-      <input class="search" id="fsBezug" maxlength="120" placeholder="z. B. doppelt erfasst"
+      <input enterkeyhint="done" class="search" id="fsBezug" maxlength="120" placeholder="z. B. doppelt erfasst"
              value="${esc(fsBezug)}" aria-label="Grund">
-      <p class="note" style="margin-top:8px">Steht als „Korrektur: …“ in den Rohdaten – ohne Grund wird nicht gebucht.</p>
+      <p class="note" style="margin-top:8px">Der Grund wird mitgeschrieben – ohne ihn wird nicht gebucht.</p>
     </div>
 
     <div class="list" style="margin-top:18px"><div class="row">
@@ -5190,9 +5239,9 @@ function fsKorrekturListe(){
         <div class="m">${esc(k.bezug || k.strafart)}</div></div>
       <button class="btn ghost small" data-korrweg="${i}" data-sicher="">Zurücknehmen</button>
     </div>`).join('')}</div>
-    <p class="note" style="margin-top:8px">Zurücknehmen leert die Zeile in den Rohdaten; der offene
-      Betrag steht danach wieder da, wo er vor der Korrektur stand. Im Protokoll bleibt beides
-      stehen – die Buchung und die Rücknahme.</p>`;
+    <p class="note" style="margin-top:8px">Nach dem Zurücknehmen steht der offene Betrag wieder da,
+      wo er vor der Korrektur stand. Im Protokoll bleibt beides stehen – die Buchung und die
+      Rücknahme.</p>`;
 }
 
 async function fsKorrekturZuruecknehmen(nr, knopf){
@@ -5246,7 +5295,7 @@ function fsPostenZeichnen(){
     || dat(p.datum).indexOf(suche) >= 0);
   $('freiBody').innerHTML = `
     <button class="btn ghost small" id="fsZurueck" style="margin-top:16px">← Zurück</button>
-    <input class="search" id="fsSuche" placeholder="Kegelbruder oder Datum …" style="margin-top:14px"
+    <input enterkeyhint="done" class="search" id="fsSuche" placeholder="Kegelbruder oder Datum …" style="margin-top:14px"
            aria-label="Posten suchen" value="${esc(fsSuche)}">
     <div class="list" style="margin-top:12px">
       ${liste.map((p, i) => `<button class="row erfmann" data-fspost="${i}" style="width:100%">
@@ -5280,7 +5329,7 @@ async function fsSenden(knopf){
     if (!(num(fsBetragText) > 0)) return fsFehler('Bitte den Betrag eintragen, der abgezogen wird.');
     if (!fsBezug.trim()) return fsFehler('Ohne Grund wird keine Korrektur gebucht.');
   } else {
-    if (!fsMann) return fsFehler('Bitte den Kegelbruder antippen.');
+    if (!fsMaenner.length) return fsFehler('Bitte mindestens einen Kegelbruder antippen.');
     if (!fsStrafartText()) return fsFehler('Bitte die Strafart wählen oder eine Bezeichnung eintragen.');
     if ((fsEigene || fsAbweichend) && !(num(fsBetragText) > 0)) return fsFehler('Bitte den Betrag eintragen.');
     if (!fsEigene && !fsAbweichend && !(fsPreisVon(fsStrafart) > 0)){
@@ -5291,32 +5340,76 @@ async function fsSenden(knopf){
   fsFehler('');
 
   if (!fsKennung) fsKennung = kennung();
-  const eintrag = korrektur
-    ? { id: fsKennung, modus: 'korrektur', datum: fsPosten.datum, name: fsPosten.name,
-        quelle: fsPosten.quelle, strafart: 'Korrektur: ' + fsBezug.trim(),
-        betrag: -Math.abs(num(fsBetragText)), bezug: fsBezug.trim() }
-    : { id: fsKennung, modus: 'strafe', datum: fsDatum, name: fsMann,
-        strafart: fsStrafartText(), anzahl: fsAnzahl, bezug: fsBezug.trim(),
-        betrag: (fsEigene || fsAbweichend) ? num(fsBetragText) : '' };
+  /* Jeder Kegelbruder bekommt eine eigene, GLEICHBLEIBENDE Kennung. Sie hängt
+     an der Kennung des Vorgangs und am Namen – ein zweiter Anlauf schickt
+     damit dieselben Kennungen, und das Backend erkennt jede einzelne wieder.
+     Würde hier je Anlauf neu gewürfelt, entstünden Dubletten. */
+  const eintraege = korrektur
+    ? [{ id: fsKennung, modus: 'korrektur', datum: fsPosten.datum, name: fsPosten.name,
+         quelle: fsPosten.quelle, strafart: 'Korrektur: ' + fsBezug.trim(),
+         betrag: -Math.abs(num(fsBetragText)), bezug: fsBezug.trim() }]
+    : fsMaenner.map((n, i) =>
+        ({ id: fsKennung + (i ? '#' + i : ''), modus: 'strafe', datum: fsDatum, name: n,
+           strafart: fsStrafartText(), anzahl: fsAnzahl, bezug: fsBezug.trim(),
+           betrag: (fsEigene || fsAbweichend) ? num(fsBetragText) : '' }));
+  const mehrere = eintraege.length > 1;
 
   const alt = knopf.textContent;
   knopf.disabled = true; knopf.textContent = 'Moment …';
   try {
-    const r = await api('freiStrafeBuchen', { token: token, eintrag: eintrag }, 1);
+    /* Bei einem einzigen Namen bleibt der bisherige Weg. Das ist kein
+       Schönheitsfehler, sondern Absicht: Solange das Backend noch die alte
+       Fassung ist, funktioniert der Alltagsfall weiter. */
+    let r = mehrere
+      ? await api('freiStrafeBuchenViele', { token: token, eintraege: eintraege }, 1)
+      : await api('freiStrafeBuchen', { token: token, eintrag: eintraege[0] }, 1);
+    /* RÜCKFALL AUF DEN EINZELWEG.
+       Kennt das Backend die Sammelbuchung noch nicht – weil die App schon
+       hochgeladen, das Backend aber noch nicht bereitgestellt ist –, werden die
+       Strafen eben nacheinander gebucht. Das dauert länger, aber es kommt an,
+       und der Schriftführer bekommt keine Fehlermeldung für etwas, das ihn
+       nichts angeht. Die Kennungen sind dieselben; doppelt wird nichts. */
+    if (mehrere && r && r.fehler && /unbekannte aktion/i.test(r.fehler)){
+      const ergebnisse = [];
+      for (const e of eintraege){
+        try {
+          const x = await api('freiStrafeBuchen', { token: token, eintrag: e }, 1);
+          ergebnisse.push(Object.assign({ name: e.name }, x || {}));
+        } catch (f){
+          ergebnisse.push({ name: e.name, fehler: fehlerGrund(f) });
+        }
+      }
+      r = { ok: true, ergebnisse: ergebnisse,
+            gebucht: ergebnisse.filter(x => !x.fehler).length,
+            summe: ergebnisse.reduce((a, x) => a + (x.fehler ? 0 : Number(x.betrag || 0)), 0) };
+    }
     if (r.fehler){ fsFehler(r.fehler); return; }
     eigeneSchreibung();
-    if (r.doppelt){ hinweisleiste('War schon gebucht.'); }
+    if (mehrere){
+      const schlecht = (r.ergebnisse || []).filter(x => x && x.fehler);
+      const gut = (r.ergebnisse || []).length - schlecht.length;
+      if (schlecht.length){
+        fsFehler(gut + ' von ' + eintraege.length + ' eingetragen. Nicht gebucht: '
+               + schlecht.map(x => x.name || '?').join(', ') + ' – ' + schlecht[0].fehler);
+      } else {
+        hinweisleiste(plural(gut, 'Strafe', 'Strafen') + ' eingetragen · '
+                    + eur(r.summe || 0) + ' zusammen.');
+      }
+      if (schlecht.length){ fsLaden(); aktualisieren(true); return; }
+    }
+    else if (r.doppelt){ hinweisleiste('War schon gebucht.'); }
     else if (korrektur){
       hinweisleiste(r.erledigt
         ? 'Korrektur gebucht – der Posten ist damit erledigt.'
         : 'Korrektur gebucht – offen bleiben ' + eur(r.offen) + '.');
     } else {
-      hinweisleiste(eintrag.name + ': ' + eur(r.betrag) + ' eingetragen.');
+      hinweisleiste(eintraege[0].name + ': ' + eur(r.betrag) + ' eingetragen.');
     }
     if (r.warnung) setTimeout(() => hinweisleiste(r.warnung, 'warn'), LEISTE_DAUER + 200);
-    const mann = fsMann;
+    const maenner = fsMaenner.slice();
     fsZuruecksetzen();
-    fsMann = korrektur ? '' : mann;   // meist folgt die nächste Strafe für denselben
+    // Meist folgt die nächste Strafe für dieselbe Runde.
+    if (!korrektur) fsMaenner = maenner;
     fsZeichnen();
     fsLaden();
     aktualisieren(true);
@@ -5436,6 +5529,67 @@ function tippen(el, tun){
   };
   el.addEventListener('pointerup', e => { if (e.isPrimary !== false) ausloesen(e); });
   el.addEventListener('click', ausloesen);
+}
+
+/* ------------------------------------- Die Chip-Leisten merken sich ihre Stelle */
+/* Gemeldet am 10.09.2026: "Wenn beim Eintragen einer freien Strafe ein Name
+   weiter rechts im Schieberegler ausgewählt wird und man dann die Strafe
+   auswählt oder den Betrag eingibt, springt der Schieber wieder zum ersten
+   Namen zurück."
+
+   Der Grund ist simpel: Bei jeder Änderung wird die ganze Maske neu gezeichnet,
+   die Leiste also neu erzeugt – und eine frisch erzeugte Leiste steht am
+   Anfang. Betroffen sind alle Leisten, die INNERHALB eines neu gezeichneten
+   Bereichs liegen: die Namen bei der freien Strafe und die Kategorien unter
+   Kasse › Ausgaben und Einnahmen. Die vier Leisten in der Kopfzeile stehen fest
+   im Dokument und waren nie betroffen.
+
+   Gemerkt wird nach Kennung, nicht nach Element – das Element von vorhin gibt
+   es nach dem Neuzeichnen nicht mehr. */
+const chipsStand = {};
+
+/* scroll blubbert nicht, deshalb in der Erfassungsphase mithören. */
+document.addEventListener('scroll', e => {
+  const el = e.target;
+  if (el && el.nodeType === 1 && el.id && el.classList && el.classList.contains('chips')){
+    chipsStand[el.id] = el.scrollLeft;
+  }
+}, true);
+
+function chipsHerstellen(){
+  document.querySelectorAll('.chips[id]').forEach(el => {
+    if (el.scrollWidth <= el.clientWidth + 1) return;   // passt ohnehin ganz hin
+    const stand = chipsStand[el.id];
+    if (stand > 0) el.scrollLeft = stand;
+
+    /* Ist von den Gewählten danach KEINER zu sehen – etwa weil die Liste
+       kürzer geworden ist –, wird der erste hereingeholt. Sonst sieht man
+       nicht, was man ausgewählt hat, und genau darum ging es.
+
+       Wichtig: erst prüfen, ob schon einer sichtbar ist. Bei mehreren
+       Gewählten stünde sonst immer der erste im Bild – und der ist bei der
+       freien Strafe meistens der ganz links, also genau der Sprung an den
+       Anfang, der abgestellt werden sollte. */
+    const aktive = [].slice.call(el.querySelectorAll('button[aria-pressed="true"]'));
+    if (!aktive.length) return;
+    const kasten = el.getBoundingClientRect();
+    const lage = a => {
+      const r = a.getBoundingClientRect();
+      const links = r.left - kasten.left + el.scrollLeft;
+      return { links: links, rechts: links + r.width };
+    };
+    const sichtbar = aktive.some(a => {
+      const l = lage(a);
+      return l.links >= el.scrollLeft - 1 && l.rechts <= el.scrollLeft + el.clientWidth + 1;
+    });
+    if (!sichtbar){
+      const l = lage(aktive[0]);
+      el.scrollLeft = l.links < el.scrollLeft
+        ? Math.max(0, l.links - 12)
+        : l.rechts - el.clientWidth + 12;
+    }
+    chipsStand[el.id] = el.scrollLeft;
+  });
 }
 
 /* ------------------------------------------- Runterziehen zum Aktualisieren */
@@ -6276,7 +6430,7 @@ const KASSE_SICHTEN = {
       </div>
       <div class="kassefeld">
         <div class="eyebrow">Notiz</div>
-        <input class="search" id="ausgabeNotiz" maxlength="120" placeholder="freiwillig" aria-label="Notiz">
+        <input enterkeyhint="done" class="search" id="ausgabeNotiz" maxlength="120" placeholder="freiwillig" aria-label="Notiz">
       </div>
       <p class="note kassefeld" id="ausgabeFehler"></p>
       <button class="btn" id="ausgabeSpeichern" style="margin-top:12px">Ausgabe eintragen</button>
@@ -6317,7 +6471,7 @@ const KASSE_SICHTEN = {
       </div>
       <div class="kassefeld">
         <div class="eyebrow">Notiz</div>
-        <input class="search" id="umlageNotiz" maxlength="120" placeholder="z. B. Umlage-Rest Sommerfest" aria-label="Notiz">
+        <input enterkeyhint="done" class="search" id="umlageNotiz" maxlength="120" placeholder="z. B. Umlage-Rest Sommerfest" aria-label="Notiz">
       </div>
       <p class="note kassefeld" id="umlageFehler"></p>
       <button class="btn" id="umlageSpeichern" style="margin-top:12px">Einnahme eintragen</button>
@@ -6365,6 +6519,7 @@ function zeichneKasse(sicht){
     : 'Zahlungen, Kontostand, Ausgaben und sonstige Einnahmen. Alles, was du hier einträgst, gilt sofort.';
 
   $('kasseBody').innerHTML = KASSE_SICHTEN[aktuelleKasseSicht]();
+  chipsHerstellen();   // die Kategorien-Leisten stehen sonst wieder am Anfang
 }
 
 function kasseFehler(id, text){
@@ -7187,6 +7342,11 @@ const NEUERUNGEN = [
       'Wer amtierender König ist, steht auf der Startseite – sobald der Schriftführer die Ergebnisse freigegeben hat.',
       'Auf Wunsch eine Nachricht aufs Handy, wenn sich für dich etwas ändert. Einschalten über das Zahnrad oben rechts.'
     ] },
+  { fassung: '1.43', punkte: [
+      'Eine freie Strafe lässt sich jetzt für mehrere Kegelbrüder auf einmal eintragen – einfach alle antippen.',
+      'Auf der Tastatur steht auf der Rückgabetaste „Fertig“ und klappt sie ein.',
+      'Die Namens- und Kategorienleisten springen beim Tippen nicht mehr an den Anfang zurück.'
+    ] },
   { fassung: '1.41', punkte: [
       'Die Menüleiste sitzt jetzt auch im Browser dort, wo sie hingehört – bisher hing sie auf dem iPad rund hundert Pixel zu hoch.',
       'Das Runterziehen am Seitenrand federt wieder wie gewohnt.',
@@ -7985,18 +8145,18 @@ function absTitelOeffnen(i){
       auf der Generalversammlung wirklich verkündet wurde – sonst einfach schließen.</p>
     <div style="margin-top:18px">
       <div class="eyebrow" style="margin-bottom:10px">Wer</div>
-      <input id="absWer" class="search" list="absNamen" maxlength="60"
+      <input enterkeyhint="done" id="absWer" class="search" list="absNamen" maxlength="60"
         aria-label="Wer" value="${esc(t.wer)}">
       <datalist id="absNamen">${(D.mitglieder || []).map(m =>
         `<option value="${esc(m.name)}"></option>`).join('')}</datalist>
     </div>
     <div style="margin-top:18px">
       <div class="eyebrow" style="margin-bottom:10px">Wert</div>
-      <input id="absWert" class="search" maxlength="120" aria-label="Wert" value="${esc(t.wert)}">
+      <input enterkeyhint="done" id="absWert" class="search" maxlength="120" aria-label="Wert" value="${esc(t.wert)}">
     </div>
     <div style="margin-top:18px">
       <div class="eyebrow" style="margin-bottom:10px">Bemerkung</div>
-      <input id="absBemerkung" class="search" maxlength="300" aria-label="Bemerkung"
+      <input enterkeyhint="done" id="absBemerkung" class="search" maxlength="300" aria-label="Bemerkung"
         value="${esc(t.bemerkung || '')}">
     </div>
     <p class="note" style="margin-top:14px">Geänderte Zeilen führt die Historie als
@@ -8267,7 +8427,8 @@ function stammMaske(titel, felder, primaerText, primaer, gefahr){
        steht in einem Feld, in das man 20,00 tippt, nirgends, worum es geht. */
     if (f.art === 'text' || f.art === 'zahl' || f.art === 'datum') {
       const feld = `<input class="search" id="${f.id}" type="${f.art === 'datum' ? 'date' : 'text'}"
-          ${f.art === 'zahl' ? 'inputmode="decimal" autocomplete="off"' : ''}
+          ${f.art === 'zahl' ? 'inputmode="decimal" autocomplete="off"'
+            : f.art === 'datum' ? '' : 'enterkeyhint="done"'}
           value="${esc(f.wert == null ? '' : String(f.wert))}"
           ${f.platzhalter ? `placeholder="${esc(f.platzhalter)}"` : ''}
           maxlength="${f.max || 80}" aria-label="${esc(f.label)}">`;
