@@ -723,6 +723,11 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
                (Entscheidung Johannes vom 07.09.2026): Strafen und Spenden sind
                Geld und gehören damit zum Kassenwart. -->
           <button data-kasse="strafen" aria-pressed="false">Strafen</button>
+          <!-- Umlagen sind kein Strafgeld (Entscheidung Johannes vom
+               10.09.2026) und haben deshalb seit 1.46 einen eigenen Reiter.
+               Nicht zu verwechseln mit "Einnahmen" – das ist das Blatt
+               "Umlage" mit den sonstigen Einnahmen des Vereins. -->
+          <button data-kasse="umlagen" aria-pressed="false">Umlagen</button>
           <button data-kasse="spenden" aria-pressed="false">Spenden</button>
           <button data-kasse="konto" aria-pressed="false">Konto</button>
         </div>
@@ -741,6 +746,10 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
           <button data-view="sonder" aria-pressed="false">Sonderwürfe</button>
           <!-- "Strafen" und "Spenden" standen bis 1.37 hier. Sie sind zum
                Kassenwart gewandert (07.09.2026). -->
+          <!-- Notizen (1.46): Was beim Erfassen als Bezug oder Grund
+               eingetippt wurde. Der Schriftführer schreibt sie – bis heute
+               konnte er sie nirgends wieder nachlesen. -->
+          <button data-view="notizen" aria-pressed="false">Notizen</button>
         </div>
         <div id="amtBody"></div>
       </section>
@@ -892,6 +901,10 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
 
       <div class="seg hidden" id="freiSeg">
         <button data-frei="strafe" aria-pressed="true">Strafe</button>
+        <!-- Umlage (1.46): derselbe Weg wie eine freie Strafe, aber unter der
+             Quelle "Umlage" – damit zählt sie in keiner Strafen-Zahl mit.
+             Buchen darf sie der Schriftführer UND der Kassenwart. -->
+        <button data-frei="umlage" aria-pressed="false">Umlage</button>
         <button data-frei="korrektur" aria-pressed="false">Korrektur</button>
       </div>
 
@@ -1205,7 +1218,12 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    Service Worker, meldete keine neue Fassung und die Hülle würde erst nach
    einem vollständigen Neustart still ausgetauscht. Eine neue Nummer räumt
    das in einem Zug auf. */
-const APP_VERSION = '1.44';
+/* 1.46 statt 1.45 (10.09.2026): Die Nummer 1.45 ist für die zurückgestellte
+   Lieferung "Statuten in der alten Reihenfolge" vergeben. Sie liegt fertig,
+   ist aber bewusst nicht hochgeladen. Zwei verschiedene Dateien unter
+   derselben Nummer sind genau der Fehler, der am 08.09.2026 zu kc-v1.38
+   geführt hat – deshalb wird 1.45 übersprungen, nicht zweitverwendet. */
+const APP_VERSION = '1.46';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -2878,32 +2896,44 @@ function zeichneHistorie(){
 
 /* ------------------------------------------------------------ Strafen */
 function zeichneStrafen(){
-  const offen = D.meineTermine.filter(t => !t.bezahlt);
   const alle = D.meineTermine;
+  /* Umlagen zählen hier nicht als Strafe (1.46). Sie stehen weiter unten in
+     der Liste – der Kegelbruder muss sehen, was er zu zahlen hat –, aber
+     "Saison gesamt", "Teuerste Strafart" und "Teuerster Termin" sind
+     Strafen-Zahlen. Eine Kleidungsumlage von 114,92 € wäre dort sonst auf
+     Anhieb die teuerste Strafart der Saison. */
+  const strafenT = alle.filter(t => !istUmlage(t.quelle));
+  const umlagenT = alle.filter(t => istUmlage(t.quelle));
+  const offen = strafenT.filter(t => !t.bezahlt);
   const alleEintraege = [];
-  alle.forEach(t => (t.eintraege||[]).forEach(e => alleEintraege.push(Object.assign({termin:t.datum}, e))));
+  strafenT.forEach(t => (t.eintraege||[]).forEach(e => alleEintraege.push(Object.assign({termin:t.datum}, e))));
   const nachArt = fasseZusammen(alleEintraege);
-  const teuersterAbend = alle.slice().sort((a,b) => b.summe - a.summe)[0];
-  const gesamt = alle.reduce((s,t) => s + t.summe, 0);
-  const bezahlt = alle.filter(t => t.bezahlt).reduce((s,t) => s + t.summe, 0);
+  const teuersterAbend = strafenT.slice().sort((a,b) => b.summe - a.summe)[0];
+  const gesamt = strafenT.reduce((s,t) => s + t.summe, 0);
+  const bezahlt = strafenT.filter(t => t.bezahlt).reduce((s,t) => s + t.summe, 0);
+  const umlSumme = umlagenT.reduce((s,t) => s + t.summe, 0);
+  const umlOffen = umlagenT.filter(t => !t.bezahlt).reduce((s,t) => s + t.summe, 0);
 
   let h = `<h2 class="sec">Deine Saison</h2>
     <div class="mystats">
       <div class="stat"><div class="eyebrow">Saison gesamt</div><b>${eur(gesamt)}</b>
         <div class="sub">davon ${eur(bezahlt)} bezahlt</div></div>
-      <div class="stat"><div class="eyebrow">Termine</div><b>${alle.length}</b>
+      <div class="stat"><div class="eyebrow">Termine</div><b>${strafenT.length}</b>
         <div class="sub">${offen.length === 1 ? '1 noch offen' : offen.length + ' noch offen'}</div></div>
     </div>`;
 
-  if (nachArt.length){
+  if (nachArt.length || umlagenT.length){
     h += `<div class="list" style="margin-top:4px">
-      <div class="row"><div><div class="n">Teuerste Strafart</div>
+      ${nachArt.length ? `<div class="row"><div><div class="n">Teuerste Strafart</div>
         <div class="m">${esc(nachArt[0].t)}</div></div><div class="v">${eur(nachArt[0].summe)}</div></div>
       <div class="row"><div><div class="n">Häufigste Strafe</div>
         <div class="m">${esc(nachArt.slice().sort((a,b)=>b.n-a.n)[0].t)}</div></div>
-        <div class="v">${nachArt.slice().sort((a,b)=>b.n-a.n)[0].n}×</div></div>
+        <div class="v">${nachArt.slice().sort((a,b)=>b.n-a.n)[0].n}×</div></div>` : ''}
       ${teuersterAbend ? `<div class="row"><div><div class="n">Teuerster Termin</div>
         <div class="m">${dat(teuersterAbend.datum)}</div></div><div class="v">${eur(teuersterAbend.summe)}</div></div>` : ''}
+      ${umlagenT.length ? `<div class="row"><div><div class="n">Umlagen</div>
+        <div class="m">keine Strafe – ${umlOffen > 0 ? eur(umlOffen) + ' davon noch offen' : 'alles bezahlt'}</div></div>
+        <div class="v">${eur(umlSumme)}</div></div>` : ''}
     </div>`;
   }
 
@@ -3672,6 +3702,34 @@ function rangliste(list, key, fmt, sub){
 }
 
 const SICHTEN = {
+  /* NOTIZEN (1.46).
+     Was beim Erfassen als Bezug oder als Grund eingetippt wurde, stand bis
+     1.45 ausschließlich in Spalte F der Rohdaten – der Schriftführer schreibt
+     die Notizen und konnte sie in der App nirgends wieder nachlesen.
+     Hier stehen alle Buchungen, zu denen etwas notiert ist, neueste zuerst.
+     Bewusst nur DIESE: Eine Liste aller 200 Zeilen wäre eine zweite
+     Strafenauswertung im Bereich des Schriftführers – und Geld gehört seit
+     dem 07.09.2026 zum Kassenwart. */
+  notizen(){
+    const alle = alleBuchungen();
+    if (!alle){
+      return '<p class="note" style="margin-top:16px">Die Notizen kommen, sobald das Backend '
+           + 'neu bereitgestellt ist.</p>';
+    }
+    const mitNotiz = alle.filter(x => String(x.z == null ? '' : x.z).trim())
+                         .sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0);
+    if (!mitNotiz.length){
+      return '<p class="note" style="margin-top:16px">Zu keiner Buchung dieser Saison steht '
+           + 'eine Notiz. Notiert wird beim Erfassen im Feld „Bezug oder Notiz“ und beim '
+           + 'Korrigieren im Feld „Grund“.</p>';
+    }
+    return '<p class="note" style="margin-top:16px">Alle Buchungen mit Notiz, neueste zuerst. '
+         + 'Die Notiz steht kursiv unter der Buchung.</p>'
+         + '<div class="list" style="margin-top:12px">'
+         + mitNotiz.map(x => buchungsZeile(x, true)).join('')
+         + '</div>';
+  },
+
   dash(){
     const A = D.auswertung || [];
     if (!A.length) return `<p class="note" style="margin-top:16px">Noch keine Daten.</p>`;
@@ -5367,17 +5425,29 @@ function darfKorrektur(){
   return !!(D && D.ich && (D.ich.darfKorrektur !== undefined ? D.ich.darfKorrektur
                                                              : D.ich.darfErfassen));
 }
+/* Welche der drei Masken darf dieser Kegelbruder öffnen?
+   Die Umlage steht dem Schriftführer und dem Kassenwart offen; solange das
+   Backend noch keine Auskunft gegeben hat (FS ist null), entscheidet dieselbe
+   Regel wie dort. */
+function fsDarf(){
+  return { strafe: darfErfassen(),
+           umlage: FS && FS.darfUmlage !== undefined
+                     ? !!FS.darfUmlage
+                     : (darfErfassen() || darfKasseAendern()),
+           korrektur: darfKorrektur() };
+}
 function fsPreisVon(t){
   const e = (FS && FS.strafarten || []).filter(s => s.t === t)[0];
   return e ? Number(e.b) || 0 : 0;
 }
 function fsBetragZahl(){
   if (fsSicht === 'korrektur') return -Math.abs(num(fsBetragText));
-  if (fsEigene || fsAbweichend) return num(fsBetragText);
+  // Eine Umlage steht in keinen Statuten – ihr Betrag wird immer eingetippt.
+  if (fsSicht === 'umlage' || fsEigene || fsAbweichend) return num(fsBetragText);
   return Math.round(fsPreisVon(fsStrafart) * fsAnzahl * 100) / 100;
 }
 function fsStrafartText(){
-  return fsEigene ? fsBezeichnung.trim() : fsStrafart;
+  return (fsSicht === 'umlage' || fsEigene) ? fsBezeichnung.trim() : fsStrafart;
 }
 
 function fsZuruecksetzen(){
@@ -5395,7 +5465,10 @@ function fsZuruecksetzen(){
 }
 
 function fsOeffnen(sicht){
-  fsSicht = (sicht === 'korrektur' || !darfErfassen()) ? 'korrektur' : 'strafe';
+  const darf = fsDarf();
+  fsSicht = darf[sicht] ? sicht
+          : darf.strafe ? 'strafe'
+          : darf.umlage ? 'umlage' : 'korrektur';
   FS = null;
   fsMaenner = [];
   fsZuruecksetzen();
@@ -5425,11 +5498,18 @@ async function fsLaden(){
 }
 
 function fsSegZeichnen(){
-  const beides = darfErfassen() && darfKorrektur();
-  $('freiSeg').classList.toggle('hidden', !beides);
-  $('freiSeg').querySelectorAll('button[data-frei]').forEach(b =>
-    b.setAttribute('aria-pressed', b.dataset.frei === fsSicht));
-  $('freiTitel').textContent = fsSicht === 'korrektur' ? 'Korrektur' : 'Freie Strafe';
+  const darf = fsDarf();
+  let sichtbar = 0;
+  $('freiSeg').querySelectorAll('button[data-frei]').forEach(b => {
+    const ok = !!darf[b.dataset.frei];
+    b.classList.toggle('hidden', !ok);
+    if (ok) sichtbar++;
+    b.setAttribute('aria-pressed', b.dataset.frei === fsSicht);
+  });
+  // Eine Leiste mit einem einzigen Knopf ist keine Auswahl.
+  $('freiSeg').classList.toggle('hidden', sichtbar < 2);
+  $('freiTitel').textContent = fsSicht === 'korrektur' ? 'Korrektur'
+                             : fsSicht === 'umlage'    ? 'Umlage' : 'Freie Strafe';
 }
 
 /* Textfelder werden vor jedem Neuzeichnen gesichert – sonst ist weg, was
@@ -5498,7 +5578,9 @@ function fsZeichnen(){
   if (!FS){ $('freiBody').innerHTML = ''; return; }
   $('freiNote').textContent = fsSicht === 'korrektur'
     ? 'Eine falsch erfasste Strafe wird nicht gelöscht, sondern ausgeglichen – so bleibt für die Kassenprüfung nachvollziehbar, was passiert ist.'
-    : 'Für eine Strafe, die zu keinem Kegelabend und keiner Veranstaltung gehört. Sie steht sofort im offenen Betrag des Kegelbruders.';
+    : fsSicht === 'umlage'
+      ? 'Für eine Umlage, die alle mittragen – etwa die Vereinskleidung. Sie steht sofort im offenen Betrag des Kegelbruders, zählt aber nirgends als Strafe.'
+      : 'Für eine Strafe, die zu keinem Kegelabend und keiner Veranstaltung gehört. Sie steht sofort im offenen Betrag des Kegelbruders.';
   if (fsSchritt === 'wahl')   return fsWahlZeichnen();
   if (fsSchritt === 'posten') return fsPostenZeichnen();
   return fsSicht === 'korrektur' ? fsKorrekturZeichnen() : fsStrafeZeichnen();
@@ -5514,9 +5596,15 @@ function fsMaennerText(){
 }
 
 function fsStrafeZeichnen(){
-  const preis = fsPreisVon(fsStrafart);
+  /* Dieselbe Maske trägt seit 1.46 zwei Fälle: die freie Strafe und die
+     Umlage. Der Unterschied ist klein und steht deshalb nicht in einer
+     zweiten, fast gleichen Funktion – bei der Umlage entfallen die Strafart
+     aus den Statuten und das Anzahl-Feld, die Bezeichnung wird getippt und
+     der Betrag ebenso. */
+  const istUml = fsSicht === 'umlage';
+  const preis = istUml ? 0 : fsPreisVon(fsStrafart);
   const betrag = fsBetragZahl();
-  const eigenerBetrag = fsEigene || fsAbweichend;
+  const eigenerBetrag = istUml || fsEigene || fsAbweichend;
 
   const maenner = FS.kegelbrueder.map(n =>
     `<button data-fsmann="${esc(n)}" aria-pressed="${fsMaenner.indexOf(n) >= 0}">${esc(n)}</button>`).join('');
@@ -5536,23 +5624,27 @@ function fsStrafeZeichnen(){
         einzeln gebucht. Noch einmal tippen nimmt wieder heraus.</p>
     </div>
 
+    ${istUml ? '' : `
     <div style="margin-top:18px">
       <div class="eyebrow" style="margin-bottom:10px">Strafart</div>
       <div class="list">
         <button class="row erfmann" id="fsStrafartWahl" style="width:100%">
           <div>${strafZeile}</div><div class="v">›</div></button>
       </div>
-    </div>
+    </div>`}
 
-    ${fsEigene ? `
+    ${(fsEigene || istUml) ? `
     <div style="margin-top:18px">
       <div class="eyebrow" style="margin-bottom:10px">Bezeichnung</div>
-      <input enterkeyhint="done" class="search" id="fsBezeichnung" maxlength="120" placeholder="z. B. Kegel nicht vorgezeigt (§5.1)"
+      <input enterkeyhint="done" class="search" id="fsBezeichnung" maxlength="120" placeholder="${
+        istUml ? 'z. B. Umlage KC Kleidung' : 'z. B. Kegel nicht vorgezeigt (§5.1)'}"
              value="${esc(fsBezeichnung)}" aria-label="Bezeichnung">
-      <p class="note" style="margin-top:8px">Genau so steht es später auch im offenen Betrag.</p>
+      <p class="note" style="margin-top:8px">${istUml
+        ? 'Unter dieser Bezeichnung erscheint die Umlage in der Kasse – am besten für alle Beteiligten gleich schreiben.'
+        : 'Genau so steht es später auch im offenen Betrag.'}</p>
     </div>` : ''}
 
-    ${(!fsEigene && !fsAbweichend && preis > 0) ? `
+    ${(!istUml && !fsEigene && !fsAbweichend && preis > 0) ? `
     <div style="margin-top:18px">
       <div class="eyebrow" style="margin-bottom:10px">Anzahl</div>
       <div class="row">
@@ -5566,12 +5658,13 @@ function fsStrafeZeichnen(){
 
     ${eigenerBetrag ? `
     <div style="margin-top:18px">
-      <div class="eyebrow" style="margin-bottom:10px">Betrag</div>
+      <div class="eyebrow" style="margin-bottom:10px">Betrag${istUml ? ' je Kegelbruder' : ''}</div>
       <div class="euro"><input class="search" id="fsBetrag" inputmode="decimal" placeholder="z. B. 5,00"
              value="${esc(fsBetragText)}" aria-label="Betrag"><span>€</span></div>
+      ${istUml ? '<p class="note" style="margin-top:8px">Wer einen anderen Betrag trägt, wird in einem zweiten Durchgang gebucht.</p>' : ''}
     </div>` : ''}
 
-    ${(!fsEigene && fsStrafart) ? `
+    ${(!istUml && !fsEigene && fsStrafart) ? `
     <button class="btn ghost small" id="fsBetragUm" style="margin-top:12px">${
       fsAbweichend ? 'Betrag doch aus den Statuten' : 'Anderen Betrag eintragen'}</button>` : ''}
 
@@ -5579,7 +5672,7 @@ function fsStrafeZeichnen(){
       <div class="eyebrow" style="margin-bottom:10px">Datum</div>
       <input class="search" type="date" id="fsDatumFeld" value="${esc(fsDatum)}"
              min="${esc(FS.grenze)}" max="${esc(FS.heute)}" aria-label="Datum">
-      <p class="note" style="margin-top:8px">Wann die Strafe angefallen ist. Bezahlt sein muss sie
+      <p class="note" style="margin-top:8px">${istUml ? 'Wann die Umlage angefallen ist.' : 'Wann die Strafe angefallen ist.'} Bezahlt sein muss sie
         bis zum nächsten Kegelabend${FS.faellig ? ' – das ist der ' + dat(FS.faellig) : ''}.</p>
     </div>
 
@@ -5598,15 +5691,18 @@ function fsStrafeZeichnen(){
 
     <p class="note hidden" id="fsFehler" style="color:var(--accent);font-weight:600;margin-top:12px"></p>
     <button class="btn" id="fsSpeichern" style="margin-top:14px">${
-      fsMaenner.length > 1 ? fsMaenner.length + ' Strafen eintragen' : 'Strafe eintragen'}</button>
+      istUml
+        ? (fsMaenner.length > 1 ? fsMaenner.length + ' Umlagen eintragen' : 'Umlage eintragen')
+        : (fsMaenner.length > 1 ? fsMaenner.length + ' Strafen eintragen' : 'Strafe eintragen')}</button>
 
     ${(FS.letzte || []).length ? `
     <details class="kasse" style="margin-top:22px;border:1px solid var(--line);border-radius:var(--radius)">
       <summary><div><div class="n">Zuletzt erfasst</div>
-        <div class="m">${plural(FS.letzte.length, 'freie Strafe', 'freie Strafen')}</div></div></summary>
+        <div class="m">${plural(FS.letzte.length, 'Buchung', 'Buchungen')}</div></div></summary>
       <div class="body">${FS.letzte.map(l => `
         <div class="kassepost">
-          <div><div>${esc(l.name)}</div><div class="m">${dat(l.datum)} · ${esc(l.strafart)}</div></div>
+          <div><div>${esc(l.name)}</div><div class="m">${dat(l.datum)} · ${esc(l.strafart)}${
+            l.umlage ? ' · Umlage' : ''}</div></div>
           <span class="summe">${eur(l.betrag)}</span>
         </div>`).join('')}</div>
     </details>` : ''}`;
@@ -5622,7 +5718,10 @@ function fsStrafeZeichnen(){
       fsFehler('');
       fsZeichnen();
     }));
-  $('fsStrafartWahl').addEventListener('click', () => { fsFelderSichern(); fsSuche = ''; fsSchritt = 'wahl'; fsZeichnen(); });
+  // In der Umlage-Maske gibt es keine Strafart aus den Statuten und damit
+  // auch keinen Knopf dafür.
+  if ($('fsStrafartWahl')) $('fsStrafartWahl').addEventListener('click',
+    () => { fsFelderSichern(); fsSuche = ''; fsSchritt = 'wahl'; fsZeichnen(); });
   $('freiBody').querySelectorAll('button[data-fsanzahl]').forEach(b =>
     b.addEventListener('click', () => {
       fsFelderSichern();
@@ -5846,6 +5945,7 @@ function fsPostenZeichnen(){
 async function fsSenden(knopf){
   fsFelderSichern();
   const korrektur = fsSicht === 'korrektur';
+  const umlage    = fsSicht === 'umlage';
 
   if (korrektur){
     if (!fsPosten) return fsFehler('Bitte erst den Posten wählen, der korrigiert werden soll.');
@@ -5853,9 +5953,13 @@ async function fsSenden(knopf){
     if (!fsBezug.trim()) return fsFehler('Ohne Grund wird keine Korrektur gebucht.');
   } else {
     if (!fsMaenner.length) return fsFehler('Bitte mindestens einen Kegelbruder antippen.');
-    if (!fsStrafartText()) return fsFehler('Bitte die Strafart wählen oder eine Bezeichnung eintragen.');
-    if ((fsEigene || fsAbweichend) && !(num(fsBetragText) > 0)) return fsFehler('Bitte den Betrag eintragen.');
-    if (!fsEigene && !fsAbweichend && !(fsPreisVon(fsStrafart) > 0)){
+    if (!fsStrafartText()) return fsFehler(umlage
+      ? 'Bitte die Bezeichnung eintragen, zum Beispiel „Umlage KC Kleidung“.'
+      : 'Bitte die Strafart wählen oder eine Bezeichnung eintragen.');
+    if ((umlage || fsEigene || fsAbweichend) && !(num(fsBetragText) > 0)){
+      return fsFehler(umlage ? 'Bitte den Betrag je Kegelbruder eintragen.' : 'Bitte den Betrag eintragen.');
+    }
+    if (!umlage && !fsEigene && !fsAbweichend && !(fsPreisVon(fsStrafart) > 0)){
       return fsFehler('Für diese Strafart steht in den Statuten kein Betrag – bitte „Anderen Betrag eintragen“.');
     }
     if (!fsDatum) return fsFehler('Bitte das Datum wählen.');
@@ -5872,9 +5976,10 @@ async function fsSenden(knopf){
          quelle: fsPosten.quelle, strafart: 'Korrektur: ' + fsBezug.trim(),
          betrag: -Math.abs(num(fsBetragText)), bezug: fsBezug.trim() }]
     : fsMaenner.map((n, i) =>
-        ({ id: fsKennung + (i ? '#' + i : ''), modus: 'strafe', datum: fsDatum, name: n,
-           strafart: fsStrafartText(), anzahl: fsAnzahl, bezug: fsBezug.trim(),
-           betrag: (fsEigene || fsAbweichend) ? num(fsBetragText) : '' }));
+        ({ id: fsKennung + (i ? '#' + i : ''), modus: umlage ? 'umlage' : 'strafe',
+           datum: fsDatum, name: n,
+           strafart: fsStrafartText(), anzahl: umlage ? 1 : fsAnzahl, bezug: fsBezug.trim(),
+           betrag: (umlage || fsEigene || fsAbweichend) ? num(fsBetragText) : '' }));
   const mehrere = eintraege.length > 1;
 
   const alt = knopf.textContent;
@@ -5915,8 +6020,8 @@ async function fsSenden(knopf){
         fsFehler(gut + ' von ' + eintraege.length + ' eingetragen. Nicht gebucht: '
                + schlecht.map(x => x.name || '?').join(', ') + ' – ' + schlecht[0].fehler);
       } else {
-        hinweisleiste(plural(gut, 'Strafe', 'Strafen') + ' eingetragen · '
-                    + eur(r.summe || 0) + ' zusammen.');
+        hinweisleiste(plural(gut, umlage ? 'Umlage' : 'Strafe', umlage ? 'Umlagen' : 'Strafen')
+                    + ' eingetragen · ' + eur(r.summe || 0) + ' zusammen.');
       }
       if (schlecht.length){ fsLaden(); aktualisieren(true); return; }
     }
@@ -6529,6 +6634,132 @@ function kasse18Block(){
   </div>`;
 }
 
+/* ------------------------------------------------------------ Umlagen
+   und Notizen (1.46)
+
+   UMLAGE: Wird wie eine freie Strafe je Kegelbruder gefordert und abgehakt,
+   ist aber keine Strafe. Sie trägt in "Rohdaten" und "Offene Beträge" die
+   eigene Quelle "Umlage" – erkannt wird sie hier genauso, an der Quelle und
+   nicht an der Bezeichnung.
+
+   NOTIZEN: D.buchungen ist die Liste der einzelnen Zeilen aus den Rohdaten,
+   die das Backend seit 1.43 an Kassenwart und Schriftführer mitschickt –
+   { d: Datum, n: Name, q: Quelle, t: Bezeichnung, b: Betrag, z: Notiz }.
+   Fehlt sie, läuft ein älteres Backend: Dann bleibt alles beim Alten, statt
+   dass leere Karten erscheinen. */
+const QUELLE_UMLAGE = 'Umlage';
+function istUmlage(q){
+  return String(q == null ? '' : q).trim().toLowerCase() === QUELLE_UMLAGE.toLowerCase();
+}
+function alleBuchungen(){ return (D && D.buchungen) || null; }
+
+/* Die Einzelbuchungen je Kegelbruder, neueste zuerst. nurUmlage entscheidet,
+   welche der beiden Welten gemeint ist. */
+function buchungenJeMann(nurUmlage){
+  const map = {};
+  (alleBuchungen() || []).forEach(r => {
+    if (istUmlage(r.q) !== !!nurUmlage) return;
+    (map[r.n] = map[r.n] || []).push(r);
+  });
+  Object.keys(map).forEach(n =>
+    map[n].sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0));
+  return map;
+}
+
+/* Eine Zeile für eine einzelne Buchung. Die Notiz steht kursiv darunter –
+   sie ist der Grund, warum es diese Ansicht überhaupt gibt, und gehört
+   deshalb in eine eigene Zeile und nicht hinter ein Trennzeichen. */
+function buchungsZeile(x, mitName){
+  const notiz = String(x.z == null ? '' : x.z).trim();
+  const unten = [dat(x.d), mitName ? x.n : '', x.q].filter(Boolean).map(esc).join(' · ');
+  return `<div class="row">
+    <div><div class="n">${esc(x.t || '–')}</div>
+      <div class="m">${unten}</div>
+      ${notiz ? `<div class="m" style="font-style:italic">„${esc(notiz)}“</div>` : ''}</div>
+    <div class="v${x.b < 0 ? ' blass' : ''}">${eur(x.b)}</div>
+  </div>`;
+}
+
+/* Die aufklappbare Karte je Kegelbruder – Aufbau wie bei den offenen Beträgen
+   und in der Historie: graue Kopfleiste, Summe als Pille, darin die Zeilen. */
+function buchungsKarte(r, i, zeilen){
+  const inhalt = (zeilen && zeilen.length)
+    ? `<div class="hblock">${zeilen.map(x => buchungsZeile(x)).join('')}</div>`
+    : `<div class="hblock"><p class="note" style="margin:12px 0">Zu diesem Kegelbruder
+         stehen keine Einzelbuchungen in den Aufzeichnungen.</p></div>`;
+  const teaser = [
+    zeilen && zeilen.length ? plural(zeilen.length, 'Buchung', 'Buchungen') : '',
+    r.offen > 0 ? 'noch ' + eur(r.offen) + ' offen' : 'alles bezahlt'
+  ].filter(Boolean).join(' · ');
+  return `<details class="jahrkarte"><summary>
+      <div class="group-head"><span>${i + 1}. ${esc(r.n)}</span>
+        <span class="pill ${r.offen > 0 ? 'open' : 'grau'}">${eur(r.gesamt)}</span></div>
+      <div class="teaser"><div class="kein">${esc(teaser)}</div></div>
+    </summary>${inhalt}</details>`;
+}
+
+/* Die gemeinsame Ansicht hinter den Reitern "Strafen" und "Umlagen".
+   nurUmlage entscheidet, welche Quelle gezeigt wird. */
+function kasseStrafenSicht(nurUmlage){
+  const wort = nurUmlage ? 'Umlagen' : 'Strafen';
+  const map = {};
+  kasseD().offene.forEach(o => {
+    if (istUmlage(o.quelle) !== !!nurUmlage) return;
+    if (!map[o.name]) map[o.name] = { n: o.name, gesamt: 0, offen: 0, posten: 0 };
+    map[o.name].gesamt += o.betrag || 0;
+    map[o.name].offen  += o.bezahlt ? 0 : (o.offen || 0);
+    map[o.name].posten += 1;
+  });
+  const l = Object.keys(map).map(k => map[k])
+              .map(x => ({ n: x.n, gesamt: Math.round(x.gesamt * 100) / 100,
+                           offen: Math.round(x.offen * 100) / 100, posten: x.posten }))
+              .sort((a, b) => b.gesamt - a.gesamt);
+  /* Der Weg zum Buchen steht dort, wo man das Ergebnis sieht – wie beim
+     Korrigieren in den offenen Beträgen. */
+  const neuKnopf = (nurUmlage && (darfKasseAendern() || darfErfassen()))
+    ? '<button class="btn ghost small" data-umlageneu="1" style="margin-top:12px">Umlage buchen …</button>'
+    : '';
+
+  if (!l.length){
+    return '<p class="note" style="margin-top:16px">'
+         + (nurUmlage
+             ? 'In dieser Saison wurde keine Umlage erfasst.'
+             : 'Noch keine Strafen erfasst.')
+         + '</p>' + neuKnopf;
+  }
+
+  const gesamt = Math.round(l.reduce((a, r) => a + r.gesamt, 0) * 100) / 100;
+  const offen  = Math.round(l.reduce((a, r) => a + r.offen,  0) * 100) / 100;
+  const kopf = `<div class="list" style="margin-top:16px">
+    <div class="row"><div><div class="n">${wort} gesamt</div>
+      <div class="m">${plural(l.length, 'Kegelbruder', 'Kegelbrüder')} · bezahlt und offen zusammen</div></div>
+      <div class="summe">${eur(gesamt)}</div></div>
+    ${offen > 0 ? `<div class="row"><div><div class="n">Davon noch offen</div>
+      <div class="m">abzuhaken unter „Offene Beträge“</div></div>
+      <div class="v" style="color:var(--warn)">${eur(offen)}</div></div>` : ''}
+  </div>`;
+
+  /* Ohne die Einzelbuchungen bleibt es bei der Rangliste von früher. Das ist
+     der Fall, solange die App schon hochgeladen, das Backend aber noch nicht
+     neu bereitgestellt ist. */
+  if (!alleBuchungen()){
+    return kopf + neuKnopf
+      + '<p class="note" style="margin-top:14px">Die einzelnen Buchungen samt Notiz kommen, '
+      + 'sobald das Backend neu bereitgestellt ist.</p>'
+      + rangliste(l, r => r.gesamt, r => eur(r.gesamt),
+          r => plural(r.posten, 'Posten', 'Posten')
+             + (r.offen > 0 ? ' · noch ' + eur(r.offen) + ' offen' : ' · alles bezahlt'));
+  }
+
+  const detail = buchungenJeMann(nurUmlage);
+  return kopf + neuKnopf
+    + '<p class="note" style="margin-top:14px">Zum Aufklappen antippen – dort steht jede einzelne '
+    + 'Buchung mit ihrer Notiz.</p>'
+    + '<div style="margin-top:12px">'
+    + l.map((r, i) => buchungsKarte(r, i, detail[r.n])).join('')
+    + '</div>';
+}
+
 const KASSE_SICHTEN = {
 
   uebersicht(){
@@ -6582,8 +6813,13 @@ const KASSE_SICHTEN = {
                   ? plural(b.schuldner, 'Kegelbruder schuldet noch etwas', 'Kegelbrüder schulden noch etwas')
                   : 'alles beglichen',
                 eur(b.offen))}
-        ${b.beitraegeOffen > 0 ? zeile('Davon Strafen', 'unter „Offene Beträge“ abzuhaken',
+        <!-- Aufgeschlüsselt wird, sobald es etwas aufzuschlüsseln gibt –
+             also sobald neben den Strafen auch Beiträge oder Umlagen offen
+             sind. Sonst stünde dieselbe Zahl zweimal untereinander. -->
+        ${(b.beitraegeOffen > 0 || b.umlagenOffen > 0) ? zeile('Davon Strafen', 'unter „Offene Beträge“ abzuhaken',
                 eur(b.offenStrafen === undefined ? b.offen : b.offenStrafen)) : ''}
+        ${b.umlagenOffen > 0 ? zeile('Davon Umlagen', 'keine Strafe – im Reiter „Umlagen“',
+                eur(b.umlagenOffen)) : ''}
         ${b.beitraegeOffen > 0 ? zeile('Davon Monatsbeiträge',
                 b.beitraegeSchuldner
                   ? plural(b.beitraegeSchuldner, 'Kegelbruder im Rückstand', 'Kegelbrüder im Rückstand')
@@ -6607,15 +6843,20 @@ const KASSE_SICHTEN = {
         ${zeile('Monatsbeiträge', b.beitraegeOffen > 0
             ? eur(b.beitraegeOffen) + ' noch offen' : 'vollständig eingegangen',
             eur(b.beitraegeBezahlt || 0))}
+        <!-- UMLAGEN (1.46). Bis 1.45 steckten sie in der Zeile darüber –
+             "Eingegangen · bezahlte Strafen dieser Saison" enthielt 719,19 €
+             Kleidungsumlage. Jetzt stehen sie da, wo sie hingehören: als
+             eigene Zeile, in der Bewegung und im Kontostand weiterhin voll
+             mitgezählt, in der Zahlungsquote nicht mehr. -->
+        ${(b.umlagenBezahlt > 0 || b.umlagenOffen > 0) ? zeile('Umlagen',
+                b.umlagenOffen > 0 ? eur(b.umlagenOffen) + ' noch offen' : 'vollständig eingegangen',
+                eur(b.umlagenBezahlt || 0)) : ''}
         ${zeile('Sonstige Einnahmen', 'Umlage-Reste und Ähnliches', eur(b.umlage))}
-        ${zeile('Verspätungszuschläge',
-                b.zuschlaegeKassiert === undefined
-                  ? 'in den offenen Posten enthalten'
-                  : (b.zuschlaege > 0
-                      ? eur(b.zuschlaegeKassiert) + ' kassiert · '
-                        + eur(b.zuschlaegeOffen) + ' noch offen'
-                      : 'in dieser Saison keine angefallen'),
-                eur(b.zuschlaege))}
+        <!-- Ohne Untertitel seit 1.46 (Entscheidung Johannes vom 10.09.2026):
+             "X kassiert · Y noch offen" stand hier als einzige Zeile des
+             Blocks, und genau das sollte weg. Die Zahl bleibt die Summe der
+             Saison – kassierte und noch offene Zuschläge zusammen. -->
+        ${zeile('Verspätungszuschläge', '', eur(b.zuschlaege))}
       </div>
 
       <div class="list" style="margin-top:14px">
@@ -6626,12 +6867,14 @@ const KASSE_SICHTEN = {
 
       ${kategorieBlock('Ausgaben je Kategorie', b.ausgabenJeKategorie, b.ausgaben)}
       ${kategorieBlock('Einnahmen je Kategorie', b.einnahmenJeKategorie, b.umlage)}
+      ${kategorieBlock('Umlagen je Bezeichnung', b.umlagenJeArt,
+          (b.umlagenJeArt || []).reduce((s2, x) => s2 + x.summe, 0))}
 
       ${kontoBlock}
 
       <p class="note" style="margin-top:12px">Die <strong>Bewegung</strong> zählt, was in der App
-        erfasst ist: bezahlte Strafen, Anzahlungen, Spenden, Monatsbeiträge und sonstige Einnahmen,
-        abzüglich der Ausgaben. Der <strong>Kontostand</strong> ist der Anfangsbestand plus diese
+        erfasst ist: bezahlte Strafen, Anzahlungen, Spenden, Monatsbeiträge, Umlagen und sonstige
+        Einnahmen, abzüglich der Ausgaben. Der <strong>Kontostand</strong> ist der Anfangsbestand plus diese
         Bewegung – die Differenz zum Kontoauszug zeigt, ob etwas fehlt.</p>
 
       ${b.jeTermin && b.jeTermin.length ? `
@@ -6724,24 +6967,26 @@ const KASSE_SICHTEN = {
      Beträgen, die der Kassenwart ohnehin hat – nicht aus der Auswertung, die
      ihm nicht zusteht. Für ihn ist ohnehin die andere Frage die richtige:
      nicht "wer sammelt die meisten Strafen", sondern "wer schuldet was". */
+  /* STRAFEN JE KEGELBRUDER – seit 1.46 zum Aufklappen.
+     Bis 1.45 stand hier eine Rangliste mit einer Summe je Kegelbruder und
+     sonst nichts. Woraus die Summe besteht und was beim Erfassen als Notiz
+     dazugeschrieben wurde, war in der ganzen App nirgends zu sehen – nur in
+     der Tabelle (Auftrag Johannes vom 10.09.2026). Jetzt klappt jede Karte
+     auf und zeigt jede einzelne Strafe mit Datum, Bezeichnung, Betrag und
+     Notiz, Korrekturen als Minusbetrag inbegriffen.
+
+     Umlagen sind hier bewusst NICHT mehr dabei – sie haben ihren eigenen
+     Reiter. */
   strafen(){
-    const map = {};
-    kasseD().offene.forEach(o => {
-      if (!map[o.name]) map[o.name] = { n: o.name, gesamt: 0, offen: 0, posten: 0 };
-      map[o.name].gesamt += o.betrag || 0;
-      map[o.name].offen  += o.bezahlt ? 0 : (o.offen || 0);
-      map[o.name].posten += 1;
-    });
-    const l = Object.keys(map).map(k => map[k])
-                .map(x => ({ n: x.n, gesamt: Math.round(x.gesamt * 100) / 100,
-                             offen: Math.round(x.offen * 100) / 100, posten: x.posten }))
-                .sort((a, b) => b.gesamt - a.gesamt);
-    if (!l.length) return '<p class="note" style="margin-top:16px">Noch keine Strafen erfasst.</p>';
-    return '<p class="note" style="margin-top:16px">Summe der Saison je Kegelbruder – '
-         + 'bezahlt und offen zusammen.</p>'
-         + rangliste(l, r => r.gesamt, r => eur(r.gesamt),
-             r => plural(r.posten, 'Posten', 'Posten')
-                + (r.offen > 0 ? ' · noch ' + eur(r.offen) + ' offen' : ' · alles bezahlt'));
+    return kasseStrafenSicht(false);
+  },
+
+  /* UMLAGEN (1.46). Derselbe Aufbau, dieselbe Karte – nur die andere Quelle.
+     Zwei getrennte Reiter statt eines gemeinsamen mit Filter: Der Kassenwart
+     sieht auf einen Blick, was Strafgeld ist und was nicht, und die Summe
+     oben stimmt in beiden Fällen ohne Nachdenken. */
+  umlagen(){
+    return kasseStrafenSicht(true);
   },
 
   spenden(){
@@ -7059,7 +7304,7 @@ function zeichneKasse(sicht){
      Prüfung stünden dort ab dem Tag der Generalversammlung zwei Reiter, in
      denen "noch nichts erfasst" steht, obwohl die halbe Saison drin ist. */
   const hatPosten = !!(D.kasseDaten && D.kasseDaten.offene);
-  const NUR_LESEN = hatPosten ? ['uebersicht', 'strafen', 'spenden'] : ['uebersicht'];
+  const NUR_LESEN = hatPosten ? ['uebersicht', 'strafen', 'umlagen', 'spenden'] : ['uebersicht'];
   document.querySelectorAll('#kasseChips button').forEach(b =>
     b.classList.toggle('hidden', nurBericht && NUR_LESEN.indexOf(b.dataset.kasse) < 0));
   if (nurBericht && NUR_LESEN.indexOf(aktuelleKasseSicht) < 0) aktuelleKasseSicht = 'uebersicht';
@@ -7159,6 +7404,12 @@ $('kasseBody').addEventListener('click', async e => {
   if (e.target.closest('button[data-korrektur]')){
     e.preventDefault(); e.stopPropagation();
     fsOeffnen('korrektur');
+    return;
+  }
+
+  if (e.target.closest('button[data-umlageneu]')){
+    e.preventDefault(); e.stopPropagation();
+    fsOeffnen('umlage');
     return;
   }
 
@@ -7887,6 +8138,11 @@ const TOUR_NEU      = 'kc-tour-neu';      // App-Fassung, deren Neuerungen schon
    geht jetzt zum ersten Mal an die Kegelbrüder. Der erste Eintrag zählt
    deshalb nicht auf, was sich GEÄNDERT hat, sondern was die App KANN. */
 const NEUERUNGEN = [
+  { fassung: '1.46', punkte: [
+      'Umlagen zählen nicht mehr als Strafe: Sie stehen in der Kasse in einem eigenen Reiter und in eigenen Zeilen der Übersicht.',
+      'Zu jeder Strafe steht jetzt die Notiz dabei, die beim Erfassen eingetippt wurde – aufzuklappen in der Kasse und in der Auswertung.',
+      'Eine Umlage lässt sich direkt in der App buchen, für mehrere Kegelbrüder auf einmal.'
+    ] },
   { fassung: '1.36', punkte: [
       'Die App zeigt dir deinen offenen Betrag, jede einzelne Strafe und die Fristen – und unten auf der Startseite alles, was du zum Überweisen brauchst.',
       'Statuten zum Nachlesen mit Suche, dazu ein Rechner zum Überschlagen, was ein Abend kosten würde.',
