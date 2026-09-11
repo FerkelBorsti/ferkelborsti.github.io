@@ -319,8 +319,8 @@ svg.orden.big{width:19px;height:19px}
 .who span svg.orden{stroke:currentColor}
 .ordenlegende{display:flex;align-items:center;gap:7px;margin-top:10px}
 
-.action{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column;gap:12px}
-.action .when{font-family:'Archivo Black',system-ui,sans-serif;font-size:19px}
+/* .action und .action .when sind mit 1.47 entfallen – die Terminkarte war die
+   einzige Stelle, die sie benutzt hat. Ihr Nachfolger ist .tkarte weiter unten. */
 .deadline{font-size:12.5px;color:var(--muted);line-height:1.55}
 .deadline b{color:var(--text);font-weight:700}
 /* Fusszeile einer Karte: gehoert zum Block darueber, ist aber abgesetzt. */
@@ -331,7 +331,8 @@ svg.orden.big{width:19px;height:19px}
 .frist,.deadline.frist,.deadline.frist b{color:var(--warn);font-weight:600}
 
 /* --- An- und Abmeldung (1.44) --- */
-.rmblock{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+/* .rmblock ist mit 1.47 entfallen: Der Rueckmelde-Teil ist jetzt der Koerper
+   der Terminkarte und braucht keine eigene Trennlinie mehr. */
 .rmstand{font-size:14px;font-weight:700}
 .rmstand.ja{color:var(--ok)}
 .rmstand.nein{color:var(--muted)}
@@ -356,6 +357,40 @@ svg.orden.big{width:19px;height:19px}
 .tag.ja{color:var(--ok);border-color:var(--ok)}
 .tag.wartet{color:var(--warn);border-color:var(--warn)}
 .tag.alk{color:var(--accent);border-color:var(--accent)}
+
+/* --- Die Terminkarte (1.47) ---
+   Festgelegt am 11.09.2026: ein abgesetzter Kopf mit dem vollen Datum, darunter
+   durch eine Trennlinie getrennt der Koerper mit Stand, Knoepfen und Zaehler.
+
+   Die TOENUNG DES KOPFES erscheint ausschliesslich am Termintag. Sie heisst
+   dann "heute geht es los". Ein dauerhaft farbiger Block waere in der App
+   einmalig und ohne Aussage – Pink kommt sonst nur kleinflaechig vor. */
+.tkarte{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.tkarte .tkopf{padding:15px 16px 14px;border-bottom:1px solid var(--line)}
+.tkarte.heute .tkopf{background:var(--accent-tint);border-bottom-color:transparent}
+.tkarte .tdatum{font-family:'Archivo Black',system-ui,sans-serif;font-size:19px;line-height:1.2}
+.tkarte .tmeta{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.45}
+.tkarte.heute .tmeta{color:var(--text)}
+.tkarte .tkoerper{padding:16px}
+/* Die Standzeile ist die Zeile, die jeder zuerst sucht – deshalb groesser als
+   der uebrige Kartenkoerper (Wunsch Johannes, 11.09.2026). Die Farbe bleibt:
+   gruen dabei, gelb wartend, grau abgemeldet. */
+.tkarte .rmstand{font-size:17px;line-height:1.3}
+/* Die Knopfreihe. Ein Knopf nimmt die volle Breite, zwei teilen sie sich –
+   damit der Knopf fuer die angemeldete Verspaetung nach §3 spaeter ohne Umbau
+   danebenpasst (Auftrag 44). */
+.tkbtn{display:grid;gap:8px;margin-top:12px;grid-template-columns:1fr}
+.tkbtn.zwei{grid-template-columns:1fr 1fr}
+/* Der Beteiligungsbalken. Bewusst derselbe schmale Balken wie in der Kachel
+   "Anwesenheit Verein" seit 1.41 – dieselbe Sache soll in der App auch gleich
+   aussehen. */
+.tkbeteiligung{margin-top:12px}
+.tkbeteiligung .bar{height:7px;margin-top:0;background:var(--line)}
+.tkbeteiligung .sub{margin-top:7px}
+/* Der Countdown-Chip. Grau, solange der Termin in der Zukunft liegt; pink am
+   Termintag; gelb nur in der letzten Stunde vor der Abmeldefrist. */
+.chip.grau{color:var(--muted);background:var(--line)}
+.chip.fristchip{color:var(--warn);background:transparent;border:1px solid var(--warn)}
 .warnkarte{border-color:var(--warn)}
 .setrow.vorbelegt .lbl{color:var(--muted)}
 .setrow.vorbelegt .tag{margin-left:6px;vertical-align:middle}
@@ -1218,12 +1253,16 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    Service Worker, meldete keine neue Fassung und die Hülle würde erst nach
    einem vollständigen Neustart still ausgetauscht. Eine neue Nummer räumt
    das in einem Zug auf. */
-/* 1.46 statt 1.45 (10.09.2026): Die Nummer 1.45 ist für die zurückgestellte
+/* 1.47 (11.09.2026): Auftrag 42 – Startseite. Der WhatsApp-Satz ist raus,
+   die Geister-Auswertung auch, das Datum in der Teilnehmerliste ist repariert
+   und die Terminkarte neu gebaut.
+
+   1.46 statt 1.45 (10.09.2026): Die Nummer 1.45 ist für die zurückgestellte
    Lieferung "Statuten in der alten Reihenfolge" vergeben. Sie liegt fertig,
    ist aber bewusst nicht hochgeladen. Zwei verschiedene Dateien unter
    derselben Nummer sind genau der Fehler, der am 08.09.2026 zu kc-v1.38
    geführt hat – deshalb wird 1.45 übersprungen, nicht zweitverwendet. */
-const APP_VERSION = '1.46';
+const APP_VERSION = '1.47';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -1372,6 +1411,40 @@ function standAusTabelle(wert){
   const datum = ('0' + m[2]).slice(-2) + '.' + MON[m[1]] + '.' + m[3];
   return (m[4] && (m[4] !== '00' || m[5] !== '00')) ? datum + ', ' + m[4] + ':' + m[5] + ' Uhr' : datum;
 }
+/* Ein Zeitpunkt aus der Tabelle, in deutscher Schreibweise: "10.09.2026, 16:53".
+
+   1.47, Auftrag 42 Punkt 3: Bis hierher stand in der Teilnehmerliste
+   "hu Sep 10 2026". Die alte Zeile rechnete fest mit einem ISO-Zeitstempel
+   (e.zeit.slice(0,16).replace('T',' ')), bekam aber eine ausgeschriebene
+   Datumszeichenkette ("Thu Sep 10 2026 16:53:12 GMT+0200") – slice schnitt
+   "Thu Sep 10 2026 " heraus, und replace('T',' ') traf danach das T von "Thu".
+
+   Repariert wird an beiden Enden. Das Backend liefert seit 1.44 ISO; hier
+   werden BEIDE Formen verstanden. Was sich nicht lesen laesst, ergibt einen
+   leeren Text: lieber gar nichts als Bruchstuecke – bei §2 ist der Zeitpunkt
+   ein Beleg. */
+function zeitpunktText(wert){
+  const t = String(wert == null ? '' : wert).trim();
+  if (!t) return '';
+  // ISO: 2026-09-10T16:53(:12) oder mit Leerzeichen statt T
+  let m = t.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (m) return m[3] + '.' + m[2] + '.' + m[1] + ', ' + m[4] + ':' + m[5];
+  // Nur ein Datum, ohne Uhrzeit
+  m = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return m[3] + '.' + m[2] + '.' + m[1];
+  // Ausgeschriebene Datumszeichenkette eines aelteren Backends
+  const MON = { Jan:'01', Feb:'02', Mar:'03', Apr:'04', May:'05', Jun:'06',
+                Jul:'07', Aug:'08', Sep:'09', Oct:'10', Nov:'11', Dec:'12' };
+  m = t.match(/^\w{3}\s+(\w{3})\s+(\d{1,2})\s+(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
+  if (m && MON[m[1]]){
+    const datum = ('0' + m[2]).slice(-2) + '.' + MON[m[1]] + '.' + m[3];
+    return m[4] ? datum + ', ' + m[4] + ':' + m[5] : datum;
+  }
+  // Schon deutsch geschrieben? Dann unveraendert durchlassen.
+  if (/^\d{2}\.\d{2}\.\d{4}/.test(t)) return t;
+  return '';
+}
+
 const WOCHENTAG = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
 const wochentag = iso => { const d=new Date(iso+'T12:00:00'); return isNaN(d)?'':WOCHENTAG[d.getDay()]; };
 
@@ -2168,22 +2241,10 @@ function zeichneStart(){
       <b>${D.punkte}</b>
     </div>`;
 
-  if (t){
-    /* Das Datum stand frueher zusaetzlich in einer eigenen Kachel darueber –
-       zweimal dasselbe, 40 Pixel auseinander. Jetzt steht es nur hier, und die
-       Ueberschrift traegt stattdessen den Countdown. */
-    const cd = countdownText(t.datum);
-    h += `<h2 class="sec mitchip" style="margin-top:24px">
-        <span>${esc(t.art)}${t.bezeichnung ? ' · ' + esc(t.bezeichnung) : ''}</span>
-        ${cd ? `<span class="chip">${esc(cd)}</span>` : ''}</h2>
-      <div class="action" style="margin-top:14px">
-        <div><div class="when">${esc(wochentag(t.datum))}, ${dat(t.datum)}</div>
-          <div class="sub">${esc([t.ort, t.beginn ? t.beginn + ' Uhr' : ''].filter(String).join(' · ') || 'Zeit folgt')}</div></div>
-        ${rmBlock(t)}
-        ${darfErfassen() && t.datum === D.heute
-          ? `<button class="btn" id="startErfassen" style="margin-top:12px">Strafen erfassen</button>` : ''}
-      </div>`;
-  }
+  /* Die Terminkarte steht seit 1.47 in terminKarte(). Sie bleibt an ihrem
+     Platz – unter dem offenen Betrag und unter den Abwesenheitspunkten
+     (ausdrueckliche Entscheidung Johannes vom 11.09.2026). */
+  if (t) h += terminKarte(t);
 
   if (la){
     // Das Backend liefert dem Schriftführer nur die Vereinszahlen. Seinen eigenen
@@ -2231,10 +2292,12 @@ function zeichneStart(){
   });
 }
 
-/* Die Abmeldefrist ist die Fusszeile der Terminkarte – zusammen mit dem
-   WhatsApp-Hinweis, denn beides ist dieselbe Sache. Grau, solange die Frist in
-   der Zukunft liegt; gelb erst am Kegeltag, wenn sie wirklich laeuft. So heisst
-   Gelb in der ganzen App dasselbe: jetzt wird es teuer. */
+/* Die Abmeldefrist ist die Fusszeile der Terminkarte. Grau, solange die Frist
+   in der Zukunft liegt; gelb erst am Kegeltag, wenn sie wirklich laeuft. So
+   heisst Gelb in der ganzen App dasselbe: jetzt wird es teuer.
+
+   1.47: Der Satz "Abmelden geht vorerst weiter ueber WhatsApp" ist ersatzlos
+   gestrichen. Ab- und angemeldet wird ausschliesslich in der App. */
 function abmeldeFuss(t){
   const strafe = betragText('§2');
   const heute  = t.datum === D.heute;
@@ -2244,8 +2307,7 @@ function abmeldeFuss(t){
         strafe ? esc(strafe) : 'den Zuschlag'} nach §2.`
     : `Abmeldung bis <b>${esc(uhrMinus(t.beginn))} Uhr</b>${
         strafe ? ' – danach ' + esc(strafe) + ' nach §2' : ' nach §2'}.`;
-  return `<div class="deadline kartenfuss${heute ? ' frist' : ''}">${kern}
-    Abmelden geht vorerst weiter über WhatsApp.</div>`;
+  return `<div class="deadline kartenfuss${heute ? ' frist' : ''}">${kern}</div>`;
 }
 
 /* Empfaenger, IBAN, Betrag, Verwendungszweck – jedes Feld einzeln antippbar. */
@@ -2304,12 +2366,9 @@ function tageBis(iso){
   return Math.round((ziel - heute) / 86400000);
 }
 
-/** "in 12 Tagen", "morgen", "heute" – oder nichts, wenn das Datum unklar ist. */
-function countdownText(iso){
-  const n = tageBis(iso);
-  if (n === null || n < 0) return '';
-  return n === 0 ? 'heute' : n === 1 ? 'morgen' : 'in ' + n + ' Tagen';
-}
+/* Der Countdown der Terminkarte steht seit 1.47 in terminChip() – dort trägt
+   er zusätzlich eine Farbe. countdownText() ist damit entfallen; tageBis()
+   bleibt und wird von terminChip() benutzt. */
 
 /* Ist die Abmeldefrist (eine Stunde vor Beginn) fuer heute schon verstrichen?
    Hier zaehlt die Uhr des Geraets – etwas anderes hat die App offline nicht. */
@@ -4011,23 +4070,94 @@ function rmStand(datum){
   return r.termine.filter(t => t.datum === datum)[0] || null;
 }
 
-/** Der ganze Rueckmelde-Block unter der Terminkarte auf der Startseite. */
-function rmBlock(t){
+/* =========================================== Die Terminkarte (1.47)
+
+   Gebaut nach der Festlegung vom 11.09.2026, nach drei Runden Entwuerfen:
+   Variante A mit dem Kopf aus B.
+
+     KOPF     abgesetzt, mit dem vollen Datum gross und darunter in einer Zeile
+              Art, Ort und Uhrzeit. Getoent NUR am Termintag.
+     KOERPER  Stand, Knoepfe, Alkohol-Zeile, Zaehler mit "Ansehen",
+              Beteiligungsbalken, Fristfusszeile.
+
+   Der Countdown steht als Chip in der Ueberschrift, nicht in der Karte.
+   Namenskuerzel gibt es hier ausdruecklich nicht.
+
+   Die Karte bleibt an ihrem Platz: unter dem offenen Betrag und unter den
+   Abwesenheitspunkten. Die Startseite wurde nicht umsortiert. */
+function terminKarte(t){
+  const heute   = t.datum === D.heute;
+  const chip    = terminChip(t);
+  const koerper = rmKoerper(t);
+  const zeile   = [
+    esc(t.art) + (t.bezeichnung ? ' · ' + esc(t.bezeichnung) : ''),
+    t.ort ? esc(t.ort) : '',
+    t.beginn ? esc(t.beginn) + ' Uhr' : ''
+  ].filter(x => x).join(' · ') || 'Zeit folgt';
+
+  return `<h2 class="sec mitchip" style="margin-top:24px">
+      <span>Nächster Termin</span>
+      ${chip ? `<span class="chip${chip.klasse ? ' ' + chip.klasse : ''}">${esc(chip.text)}</span>` : ''}</h2>
+    <div class="tkarte${heute ? ' heute' : ''}" style="margin-top:14px">
+      <div class="tkopf">
+        <div class="tdatum">${esc(wochentag(t.datum))}, ${dat(t.datum)}</div>
+        <div class="tmeta">${zeile}</div>
+      </div>
+      ${koerper ? `<div class="tkoerper">${koerper}</div>` : ''}
+    </div>`;
+}
+
+/* Der Chip an der Ueberschrift "Naechster Termin".
+
+   GRAU  solange der Termin in der Zukunft liegt ("in 14 Tagen", "morgen"),
+   PINK  am Termintag ("heute"),
+   GELB  nur in der letzten Stunde vor der Abmeldefrist ("in 18 Minuten").
+
+   Gelb heisst in der ganzen App genau eine Sache: eine Frist laeuft JETZT ab.
+   Deshalb faerbt sich der Chip nicht den ganzen Termintag ein, sondern erst,
+   wenn es wirklich knapp wird. Ist die Frist durch, geht er auf Pink zurueck –
+   das Gelb steht dann in der Fusszeile, wo der Betrag danebensteht. */
+function terminChip(t){
+  const n = tageBis(t.datum);
+  if (n === null || n < 0) return null;
+  if (n > 0) return { text: n === 1 ? 'morgen' : 'in ' + n + ' Tagen', klasse: 'grau' };
+  const rest = fristRestMinuten(t.beginn);
+  if (rest !== null && rest > 0 && rest <= 60){
+    return { text: 'in ' + plural(rest, 'Minute', 'Minuten'), klasse: 'fristchip' };
+  }
+  return { text: 'heute', klasse: '' };
+}
+
+/* Minuten bis zur Abmeldefrist. Negativ, wenn sie schon verstrichen ist;
+   null, wenn es keine Anfangszeit gibt. */
+function fristRestMinuten(beginn){
+  const f = fristMinuten(beginn);
+  if (f === null) return null;
+  const jetzt = new Date();
+  return f - (jetzt.getHours() * 60 + jetzt.getMinutes());
+}
+
+/** Der Koerper der Terminkarte: Stand, Knoepfe, Zaehler, Balken, Fusszeile. */
+function rmKoerper(t){
+  /* "Strafen erfassen" bekommt der Berechtigte am Termintag – der Knopf gehoert
+     in die Karte des Abends, um den es geht. Erfasst wird vom Schriftfuehrer. */
+  const erfassen = (darfErfassen() && t.datum === D.heute)
+    ? '<button class="btn" id="startErfassen" style="margin-top:14px">Strafen erfassen</button>'
+    : '';
+
   const s = rmStand(t.datum);
   /* Kein Stand da – altes Backend oder das Modul ist ausgefallen. Dann bleibt
      es beim Verhalten bis 1.43: der Hinweis auf die Frist, sonst nichts. */
-  if (!s) return t.art === 'Kegelabend' ? abmeldeFuss(t) : '';
-  if (s.modus === 'keine') return '';
+  if (!s) return (t.art === 'Kegelabend' ? abmeldeFuss(t) : '') + erfassen;
+  if (s.modus === 'keine') return erfassen;
 
   const ich = s.ich || {};
   const zu  = ich.stand === 'zu';
   const beantragt = ich.stand === 'beantragt';
   const abgelehnt = ich.stand === 'abgelehnt';
 
-  let h = '<div class="rmblock">';
-
-  // --- Der eigene Stand in einem Satz
-  h += '<div class="rmstand ' + (zu ? 'ja' : beantragt ? 'wartet' : 'nein') + '">'
+  // --- Der eigene Stand in einem Satz. Groesser als der Rest der Karte.
+  let h = '<div class="rmstand ' + (zu ? 'ja' : beantragt ? 'wartet' : 'nein') + '">'
      + (s.kegelabend
         ? (zu ? 'Du bist dabei.' : 'Du hast dich abgemeldet.')
         : beantragt ? 'Deine Zusage liegt beim Kegelvater.'
@@ -4045,14 +4175,31 @@ function rmBlock(t){
     h += '<p class="note" style="margin:10px 0 0">Sobald einer der beiden Kegelväter '
        + 'entschieden hat, bekommst du eine Nachricht.</p>';
   } else if (s.kegelabend){
-    h += '<button class="btn ' + (zu ? 'ghost' : '') + '" data-rm-antwort="'
-       + (zu ? 'ab' : 'zu') + '" data-rm-datum="' + esc(t.datum) + '" style="margin-top:12px">'
-       + (zu ? 'Ich kann nicht' : 'Doch dabei') + '</button>';
+    /* Nach Fristablauf sagt der Knopf, was er kostet. Ein Knopf, der die Folge
+       verschweigt, ist an dieser Stelle eine Falle – die 10,00 € nach §2 fallen
+       an, sobald hier getippt wird. */
+    const spaet   = zu && t.datum === D.heute && fristVorbei(t.beginn);
+    const preis   = spaet ? betragText('§2') : '';
+    const beschriftung = zu
+      ? ('Ich kann nicht' + (preis ? ' – ' + preis + ' nach §2' : ''))
+      : 'Doch dabei';
+    /* Die Reihe ist ein Raster. Heute steht ein Knopf darin; mit Auftrag 44
+       kommt die angemeldete Verspaetung nach §3 daneben, ohne Umbau. */
+    h += '<div class="tkbtn">'
+       + '<button class="btn' + (zu ? ' ghost' : '') + '" data-rm-antwort="'
+       + (zu ? 'ab' : 'zu') + '" data-rm-datum="' + esc(t.datum) + '">'
+       + esc(beschriftung) + '</button></div>';
   } else {
-    h += '<div class="rmzwei" style="margin-top:12px">'
+    /* Zwei gleichwertige Knoepfe. Hervorgehoben ist ausschliesslich die
+       Antwort, die WIRKLICH gegeben wurde – wer noch nicht geantwortet hat,
+       sieht zwei Ghost-Knoepfe. Bis 1.46 stand bei ihm "Bin nicht dabei" als
+       Hauptknopf da, weil alles ausser "zu" in denselben Zweig fiel; das sah
+       aus wie eine Empfehlung, abzusagen. */
+    const nein = ich.stand === 'ab' || abgelehnt;
+    h += '<div class="tkbtn zwei">'
        + '<button class="btn' + (zu ? '' : ' ghost') + '" data-rm-antwort="zu" data-rm-datum="'
        + esc(t.datum) + '">Bin dabei</button>'
-       + '<button class="btn' + (zu ? ' ghost' : '') + '" data-rm-antwort="ab" data-rm-datum="'
+       + '<button class="btn' + (nein ? '' : ' ghost') + '" data-rm-antwort="ab" data-rm-datum="'
        + esc(t.datum) + '">Bin nicht dabei</button></div>';
     if (s.fristVorbei && !zu){
       h += '<p class="note" style="margin:10px 0 0">Die Anmeldefrist ist verstrichen. '
@@ -4072,13 +4219,37 @@ function rmBlock(t){
        + (ich.alkohol ? 'Ja' : 'Nein') + '</button></div>';
   }
 
-  // --- Die Zaehlzeile, antippbar
+  // --- Die Zaehlzeile, antippbar – und darunter der Beteiligungsbalken
   h += rmZaehlZeile(s, t.datum);
+  h += rmBeteiligung(s);
+
+  h += erfassen;
 
   // --- Die Frist als Fusszeile
   h += s.kegelabend ? abmeldeFuss(t) : rmSchlussFuss(s);
 
-  return h + '</div>';
+  return h;
+}
+
+/* Der Beteiligungsbalken unter dem Zaehler (Wunsch Johannes, 11.09.2026).
+
+   Gezeigt wird, wie viele zugesagt haben – gemessen an ALLEN aktiven
+   Kegelbruedern, nicht an denen, die geantwortet haben. Sonst stuende bei zwei
+   Antworten "100 %", und das waere eine Zahl ohne Aussage.
+
+   Die Grundgesamtheit ist s.liste: Das Backend baut sie aus den aktiven
+   Kegelbruedern ohne Gaeste, jeder mit einem Stand. Es braucht dafuer nichts
+   Neues aus dem Backend. */
+function rmBeteiligung(s){
+  const gesamt = (s.liste || []).length;
+  if (!gesamt) return '';
+  const dabei   = (s.zaehler || {}).zu || 0;
+  const prozent = Math.round(dabei / gesamt * 100);
+  return '<div class="tkbeteiligung">'
+       + '<div class="bar"><i style="width:' + Math.max(0, Math.min(100, prozent)) + '%"></i></div>'
+       + '<div class="sub">' + dabei + ' von '
+       + plural(gesamt, 'Kegelbruder', 'Kegelbrüdern') + ' '
+       + (s.kegelabend ? 'dabei' : 'angemeldet') + ' · ' + prozent + ' %</div></div>';
 }
 
 /** "9 dabei · 2 abgemeldet" – beim Kegelabend ohne dritte Zahl. */
@@ -4127,7 +4298,8 @@ function rmAntragKarte(){
       <div class="sub" style="margin-top:6px"><b>${esc(a.name)}</b> möchte noch zu
         ${esc(a.bezeichnung || a.art)} am ${dat(a.datum)}.</div>
       ${a.notiz ? `<div class="sub" style="margin-top:4px">„${esc(a.notiz)}“</div>` : ''}
-      ${a.zeit ? `<div class="sub" style="margin-top:4px">Beantragt am ${esc(a.zeit)}</div>` : ''}
+      ${zeitpunktText(a.zeit) ? `<div class="sub" style="margin-top:4px">Beantragt am ${
+        esc(zeitpunktText(a.zeit))}</div>` : ''}
       <div class="rmzwei" style="margin-top:12px">
         <button class="btn" data-rm-ja="${esc(a.datum)}" data-rm-wer="${esc(a.name)}">Zusagen</button>
         <button class="btn ghost" data-rm-nein="${esc(a.datum)}" data-rm-wer="${esc(a.name)}">Ablehnen</button>
@@ -4154,7 +4326,10 @@ function rmListeOeffnen(datum){
     /* "still" heisst: Er hat nie etwas getippt. Dann steht da auch kein
        Zeitpunkt – eine erfundene Uhrzeit waere bei §2 das Gegenteil eines
        Belegs. */
-    if (!e.still && e.zeit) zusatz.push(e.zeit.slice(0, 16).replace('T', ' ').replace(/-/g, '.'));
+    if (!e.still && e.zeit){
+      const wann = zeitpunktText(e.zeit);
+      if (wann) zusatz.push(wann);
+    }
     if (e.spaet) zusatz.push('nach Fristablauf');
     if (e.erfasser && e.erfasser !== e.name) zusatz.push('eingetragen von ' + e.erfasser);
     return `<div class="row rmrow">
@@ -5278,7 +5453,7 @@ function erfVorschlagBlock(){
   if (!v || !v.vorschlaege || !v.vorschlaege.length) return '';
   const zeile = x => `<div class="row rmrow">
       <div class="n"><b>${esc(x.name)}</b>
-        <span class="sub">${esc(x.fall)}${x.zeit ? ' · ' + esc(x.zeit.slice(0, 16).replace('T', ' ')) : ''}</span>
+        <span class="sub">${esc(x.fall)}${zeitpunktText(x.zeit) ? ' · ' + esc(zeitpunktText(x.zeit)) : ''}</span>
         ${x.notiz ? `<span class="sub">„${esc(x.notiz)}“</span>` : ''}</div>
       <div class="v">${eur(x.betrag)}</div>
     </div>
