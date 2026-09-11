@@ -792,6 +792,9 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
                Nicht zu verwechseln mit "Einnahmen" – das ist das Blatt
                "Umlage" mit den sonstigen Einnahmen des Vereins. -->
           <button data-kasse="umlagen" aria-pressed="false">Umlagen</button>
+          <!-- Fällig (1.51): alles Überfällige nach Alter, mit dem
+               auflaufenden Zuschlag nach §20. -->
+          <button data-kasse="faellig" aria-pressed="false">Fällig</button>
           <button data-kasse="spenden" aria-pressed="false">Spenden</button>
           <button data-kasse="konto" aria-pressed="false">Konto</button>
         </div>
@@ -813,6 +816,10 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
           <!-- Notizen (1.46): Was beim Erfassen als Bezug oder Grund
                eingetippt wurde. Der Schriftführer schreibt sie – bis heute
                konnte er sie nirgends wieder nachlesen. -->
+          <!-- Strafen (1.51): Was erfasst ist und wie oft – ohne Beträge.
+               Geld gehört zum Kassenwart (07.09.2026); die Anzahl ist die
+               Arbeit des Schriftführers und gehört hierher. -->
+          <button data-view="strafen" aria-pressed="false">Strafen</button>
           <button data-view="notizen" aria-pressed="false">Notizen</button>
         </div>
         <div id="amtBody"></div>
@@ -1310,7 +1317,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    ist aber bewusst nicht hochgeladen. Zwei verschiedene Dateien unter
    derselben Nummer sind genau der Fehler, der am 08.09.2026 zu kc-v1.38
    geführt hat – deshalb wird 1.45 übersprungen, nicht zweitverwendet. */
-const APP_VERSION = '1.49';
+const APP_VERSION = '1.51';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -1681,7 +1688,8 @@ const API_EINMALIG = [
 /* Aktionen, die nur LESEN. Alles andere bekommt seit 1.38 eine Sendekennung –
    siehe unten. */
 const API_LESEN = ['daten', 'anmelden', 'historie', 'stammdaten', 'erfassungLesen',
-                   'syncStand', 'abschlussVorschau', 'freiStrafeDaten', 'rmVorschlaege'];
+                   'syncStand', 'abschlussVorschau', 'freiStrafeDaten', 'rmVorschlaege',
+                   'zaehlung'];
 
 /* ---- Sendekennung (1.38) --------------------------------------------------
    Gemeldet am 07.09.2026: "Zahlung buchen" musste mehrfach getippt werden, und
@@ -2637,12 +2645,60 @@ function rueckblick(la){
     `<div class="row"><div><div class="n">Mehr siehst du nicht</div>
       <div class="m">Wer sonst was gezahlt hat, sieht nur der Schriftführer.</div></div></div>`;
 }
+/* Die Bezeichnung einer Strafart, wie sie ein Mensch lesen soll (1.50).
+
+   Im Blatt stehen die Namen mehrzeilig und teils mit Doppelpunkt am Ende:
+   "Pumpen\n(bei Abwesenheit Ø):" – in der App wurde daraus
+   "Pumpen (bei Abwesenheit Ø):", was aussah wie ein abgeschnittener Satz
+   (gemeldet 11.09.2026). Derselbe Name kommt ausserdem in BEIDEN Schreibweisen
+   in den Rohdaten vor, mit und ohne Zeilenumbruch – gezaehlt wurden das bis
+   1.49 zwei verschiedene Strafarten.
+
+   Der Rohname bleibt unangetastet: Ueber ihn laeuft die Preissuche. */
+function strafartText(t){
+  return String(t == null ? '' : t)
+    .replace(/\s+/g, ' ')      // Zeilenumbruch und Doppel-Leerzeichen zu einem Leerzeichen
+    .replace(/\s*\/\s*/g, '/') // "kein Ersatz/ Amtsanmaßung" – der Umbruch stand hinter dem Schrägstrich
+    .trim()
+    .replace(/[:;]\s*$/, '');  // der Doppelpunkt am Ende ist eine Zeilenbeschriftung, kein Text
+}
+
+/* Was keine Strafe ist, die sich jemand eingehandelt hat (1.50).
+
+   "Ausgleich Abwesenheit (Ø)" ist der Ersatz dafuer, dass jemand NICHT da war
+   – bei fast jedem der groesste Einzelposten und deshalb bei fast jedem die
+   "teuerste Strafart". Ueber den Kegelbruder sagt das nichts
+   (Entscheidung Johannes, 11.09.2026). Der Posten verschwindet nicht, er
+   bekommt eine eigene Zeile.
+
+   NUR dieser eine. "Pumpen (bei Abwesenheit Ø)" sieht auf den ersten Blick
+   genauso aus, ist aber die ganz normale Pumpen-Zeile des Abends: Der Zusatz
+   sagt bloss, dass ein Abwesender den Durchschnitt angerechnet bekommt.
+   Nachgesehen in den Rohdaten – Johannes T. war in dieser Saison an keinem
+   Abend abwesend und hat trotzdem an vier Terminen Pumpen bezahlt. Sie ist
+   und bleibt eine Strafe.
+
+   Erkannt wird an der Bezeichnung und nicht an einer festen Liste, damit die
+   Regel eine Umbenennung im Blatt ueberlebt. */
+function istAusgleich(t){
+  const s = normStrafe(t);
+  return /^ausgleich\b/.test(s) && s.indexOf('abwesenheit') >= 0;
+}
+/* Korrekturen sind Minusbetraege auf eine andere Strafart. In einer
+   Haeufigkeitsliste haben sie nichts verloren – sie wuerden dort als eigene
+   "Strafart" mitzaehlen und den Betrag der echten verfaelschen. */
+function istKorrektur(t){ return /^korrektur\b/.test(normStrafe(t)); }
+
 function fasseZusammen(eintraege){
   const m = {};
   (eintraege||[]).forEach(e => {
-    if (!m[e.t]) m[e.t] = { t: e.t, n: 0, summe: 0 };
-    m[e.t].n += anzahlUndPreis(e.t, e.e).n;
-    m[e.t].summe += e.e;
+    /* Geschluesselt wird ueber den normierten Namen, damit "Pumpen\n(bei …)"
+       und "Pumpen (bei …)" eine Strafart sind. Angezeigt wird der aufgeraeumte
+       Name, gerechnet wird mit dem Rohnamen. */
+    const k = normStrafe(e.t);
+    if (!m[k]) m[k] = { t: strafartText(e.t), roh: e.t, n: 0, summe: 0 };
+    m[k].n += anzahlUndPreis(e.t, e.e).n;
+    m[k].summe += e.e;
   });
   return Object.keys(m).map(k => m[k]).sort((a,b) => b.summe - a.summe);
 }
@@ -3132,34 +3188,85 @@ function zeichneStrafen(){
      Anhieb die teuerste Strafart der Saison. */
   const strafenT = alle.filter(t => !istUmlage(t.quelle));
   const umlagenT = alle.filter(t => istUmlage(t.quelle));
-  const offen = strafenT.filter(t => !t.bezahlt);
+  /* Ein Kegelabend oder eine Veranstaltung ist ein Termin. Eine freie Strafe
+     ist keiner – auch dann nicht, wenn sie auf denselben Tag faellt
+     (Entscheidung Johannes, 11.09.2026). In der Auflistung unten bleibt sie
+     ein eigener Punkt, so wie bisher. */
+  const termine = strafenT.filter(t => !istFreiStrafe(t.quelle));
+  const freie   = strafenT.filter(t =>  istFreiStrafe(t.quelle));
+  const termineOffen = termine.filter(t => !t.bezahlt).length;
+  const freieOffen   = freie.filter(t => !t.bezahlt).length;
+
   const alleEintraege = [];
   strafenT.forEach(t => (t.eintraege||[]).forEach(e => alleEintraege.push(Object.assign({termin:t.datum}, e))));
-  const nachArt = fasseZusammen(alleEintraege);
-  const teuersterAbend = strafenT.slice().sort((a,b) => b.summe - a.summe)[0];
-  const gesamt = strafenT.reduce((s,t) => s + t.summe, 0);
-  const bezahlt = strafenT.filter(t => t.bezahlt).reduce((s,t) => s + t.summe, 0);
-  const umlSumme = umlagenT.reduce((s,t) => s + t.summe, 0);
+  /* Drei Toepfe: echte Strafen, der Abwesenheits-Ausgleich und Korrekturen.
+     Nur der erste taugt fuer "teuerste" und "haeufigste". */
+  const nachArt  = fasseZusammen(alleEintraege.filter(e => !istAusgleich(e.t) && !istKorrektur(e.t)));
+  const ausgl    = fasseZusammen(alleEintraege.filter(e =>  istAusgleich(e.t)));
+  const ausglSum = ausgl.reduce((s,x) => s + x.summe, 0);
+  /* Abende mit Ausgleich, nicht Buchungszeilen: "Ausgleich Abwesenheit" und
+     "Pumpen bei Abwesenheit" fallen am selben Abend zusammen an. */
+  const ausglTage = Object.keys(alleEintraege.filter(e => istAusgleich(e.t))
+    .reduce((m,e) => { m[e.termin] = true; return m; }, {})).length;
+  const haeufig  = nachArt.slice().sort((a,b) => b.n - a.n)[0];
+
+  /* Gerechnet wird ab 1.50 mit dem RECHNUNGSBETRAG (t.voll), nicht mehr mit
+     dem offenen Rest (t.summe). Ein bezahlter Posten hat in "Offene Beträge"
+     0,00 € stehen – deshalb zeigte "Saison gesamt" bisher nur den Rest und
+     "davon bezahlt" immer 0,00 €. Faellt das Feld weg (Backend aelter als
+     1.47), wird nicht heimlich der Rest gezeigt, sondern gesagt, dass die Zahl
+     noch fehlt. */
+  const hatVoll = strafenT.concat(umlagenT).every(t => typeof t.voll === 'number');
+  const voll = t => (typeof t.voll === 'number') ? t.voll : t.summe;
+  const summeVon = liste => liste.reduce((s,t) => s + voll(t), 0);
+
+  const teuersterAbend = termine.slice().sort((a,b) => voll(b) - voll(a))[0];
+  const gesamt   = summeVon(strafenT);
+  const bezahlt  = summeVon(strafenT.filter(t => t.bezahlt));
+  const erlassen = summeVon(strafenT.filter(t => !t.bezahlt && t.ausgesetzt));
+  const umlSumme = summeVon(umlagenT);
   const umlOffen = umlagenT.filter(t => !t.bezahlt).reduce((s,t) => s + t.summe, 0);
+  /* Der Verspätungszuschlag nach §20 ist keine Strafe dieser Saison, sondern
+     die Folge einer verstrichenen Frist. Er zählt deshalb weder in "Saison
+     gesamt" noch bei "teuerster Termin" mit – aber verschwiegen wird er auch
+     nicht: Wer einen bezahlt hat, sieht ihn in einer eigenen Zeile. */
+  const zuschSumme = strafenT.reduce((s,t) => s + (Number(t.zusch) || 0), 0);
+
+  /* Die Zahl oben nennt nur noch die Termine. Damit sie nicht schweigt,
+     waehrend der Betrag der freien Strafen in "Saison gesamt" mitzaehlt,
+     stehen sie in der Unterzeile daneben. */
+  const terminSub = [
+    termineOffen ? termineOffen + ' noch offen' : (termine.length ? 'alles bezahlt' : ''),
+    freie.length ? 'dazu ' + plural(freie.length, 'freie Strafe', 'freie Strafen')
+                   + (freieOffen ? ', ' + freieOffen + ' offen' : '') : ''
+  ].filter(x => x).join(' · ');
 
   let h = `<h2 class="sec">Deine Saison</h2>
     <div class="mystats">
-      <div class="stat"><div class="eyebrow">Saison gesamt</div><b>${eur(gesamt)}</b>
-        <div class="sub">davon ${eur(bezahlt)} bezahlt</div></div>
-      <div class="stat"><div class="eyebrow">Termine</div><b>${strafenT.length}</b>
-        <div class="sub">${offen.length === 1 ? '1 noch offen' : offen.length + ' noch offen'}</div></div>
+      <div class="stat"><div class="eyebrow">Saison gesamt</div><b>${hatVoll ? eur(gesamt) : '—'}</b>
+        <div class="sub">${hatVoll
+          ? 'davon ' + eur(bezahlt) + ' bezahlt' + (erlassen > 0 ? ' · ' + eur(erlassen) + ' erlassen' : '')
+          : 'noch offen – die Saisonsumme kommt, sobald das Backend neu bereitgestellt ist'}</div></div>
+      <div class="stat"><div class="eyebrow">Termine</div><b>${termine.length}</b>
+        <div class="sub">${esc(terminSub)}</div></div>
     </div>`;
 
-  if (nachArt.length || umlagenT.length){
+  if (nachArt.length || ausgl.length || umlagenT.length || zuschSumme > 0){
     h += `<div class="list" style="margin-top:4px">
       ${nachArt.length ? `<div class="row"><div><div class="n">Teuerste Strafart</div>
         <div class="m">${esc(nachArt[0].t)}</div></div><div class="v">${eur(nachArt[0].summe)}</div></div>
       <div class="row"><div><div class="n">Häufigste Strafe</div>
-        <div class="m">${esc(nachArt.slice().sort((a,b)=>b.n-a.n)[0].t)}</div></div>
-        <div class="v">${nachArt.slice().sort((a,b)=>b.n-a.n)[0].n}×</div></div>` : ''}
-      ${teuersterAbend ? `<div class="row"><div><div class="n">Teuerster Termin</div>
-        <div class="m">${dat(teuersterAbend.datum)}</div></div><div class="v">${eur(teuersterAbend.summe)}</div></div>` : ''}
-      ${umlagenT.length ? `<div class="row"><div><div class="n">Umlagen</div>
+        <div class="m">${esc(haeufig.t)}</div></div>
+        <div class="v">${haeufig.n}×</div></div>` : ''}
+      ${teuersterAbend && hatVoll ? `<div class="row"><div><div class="n">Teuerster Termin</div>
+        <div class="m">${dat(teuersterAbend.datum)}</div></div><div class="v">${eur(voll(teuersterAbend))}</div></div>` : ''}
+      ${ausgl.length ? `<div class="row"><div><div class="n">Ausgleich für Abwesenheit</div>
+        <div class="m">keine Strafe – ${plural(ausglTage, 'Abend', 'Abende')} nicht dabei</div></div>
+        <div class="v">${eur(ausglSum)}</div></div>` : ''}
+      ${zuschSumme > 0 ? `<div class="row"><div><div class="n">Verspätungszuschlag</div>
+        <div class="m">keine Strafe – nach §20, weil eine Frist verstrichen war</div></div>
+        <div class="v">${eur(zuschSumme)}</div></div>` : ''}
+      ${umlagenT.length && hatVoll ? `<div class="row"><div><div class="n">Umlagen</div>
         <div class="m">keine Strafe – ${umlOffen > 0 ? eur(umlOffen) + ' davon noch offen' : 'alles bezahlt'}</div></div>
         <div class="v">${eur(umlSumme)}</div></div>` : ''}
     </div>`;
@@ -3958,7 +4065,7 @@ const SICHTEN = {
     return '<p class="note" style="margin-top:16px">Alle Buchungen mit Notiz, neueste zuerst. '
          + 'Die Notiz steht kursiv unter der Buchung.</p>'
          + '<div class="list" style="margin-top:12px">'
-         + mitNotiz.map(x => buchungsZeile(x, true)).join('')
+         + mitNotiz.map(x => buchungsZeile(x, true, !sehIchBetraege())).join('')
          + '</div>';
   },
 
@@ -4049,8 +4156,41 @@ const SICHTEN = {
         <div class="m">${r.kranz}× Kranz · ${r.koenig}× König · ${r.acht}× 8 ums Vordereck · ${r.alle9}× alle 9</div></div>
         <div class="v">${gesamtSonder(r)}×</div></div>`).join('')}</div>`;
   },
+  /* STRAFEN (1.51, Auftrag 46).
+     Die Sicht des Schriftfuehrers auf das, was er erfasst hat – drei
+     Blickwinkel, durchgehend OHNE Euro-Betraege. Wer zusaetzlich Einsicht in
+     die Kasse hat (Kassenwart, Kegelvater mit Freigabe), sieht sie; wer nicht,
+     bekommt sie gar nicht erst ins Geraet (Backend 1.48).
+
+     Gezaehlt wird in den Termin-Blaettern, nicht in den Rohdaten: Beim
+     Uebertragen wird aus "3x Handy a 1 EUR" eine Zeile mit 3,00 EUR, und die
+     Drei liesse sich nur ueber den Betrag zurueckrechnen.
+
+     Geld steht hier bewusst nicht – auch nicht bei dem, der es duerfte: Der
+     Kassenwart hat dieselben Blickwinkel MIT Betraegen unter Kasse > Strafen. */
+  strafen(){
+    const z = zaehlungDaten;
+    if (!z){
+      zaehlungHolen();
+      return '<p class="note" style="margin-top:16px">Die Zählung wird geholt – '
+           + 'dafür werden die Blätter aller Abende durchgesehen, das dauert '
+           + 'einen Moment.</p>';
+    }
+    if (z.fehler){
+      return '<p class="note" style="margin-top:16px">Die Zählung ließ sich nicht holen: '
+           + esc(z.fehler) + '</p>';
+    }
+    const t = swTrennen(swAusZaehlung());
+    const o = { id: 'amt', zeilen: t.echt, geld: false };
+    return '<p class="note" style="margin-top:16px">Was in dieser Saison erfasst wurde und '
+         + 'wie oft. Ohne Beträge – die stehen beim Kassenwart. Zum Aufklappen antippen.'
+         + (z.stand ? ' Stand ' + esc(z.stand) + ' Uhr.' : '') + '</p>'
+         + swBlock(o) + swAnhang(o, t);
+  },
+
   /* "strafen" und "spenden" standen bis 1.37 hier. Sie sind mit 1.38 in den
-     Bereich des Kassenwarts gewandert (siehe KASSE_SICHTEN). */
+     Bereich des Kassenwarts gewandert – mit dem GELD (siehe KASSE_SICHTEN).
+     Seit 1.51 steht hier wieder eine Sicht "Strafen", aber ohne Betraege. */
 };
 
 function zeichneAmt(sicht){
@@ -4062,6 +4202,37 @@ $('amtChips').addEventListener('click', e => {
   document.querySelectorAll('#amtChips button').forEach(x => x.setAttribute('aria-pressed', x === b));
   zeichneAmt(b.dataset.view);
   window.scrollTo({top:0});
+});
+
+/* Die Blickwinkel-Leiste und das Suchfeld der Strafen-Auswertung (1.51).
+   Eine Bedienung fuer beide Orte – die Auswertung des Schriftfuehrers und die
+   Kasse –, deshalb haengt sie am Dokument und nicht an einem der beiden
+   Behaelter. Neu gezeichnet wird NUR der Inhalt: Wuerde der ganze Block neu
+   gebaut, verloere das Suchfeld bei jedem Tastendruck den Cursor. */
+function swNeuZeichnen(id){
+  const body = document.querySelector('[data-sw-body="' + id + '"]');
+  if (!body) return;
+  const o = id === 'amt'
+    ? { id: id, zeilen: swTrennen(swAusZaehlung()).echt, geld: false }
+    : { id: id, zeilen: swTrennen(swAusBuchungen()).echt, geld: true,
+        karten: kasseStrafenKarten(false, kasseStrafenRang()) };
+  body.innerHTML = swInhalt(o);
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('button[data-sw]'); if (!b) return;
+  const id = b.dataset.swId;
+  if (!swStand[id]) swStand[id] = { modus: 'art', such: '' };
+  swStand[id].modus = b.dataset.sw;
+  b.parentNode.querySelectorAll('button[data-sw]').forEach(x =>
+    x.setAttribute('aria-pressed', x === b));
+  swNeuZeichnen(id);
+});
+document.addEventListener('input', e => {
+  const f = e.target.closest('input[data-sw-suche]'); if (!f) return;
+  const id = f.dataset.swSuche;
+  if (!swStand[id]) swStand[id] = { modus: 'art', such: '' };
+  swStand[id].such = f.value;
+  swNeuZeichnen(id);
 });
 
 /* --------------------------------------------------------- Bedienung */
@@ -4365,7 +4536,7 @@ function terminKarte(t){
 
   return `<h2 class="sec mitchip" style="margin-top:24px">
       <span>Nächster Termin</span>
-      ${chip ? `<span class="chip${chip.klasse ? ' ' + chip.klasse : ''}">${esc(chip.text)}</span>` : ''}</h2>
+      ${chip ? `<span id="terminChip" class="chip${chip.klasse ? ' ' + chip.klasse : ''}">${esc(chip.text)}</span>` : ''}</h2>
     <div class="tkarte${heute ? ' heute' : ''}" style="margin-top:14px">
       <div class="tkopf">
         <div class="tdatum">${esc(wochentag(t.datum))}, ${dat(t.datum)}</div>
@@ -4395,6 +4566,58 @@ function terminChip(t){
   }
   return { text: 'heute', klasse: '' };
 }
+
+/* ---------------------------------------- Die Minutenuhr der Karte (1.50)
+
+   Chip und Fusszeile rechneten bisher nur beim Zeichnen. Wer die App eine
+   Stunde offen liegen liess, las weiter "in 18 Minuten", obwohl die Frist
+   laengst durch war – und damit eine Frist als offen, die es nicht mehr ist
+   (gemeldet 11.09.2026).
+
+   Sparsam gebaut, wie festgelegt:
+   - Sie laeuft nur am Termintag und nur, solange die Startseite sichtbar ist.
+     An jedem anderen Tag aendert sich minuetlich nichts; der Tageswechsel
+     kommt ohnehin mit dem naechsten Datenabruf (D.heute ist die Zeit des
+     Backends, nicht die des Geraets).
+   - Im Normalfall wird NUR der Chip angefasst – ein Textknoten und eine
+     Klasse. Die Karte bleibt stehen, eine offene Verspaetungsmaske springt
+     nicht zu.
+   - Nur beim Wechsel "Frist laeuft" -> "Frist durch" wird die Startseite ganz
+     neu gezeichnet: Dann aendern sich Knopf, Fusszeile und Chip zugleich.
+     reiterZeichnen() zeichnet nicht, solange eine Maske offen ist, und holt es
+     beim Schliessen nach – das ist genau richtig.
+   - Nachgeladen wird nichts. Gerechnet wird mit dem, was schon da ist. */
+const TERMIN_UHR_TAKT = 60000;
+let uhrFristVorbei = null;
+
+function terminUhrTakt(){
+  if (document.hidden) return;
+  const t = D && D.naechsterTermin;
+  if (!t || t.datum !== D.heute){ uhrFristVorbei = null; return; }
+
+  const vorbei = fristVorbei(t.beginn);
+  if (uhrFristVorbei === null) uhrFristVorbei = vorbei;
+  if (vorbei !== uhrFristVorbei){
+    uhrFristVorbei = vorbei;
+    reiterSchmutzig.start = true;
+    reiterZeichnen('start');
+    return;
+  }
+
+  if (aktuellerReiter() !== 'start') return;
+  const el = $('terminChip');
+  const chip = terminChip(t);
+  if (!el || !chip) return;
+  const klasse = 'chip' + (chip.klasse ? ' ' + chip.klasse : '');
+  if (el.textContent !== chip.text) el.textContent = chip.text;
+  if (el.className   !== klasse)    el.className   = klasse;
+}
+
+setInterval(terminUhrTakt, TERMIN_UHR_TAKT);
+/* Beim Zurueckkommen sofort nachziehen: Wer die App weggelegt und nach einer
+   halben Stunde wieder geoeffnet hat, soll nicht bis zum naechsten Takt auf
+   eine veraltete Minutenzahl sehen. */
+document.addEventListener('visibilitychange', () => { if (!document.hidden) terminUhrTakt(); });
 
 /* Minuten bis zur Abmeldefrist. Negativ, wenn sie schon verstrichen ist;
    null, wenn es keine Anfangszeit gibt. */
@@ -7529,6 +7752,14 @@ const QUELLE_UMLAGE = 'Umlage';
 function istUmlage(q){
   return String(q == null ? '' : q).trim().toLowerCase() === QUELLE_UMLAGE.toLowerCase();
 }
+/* Die freie Strafe haengt an keinem Termin. Bewusst als Ausschluss formuliert
+   und nicht als Liste der beiden Termin-Arten: Kaeme eines Tages eine dritte
+   Art dazu, waere sie von selbst ein Termin und muesste nicht nachgetragen
+   werden. Die Umlage ist an dieser Stelle schon aussortiert. */
+const QUELLE_FREI = 'Frei-Strafe';
+function istFreiStrafe(q){
+  return String(q == null ? '' : q).trim().toLowerCase() === QUELLE_FREI.toLowerCase();
+}
 function alleBuchungen(){ return (D && D.buchungen) || null; }
 
 /* Die Einzelbuchungen je Kegelbruder, neueste zuerst. nurUmlage entscheidet,
@@ -7547,15 +7778,31 @@ function buchungenJeMann(nurUmlage){
 /* Eine Zeile für eine einzelne Buchung. Die Notiz steht kursiv darunter –
    sie ist der Grund, warum es diese Ansicht überhaupt gibt, und gehört
    deshalb in eine eigene Zeile und nicht hinter ein Trennzeichen. */
-function buchungsZeile(x, mitName){
+/* NEU 1.51: "ohneBetrag". Die Notizen-Sicht liegt beim Schriftfuehrer, und der
+   sieht keine Betraege mehr (Auftrag 46). Der Kassenwart benutzt dieselbe
+   Zeile weiter mit Betrag – deshalb ein Schalter und keine zweite Zeilenform.
+   Fehlt das Feld ganz (reiner Schriftfuehrer, Backend ab 1.48), wird die
+   Spalte gar nicht erst gezeichnet: 0,00 € waere eine Falschaussage. */
+function buchungsZeile(x, mitName, ohneBetrag){
   const notiz = String(x.z == null ? '' : x.z).trim();
   const unten = [dat(x.d), mitName ? x.n : '', x.q].filter(Boolean).map(esc).join(' · ');
+  const zeig  = !ohneBetrag && typeof x.b === 'number';
   return `<div class="row">
-    <div><div class="n">${esc(x.t || '–')}</div>
+    <div><div class="n">${esc(strafartText(x.t) || '–')}</div>
       <div class="m">${unten}</div>
       ${notiz ? `<div class="m" style="font-style:italic">„${esc(notiz)}“</div>` : ''}</div>
-    <div class="v${x.b < 0 ? ' blass' : ''}">${eur(x.b)}</div>
+    ${zeig ? `<div class="v${x.b < 0 ? ' blass' : ''}">${eur(x.b)}</div>` : ''}
   </div>`;
+}
+
+/* Sieht dieses Geraet ueberhaupt Betraege? Das Backend schickt einem reinen
+   Schriftfuehrer seit 1.48 keine mehr. Der Rueckfall auf das Feld selbst faengt
+   das Zeitfenster ab, in dem die App schon neu ist und das Backend noch nicht. */
+function sehIchBetraege(){
+  if (D && D.buchungenOhneBetrag === true) return false;
+  const b = alleBuchungen();
+  if (b && b.length) return typeof b[0].b === 'number';
+  return !!(D && D.ich && (D.ich.darfKasse || D.ich.nurLesenKasse));
 }
 
 /* Die aufklappbare Karte je Kegelbruder – Aufbau wie bei den offenen Beträgen
@@ -7576,10 +7823,78 @@ function buchungsKarte(r, i, zeilen){
     </summary>${inhalt}</details>`;
 }
 
-/* Die gemeinsame Ansicht hinter den Reitern "Strafen" und "Umlagen".
-   nurUmlage entscheidet, welche Quelle gezeigt wird. */
-function kasseStrafenSicht(nurUmlage){
-  const wort = nurUmlage ? 'Umlagen' : 'Strafen';
+/* Zwei Kennzahlen für die Kassen-Übersicht (1.51, Auftrag 46):
+   der teuerste Abend der Saison und die teuerste Strafart.
+
+   Gerechnet wird aus den Einzelbuchungen und nach denselben Regeln wie in
+   "Deine Saison" (11.09.2026): ohne Umlagen, ohne den Ausgleich für
+   Abwesenheit, ohne Korrekturen. Sonst stünde hier eine andere Wahrheit als
+   beim einzelnen Kegelbruder, und beide wären belegbar.
+
+   Ohne Einzelbuchungen (Backend älter als 1.43) bleiben die Zeilen weg – eine
+   Kennzahl, die "0,00 €" behauptet, ist schlechter als keine. */
+function spitzenZeilen(zeile){
+  const b = alleBuchungen();
+  if (!b || !b.length || !sehIchBetraege()) return '';
+  const echt = b.filter(x => !istUmlage(x.q) && !istAusgleich(x.t) && !istKorrektur(x.t)
+                             && typeof x.b === 'number');
+  if (!echt.length) return '';
+
+  const proAbend = {}, proArt = {};
+  echt.forEach(x => {
+    if (x.q !== 'Frei-Strafe') proAbend[x.d + '|' + x.q] = (proAbend[x.d + '|' + x.q] || 0) + x.b;
+    const k = normStrafe(x.t);
+    if (!proArt[k]) proArt[k] = { t: strafartText(x.t), summe: 0, n: 0 };
+    proArt[k].summe += x.b;
+    proArt[k].n += 1;
+  });
+  const abend = Object.keys(proAbend).sort((a, c) => proAbend[c] - proAbend[a])[0];
+  const art   = Object.keys(proArt).map(k => proArt[k]).sort((a, c) => c.summe - a.summe)[0];
+
+  return (abend ? zeile('Teuerster Abend',
+            esc(abend.split('|')[1] + ' ' + dat(abend.split('|')[0])),
+            eur(proAbend[abend])) : '')
+       + (art ? zeile('Teuerste Strafart',
+            esc(art.t) + ' · ' + plural(art.n, 'Buchung', 'Buchungen'),
+            eur(art.summe)) : '');
+}
+
+/* Tage zwischen einem Datum und heute. Gerechnet gegen D.heute (das Datum des
+   Backends), damit ein falsch gestelltes Handy die Zahl nicht verschiebt –
+   dieselbe Vorsicht wie bei tageBis(). */
+function tageSeit(iso){
+  const von = new Date(String(iso || '') + 'T12:00:00');
+  const heute = new Date(String(D.heute || '') + 'T12:00:00');
+  if (isNaN(von) || isNaN(heute)) return 0;
+  return Math.max(0, Math.round((heute - von) / 86400000));
+}
+
+/* Wann kommt der nächste Zuschlag nach §20 dazu? (1.51)
+
+   Der Zuschlag wächst je ANGEFANGENEM Monat nach der Fälligkeit – gerechnet
+   wird er in der Tabelle, der Satz je Monat steht seit Backend 1.48 am Posten.
+   Hier wird nur der nächste Monatsstichtag gesucht: derselbe Kalendertag wie
+   die Fälligkeit, im nächsten Monat, der noch kommt.
+
+   Ohne Satz (älteres Backend) bleibt das Datum stehen und der Betrag weg –
+   lieber die halbe Aussage als eine erfundene. */
+function naechsterZuschlag(p){
+  const f = new Date(String(p.faellig || '') + 'T12:00:00');
+  const heute = new Date(String(D.heute || '') + 'T12:00:00');
+  if (isNaN(f) || isNaN(heute)) return null;
+  const d = new Date(f.getTime());
+  let schutz = 0;
+  while (d <= heute && schutz++ < 240) d.setMonth(d.getMonth() + 1);
+  if (schutz >= 240) return null;
+  const iso = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2)
+            + '-' + ('0' + d.getDate()).slice(-2);
+  return { datum: iso, satz: Number(p.satz) || 0 };
+}
+
+/* Die Rangliste je Kegelbruder aus den offenen Beträgen – Gesamt, davon offen,
+   Zahl der Posten. Seit 1.51 eine eigene Funktion, weil sie an zwei Stellen
+   gebraucht wird (die Ansicht selbst und das Neuzeichnen beim Umschalten). */
+function kasseStrafenRang(nurUmlage){
   const map = {};
   kasseD().offene.forEach(o => {
     if (istUmlage(o.quelle) !== !!nurUmlage) return;
@@ -7588,10 +7903,17 @@ function kasseStrafenSicht(nurUmlage){
     map[o.name].offen  += o.bezahlt ? 0 : (o.offen || 0);
     map[o.name].posten += 1;
   });
-  const l = Object.keys(map).map(k => map[k])
-              .map(x => ({ n: x.n, gesamt: Math.round(x.gesamt * 100) / 100,
-                           offen: Math.round(x.offen * 100) / 100, posten: x.posten }))
-              .sort((a, b) => b.gesamt - a.gesamt);
+  return Object.keys(map).map(k => map[k])
+           .map(x => ({ n: x.n, gesamt: Math.round(x.gesamt * 100) / 100,
+                        offen: Math.round(x.offen * 100) / 100, posten: x.posten }))
+           .sort((a, b) => b.gesamt - a.gesamt);
+}
+
+/* Die gemeinsame Ansicht hinter den Reitern "Strafen" und "Umlagen".
+   nurUmlage entscheidet, welche Quelle gezeigt wird. */
+function kasseStrafenSicht(nurUmlage){
+  const wort = nurUmlage ? 'Umlagen' : 'Strafen';
+  const l = kasseStrafenRang(nurUmlage);
   /* Der Weg zum Buchen steht dort, wo man das Ergebnis sieht – wie beim
      Korrigieren in den offenen Beträgen. */
   const neuKnopf = (nurUmlage && (darfKasseAendern() || darfErfassen()))
@@ -7629,13 +7951,264 @@ function kasseStrafenSicht(nurUmlage){
              + (r.offen > 0 ? ' · noch ' + eur(r.offen) + ' offen' : ' · alles bezahlt'));
   }
 
+  const karten = kasseStrafenKarten(nurUmlage, l);
+
+  /* NEU 1.51 (Auftrag 46): Die Sicht "nach Kegelbruder" gab es hier schon –
+     jetzt stehen die beiden anderen Blickwinkel daneben, mit Beträgen. Es ist
+     derselbe Bau wie beim Schriftführer; nur die Quelle ist eine andere.
+     Bei den Umlagen bleibt es bei den Karten: "nach Strafart" hieße dort
+     "nach Bezeichnung" und wäre bei einer einzigen Umlage im Jahr leer. */
+  if (nurUmlage) return kopf + neuKnopf + karten;
+
+  const t = swTrennen(swAusBuchungen());
+  const o = { id: 'kasse', zeilen: t.echt, geld: true, karten: karten };
+  return kopf + neuKnopf + swBlock(o) + swAnhang(o, t);
+}
+
+/* Die Karten je Kegelbruder – seit 1.46 der Kern dieser Ansicht und seit 1.51
+   der Blickwinkel "nach Kegelbruder" darin. Sie koennen etwas, das die
+   allgemeine Ansicht nicht kann: Neben der Summe steht, was davon noch offen
+   ist. Deshalb bleibt sie hier und wird nicht durch die allgemeine ersetzt. */
+function kasseStrafenKarten(nurUmlage, liste){
   const detail = buchungenJeMann(nurUmlage);
-  return kopf + neuKnopf
-    + '<p class="note" style="margin-top:14px">Zum Aufklappen antippen – dort steht jede einzelne '
-    + 'Buchung mit ihrer Notiz.</p>'
+  return '<p class="note" style="margin-top:14px">Zum Aufklappen antippen – dort steht '
+    + 'jede einzelne Buchung mit ihrer Notiz.</p>'
     + '<div style="margin-top:12px">'
-    + l.map((r, i) => buchungsKarte(r, i, detail[r.n])).join('')
+    + liste.map((r, i) => buchungsKarte(r, i, detail[r.n])).join('')
     + '</div>';
+}
+
+/* ======================= Strafen-Auswertung (1.51, Auftrag 46) =========
+
+   Drei Blickwinkel auf dieselben Eintragungen: nach Strafart, nach Termin,
+   nach Kegelbruder. Einmal gebaut, zweimal benutzt – beim Schriftfuehrer OHNE
+   Betraege, beim Kassenwart MIT. Zwei getrennte Bauten fuer dieselbe Sache
+   waeren zwei Wahrheiten, sobald einer von beiden geaendert wird.
+
+   Die Zeilen kommen normiert herein:
+     { d: Datum, q: Quelle, t: Strafart, n: Name, v: Wert, e: Euro-Zeile,
+       g: Gast }
+   "v" ist beim Schriftfuehrer eine ANZAHL (aus den Termin-Blaettern gezaehlt)
+   und beim Kassenwart ein BETRAG (aus den Rohdaten). Was davon gemeint ist,
+   sagt "geld". */
+
+const swStand = {};   // je Ansicht: welcher Blickwinkel, welcher Suchtext
+
+function swZahl(o, v){
+  return o.geld ? eur(v) : zahlKurz(v) + '×';
+}
+/* Der Wert EINER Eintragung. Bei einer Euro-Zeile steht dort im Blatt ein
+   Betrag – und den bekommt der Schriftführer nicht zu sehen. "erfasst" sagt
+   das Wahre: Es steht etwas drin, aber keine Anzahl. */
+function swWert(o, z){
+  return (!o.geld && !swZaehlbar(z)) ? 'erfasst' : swZahl(o, z.v);
+}
+/* Ganze Zahlen ohne Nachkomma, krumme mit – "3×" statt "3,00×", aber
+   "2,25 €"-Zeilen behalten ihre Stellen. */
+function zahlKurz(v){
+  const n = Math.round((Number(v) || 0) * 100) / 100;
+  return n % 1 === 0 ? String(n) : n.toLocaleString('de-DE', { minimumFractionDigits: 2 });
+}
+
+/* Eine Zeile ist zaehlbar, wenn im Blatt eine Anzahl steht. Bei der Verspaetung
+   und den Geldspielen steht dort ein Euro-Betrag – dafuer gibt es keine
+   Vorfallzahl, und eine erfundene waere schlimmer als keine. */
+const swZaehlbar = z => !z.e;
+
+/* Die Summe einer Gruppe – beim Zählen ZÄHLBAR heißt: ohne die Euro-Zeilen.
+   Wer Verspätung und Geldspiele mitzählte, addierte Euro zu Stück. */
+function swSumme(o, zeilen){
+  return zeilen.filter(z => o.geld || swZaehlbar(z))
+               .reduce((s, z) => s + (Number(z.v) || 0), 0);
+}
+/* Die Pille rechts am Kopf einer Karte. Steht in der Gruppe nur eine
+   Euro-Zeile, gibt es nichts zu zählen – dann ein Strich statt einer Zahl,
+   die keine ist. */
+function swPille(o, zeilen){
+  if (o.geld) return eur(swSumme(o, zeilen));
+  return zeilen.some(swZaehlbar) ? swZahl(o, swSumme(o, zeilen)) : '–';
+}
+function swKopfzeile(o, gruppe){
+  const maenner = Object.keys(gruppe.zeilen.reduce((m, z) => { m[z.n] = 1; return m; }, {})).length;
+  if (o.geld) return plural(gruppe.zeilen.length, 'Buchung', 'Buchungen')
+                   + ' · bei ' + plural(maenner, 'Kegelbruder', 'Kegelbrüdern');
+  const euroZeilen = gruppe.zeilen.filter(z => !swZaehlbar(z)).length;
+  return 'bei ' + plural(maenner, 'Kegelbruder', 'Kegelbrüdern') + ' erfasst'
+       + (euroZeilen === gruppe.zeilen.length
+           ? ' – diese Zeile trägt im Blatt einen Betrag, keine Anzahl'
+           : (euroZeilen ? ' · ' + euroZeilen + ' davon ohne zählbare Anzahl' : ''));
+}
+
+function swGruppieren(zeilen, schluessel){
+  const m = {};
+  zeilen.forEach(z => {
+    const k = schluessel(z);
+    if (!m[k]) m[k] = { k: k, zeilen: [], summe: 0 };
+    m[k].zeilen.push(z);
+    m[k].summe += Number(z.v) || 0;
+  });
+  return Object.keys(m).map(k => m[k]);
+}
+
+function swKarte(titel, unter, pille, inhalt){
+  return `<details class="jahrkarte"><summary>
+      <div class="group-head"><span>${esc(titel)}</span>
+        <span class="pill grau">${esc(pille)}</span></div>
+      <div class="teaser"><div class="kein">${esc(unter)}</div></div>
+    </summary><div class="hblock">${inhalt}</div></details>`;
+}
+
+function swZeile(o, titel, unter, wert){
+  return `<div class="row"><div><div class="n">${esc(titel)}</div>
+    ${unter ? `<div class="m">${esc(unter)}</div>` : ''}</div>
+    <div class="v">${esc(wert)}</div></div>`;
+}
+
+function swInhalt(o){
+  const such = (swStand[o.id] && swStand[o.id].such || '').toLowerCase().trim();
+  const modus = (swStand[o.id] && swStand[o.id].modus) || 'art';
+  let zeilen = o.zeilen;
+  if (such) zeilen = zeilen.filter(z =>
+    (strafartText(z.t) + ' ' + z.n + ' ' + dat(z.d) + ' ' + z.q).toLowerCase().indexOf(such) >= 0);
+
+  if (!zeilen.length){
+    return '<p class="note" style="margin-top:14px">' + (such
+      ? 'Dazu ist nichts erfasst.'
+      : 'In dieser Saison ist nichts erfasst.') + '</p>';
+  }
+
+  if (modus === 'art'){
+    /* Sortiert nach dem, was die Ansicht zeigt: beim Kassenwart nach Betrag,
+       beim Schriftführer nach Anzahl – und Euro-Zeilen zählen dort nicht mit,
+       sonst stünde eine Zeile mit 41,75 € vor einer mit 23 Vorfällen. */
+    const g = swGruppieren(zeilen, z => normStrafe(z.t))
+      .sort((a, b) => swSumme(o, b.zeilen) - swSumme(o, a.zeilen)
+                   || b.zeilen.length - a.zeilen.length);
+    return '<div style="margin-top:12px">' + g.map(x => swKarte(
+      strafartText(x.zeilen[0].t),
+      swKopfzeile(o, x),
+      swPille(o, x.zeilen),
+      x.zeilen.slice().sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0)
+        .map(z => swZeile(o, z.n + (z.g ? ' (Gast)' : ''), dat(z.d) + ' · ' + z.q,
+                          swWert(o, z))).join('')
+    )).join('') + '</div>';
+  }
+
+  if (modus === 'termin'){
+    const g = swGruppieren(zeilen, z => z.d + '|' + z.q)
+      .sort((a, b) => a.k < b.k ? 1 : a.k > b.k ? -1 : 0);
+    return '<div style="margin-top:12px">' + g.map(x => {
+      const proMann = swGruppieren(x.zeilen, z => z.n)
+        .sort((a, b) => swSumme(o, b.zeilen) - swSumme(o, a.zeilen)
+                     || b.zeilen.length - a.zeilen.length);
+      return swKarte(
+        x.zeilen[0].q + ' ' + dat(x.zeilen[0].d),
+        plural(x.zeilen.length, 'Eintragung', 'Eintragungen')
+          + ' · ' + plural(proMann.length, 'Kegelbruder', 'Kegelbrüder'),
+        swPille(o, x.zeilen),
+        proMann.map(p => swZeile(o, p.k + (p.zeilen[0].g ? ' (Gast)' : ''),
+          p.zeilen.slice().sort((a, b) => b.v - a.v)
+            .map(z => strafartText(z.t) + ' ' + swWert(o, z)).join(' · '),
+          swPille(o, p.zeilen))).join('')
+      );
+    }).join('') + '</div>';
+  }
+
+  /* Nach Kegelbruder. Bringt die Ansicht eigene Karten mit (die Kasse tut es –
+     dort steht neben der Summe, was noch offen ist), haben die Vorrang. Eine
+     zweite Liste derselben Sache daneben waere nur Laerm. */
+  if (o.karten && !such) return o.karten;
+  const g = swGruppieren(zeilen, z => z.n)
+    .sort((a, b) => swSumme(o, b.zeilen) - swSumme(o, a.zeilen)
+                 || b.zeilen.length - a.zeilen.length);
+  return '<div style="margin-top:12px">' + g.map((x, i) => {
+    const tage = Object.keys(x.zeilen.reduce((m, z) => { m[z.d] = 1; return m; }, {})).length;
+    return swKarte(
+      (i + 1) + '. ' + x.k + (x.zeilen[0].g ? ' (Gast)' : ''),
+      plural(x.zeilen.length, 'Eintragung', 'Eintragungen') + ' an ' + plural(tage, 'Termin', 'Terminen'),
+      swPille(o, x.zeilen),
+      x.zeilen.slice().sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0)
+        .map(z => swZeile(o, strafartText(z.t), dat(z.d) + ' · ' + z.q, swWert(o, z))).join('')
+    );
+  }).join('') + '</div>';
+}
+
+/* Der ganze Block: Blickwinkel-Leiste, Suchfeld, Inhalt. Gezeichnet wird beim
+   Umschalten nur der Inhalt – sonst verlöre das Suchfeld bei jedem Tastendruck
+   den Cursor. */
+function swBlock(o){
+  if (!swStand[o.id]) swStand[o.id] = { modus: 'art', such: '' };
+  const st = swStand[o.id];
+  const knopf = (m, text) => `<button data-sw="${m}" data-sw-id="${o.id}" aria-pressed="${
+    st.modus === m}">${text}</button>`;
+  return `<div class="chips" style="margin-top:14px" role="group" aria-label="Blickwinkel">
+      ${knopf('art', 'Nach Strafart')}${knopf('termin', 'Nach Termin')}${knopf('mann', 'Nach Kegelbruder')}
+    </div>
+    <input enterkeyhint="done" class="search" data-sw-suche="${o.id}" value="${esc(st.such)}"
+           placeholder="Strafart, Name oder Datum suchen …" aria-label="Auswertung durchsuchen"
+           style="margin-top:12px">
+    <div data-sw-body="${o.id}">${swInhalt(o)}</div>`;
+}
+
+/* Die beiden Quellen, jeweils normiert. Umlagen sind keine Strafe und fliegen
+   in beiden Faellen raus – dieselbe Trennung wie in zeichneStrafen und in
+   kasseStrafenSicht. Der Abwesenheits-Ausgleich und die Korrekturen bekommen
+   einen eigenen Block, damit sie die Rangliste nicht anfuehren. */
+function swAusZaehlung(){
+  const z = (zaehlungDaten && zaehlungDaten.zeilen) || [];
+  return z.map(x => ({ d: x.d, q: x.q, t: x.t, n: x.n, v: x.v, e: !!x.e, g: !!x.g }));
+}
+function swAusBuchungen(){
+  const b = alleBuchungen() || [];
+  return b.filter(x => !istUmlage(x.q))
+          .map(x => ({ d: x.d, q: x.q, t: x.t, n: x.n, v: x.b, e: false, g: false }));
+}
+
+/* Ausgleich und Korrekturen gehoeren nicht in die Haeufigkeitsliste – dieselbe
+   Entscheidung wie in "Deine Saison" (11.09.2026), dieselbe Erkennung. Sie
+   verschwinden nicht, sie stehen darunter. */
+function swTrennen(zeilen){
+  return {
+    echt:     zeilen.filter(z => !istAusgleich(z.t) && !istKorrektur(z.t)),
+    ausgleich: zeilen.filter(z => istAusgleich(z.t)),
+    korrektur: zeilen.filter(z => istKorrektur(z.t))
+  };
+}
+function swAnhang(o, t){
+  const zeile = (titel, liste, was) => {
+    if (!liste.length) return '';
+    const summe = swSumme(o, liste);
+    const tage = Object.keys(liste.reduce((m, z) => { m[z.d] = 1; return m; }, {})).length;
+    return `<div class="row"><div><div class="n">${titel}</div>
+      <div class="m">${was} · ${plural(tage, 'Termin', 'Termine')}</div></div>
+      <div class="v">${esc(o.geld ? eur(summe) : swPille(o, liste))}</div></div>`;
+  };
+  const h = zeile('Ausgleich für Abwesenheit', t.ausgleich, 'keine Strafe')
+          + zeile('Korrekturen', t.korrektur, 'nachträglich zurückgenommen');
+  return h ? `<div class="list" style="margin-top:16px">${h}</div>` : '';
+}
+
+/* Die Zaehlung wird erst geholt, wenn jemand die Sicht aufschlaegt. Sie liest
+   zehn Termin-Blaetter und ist damit die teuerste Abfrage der App – beim Start
+   haette sie nichts verloren. Danach liegt sie im Speicher des Geraets, bis
+   die App neu geladen wird. */
+let zaehlungLaedt = false;
+/* Bewusst NICHT an D gehaengt: D wird bei jedem Datenabruf ersetzt, und die
+   Zaehlung waere danach jedes Mal weg – zehn Blaetter noch einmal lesen, nur
+   weil jemand die Seite heruntergezogen hat. */
+let zaehlungDaten = null;
+async function zaehlungHolen(){
+  if (zaehlungLaedt || zaehlungDaten) return;
+  zaehlungLaedt = true;
+  try {
+    const r = await api('zaehlung', { token: token }, API_VERSUCHE);
+    zaehlungDaten = r && r.ok ? r : { fehler: (r && r.fehler) || 'Unbekannter Fehler.' };
+  } catch (e) {
+    zaehlungDaten = { fehler: fehlerGrund(e) };
+  } finally {
+    zaehlungLaedt = false;
+    if (aktuelleAmtSicht === 'strafen') zeichneAmt('strafen');
+  }
 }
 
 const KASSE_SICHTEN = {
@@ -7718,6 +8291,7 @@ const KASSE_SICHTEN = {
             ? zeile('Davon Anzahlungen', 'auf Posten, die noch offen sind', eur(b.teilzahlungen)) : ''}
         ${zeile('Zahlungsquote', 'von ' + eur(b.gefordert) + ' geforderten Strafen', b.quote + ' %')}
         ${zeile('Spenden', 'auf Strafen aufgerundet', eur(b.spenden))}
+        ${spitzenZeilen(zeile)}
         ${zeile('Monatsbeiträge', b.beitraegeOffen > 0
             ? eur(b.beitraegeOffen) + ' noch offen' : 'vollständig eingegangen',
             eur(b.beitraegeBezahlt || 0))}
@@ -7865,6 +8439,77 @@ const KASSE_SICHTEN = {
      oben stimmt in beiden Fällen ohne Nachdenken. */
   umlagen(){
     return kasseStrafenSicht(true);
+  },
+
+  /* FÄLLIG (1.51, Auftrag 46).
+     Alles Überfällige nach Alter – der älteste Posten zuerst, denn auf ihm
+     läuft der Zuschlag nach §20 am längsten. Neben dem, was schon aufgelaufen
+     ist, steht, WANN der nächste Schritt dazukommt: Das ist die Zahl, mit der
+     sich ein Anruf begründen lässt.
+
+     Posten mit aufgehobener Frist stehen bewusst NICHT hier – bei ihnen
+     entsteht gar kein Zuschlag, sie wären nur Lärm in einer Liste, die zum
+     Handeln auffordert. */
+  faellig(){
+    const heute = D.heute;
+    const offen = kasseD().offene.filter(o =>
+      !o.bezahlt && !o.ausgesetzt && !o.frist && o.faellig && o.faellig < heute && o.offen > 0);
+    if (!offen.length){
+      return '<p class="note" style="margin-top:16px">Nichts überfällig. Jeder offene Posten '
+           + 'ist noch innerhalb seiner Frist – oder hat gar keine.</p>';
+    }
+
+    const map = {};
+    offen.forEach(o => {
+      if (!map[o.name]) map[o.name] = { n: o.name, posten: [], offen: 0, zuschlag: 0 };
+      map[o.name].posten.push(o);
+      map[o.name].offen    += o.offen || 0;
+      map[o.name].zuschlag += o.zuschlag || 0;
+    });
+    const l = Object.keys(map).map(k => map[k]);
+    l.forEach(r => r.posten.sort((a, b) => a.faellig < b.faellig ? -1 : 1));
+    // Sortiert nach dem ÄLTESTEN Posten, nicht nach dem Betrag: Hier geht es
+    // um die Dauer, nicht um die Höhe.
+    l.sort((a, b) => a.posten[0].faellig < b.posten[0].faellig ? -1 : 1);
+
+    const summe   = Math.round(l.reduce((s, r) => s + r.offen, 0) * 100) / 100;
+    const zuschl  = Math.round(l.reduce((s, r) => s + r.zuschlag, 0) * 100) / 100;
+
+    const kopf = `<div class="list" style="margin-top:16px">
+      <div class="row"><div><div class="n">Überfällig gesamt</div>
+        <div class="m">${plural(offen.length, 'Posten', 'Posten')} bei ${
+          plural(l.length, 'Kegelbruder', 'Kegelbrüdern')}</div></div>
+        <div class="summe" style="color:var(--warn)">${eur(summe)}</div></div>
+      ${zuschl > 0 ? `<div class="row"><div><div class="n">Davon Zuschlag nach §20</div>
+        <div class="m">aufgelaufen, weil die Frist verstrichen ist</div></div>
+        <div class="v">${eur(zuschl)}</div></div>` : ''}
+    </div>`;
+
+    return '<p class="note" style="margin-top:16px">Der älteste Posten steht oben – auf ihm '
+         + 'läuft der Zuschlag nach §20 am längsten. Aufgehobene Fristen stehen hier nicht, '
+         + 'bei ihnen entsteht kein Zuschlag.</p>'
+         + kopf
+         + '<div style="margin-top:14px">'
+         + l.map(r => `<details class="jahrkarte"><summary>
+             <div class="group-head"><span>${esc(r.n)}</span>
+               <span class="pill open">${eur(r.offen)}</span></div>
+             <div class="teaser"><div class="kein">${esc(
+               'seit ' + plural(tageSeit(r.posten[0].faellig), 'Tag', 'Tagen') + ' überfällig'
+               + (r.zuschlag > 0 ? ' · ' + eur(r.zuschlag) + ' Zuschlag' : ''))}</div></div>
+           </summary><div class="hblock">${r.posten.map(p => {
+             const naechst = naechsterZuschlag(p);
+             const unten = ['fällig am ' + dat(p.faellig),
+               'seit ' + plural(tageSeit(p.faellig), 'Tag', 'Tagen'),
+               p.zuschlag > 0 ? 'darin ' + eur(p.zuschlag) + ' nach §20' : ''
+             ].filter(Boolean).join(' · ');
+             return `<div class="row"><div>
+               <div class="n">${esc(p.quelle || 'Termin')} ${dat(p.datum)}</div>
+               <div class="m">${esc(unten)}</div>
+               ${naechst ? `<div class="m frist">nächster Zuschlag am ${dat(naechst.datum)}${
+                 naechst.satz > 0 ? ' · ' + eur(naechst.satz) : ''}</div>` : ''}</div>
+               <div class="v">${eur(p.offen)}</div></div>`;
+           }).join('')}</div></details>`).join('')
+         + '</div>';
   },
 
   spenden(){
@@ -8182,7 +8827,9 @@ function zeichneKasse(sicht){
      Prüfung stünden dort ab dem Tag der Generalversammlung zwei Reiter, in
      denen "noch nichts erfasst" steht, obwohl die halbe Saison drin ist. */
   const hatPosten = !!(D.kasseDaten && D.kasseDaten.offene);
-  const NUR_LESEN = hatPosten ? ['uebersicht', 'strafen', 'umlagen', 'spenden'] : ['uebersicht'];
+  const NUR_LESEN = hatPosten
+    ? ['uebersicht', 'strafen', 'umlagen', 'spenden', 'faellig']   // "Fällig" ist seit 1.51 dabei
+    : ['uebersicht'];
   document.querySelectorAll('#kasseChips button').forEach(b =>
     b.classList.toggle('hidden', nurBericht && NUR_LESEN.indexOf(b.dataset.kasse) < 0));
   if (nurBericht && NUR_LESEN.indexOf(aktuelleKasseSicht) < 0) aktuelleKasseSicht = 'uebersicht';
