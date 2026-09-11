@@ -34,7 +34,7 @@
 :root, :root[data-app-theme="dark"]{
   --ink:#0E0C10; --surface:#17141B; --surface-2:#211C28; --line:#2E2736;
   --text:#F6F2F5; --muted:#A79FAE;
-  --accent:#DB1E72; --accent-soft:#ECA8C1;
+  --accent:#DB1E72; --accent-soft:#ECA8C1; --accent-weich:rgba(219,30,114,.16);
   --ok:#3FBF8F; --warn:#E8B14A;
   --accent-tint:rgba(219,30,114,.17); --ok-tint:rgba(63,191,143,.15);
   --nav-bg:rgba(14,12,16,.94); --veil:rgba(6,5,7,.93);
@@ -42,7 +42,7 @@
 :root[data-app-theme="light"]{
   --ink:#F7F3F6; --surface:#FFFFFF; --surface-2:#F0E9EE; --line:#E3D8E0;
   --text:#1B141E; --muted:#6B5F71;
-  --accent:#C2185B; --accent-soft:#93103F;
+  --accent:#C2185B; --accent-soft:#93103F; --accent-weich:rgba(194,24,91,.10);
   --ok:#1B7D59; --warn:#8A5D0C;
   --accent-tint:rgba(194,24,91,.10); --ok-tint:rgba(27,125,89,.12);
   --nav-bg:rgba(247,243,246,.95); --veil:rgba(247,243,246,.96);
@@ -51,7 +51,7 @@
   :root[data-app-theme="auto"]{
     --ink:#F7F3F6; --surface:#FFFFFF; --surface-2:#F0E9EE; --line:#E3D8E0;
     --text:#1B141E; --muted:#6B5F71;
-    --accent:#C2185B; --accent-soft:#93103F;
+    --accent:#C2185B; --accent-soft:#93103F; --accent-weich:rgba(194,24,91,.10);
     --ok:#1B7D59; --warn:#8A5D0C;
     --accent-tint:rgba(194,24,91,.10); --ok-tint:rgba(27,125,89,.12);
     --nav-bg:rgba(247,243,246,.95); --veil:rgba(247,243,246,.96);
@@ -593,9 +593,33 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
 .mystats .stat b{font-size:19px;line-height:1.2}
 .mystats .stat .sub{margin-top:3px}
 
-/* Was sich geändert hat – nur bis zur Kenntnisnahme sichtbar */
-.geaendert{position:relative;background:var(--accent-weich,rgba(198,20,101,.09))}
+/* Was sich geändert hat – nur bis zur Kenntnisnahme sichtbar.
+
+   1.48: Die Tönung war in den Statuten und bei den Ämtern NIE zu sehen.
+   "details.para" und "details.amt" setzen selbst einen Hintergrund, und ein
+   Element mit Klasse ist spezifischer als eine Klasse allein – die Regel
+   darunter gewinnt, ganz unabhängig von der Reihenfolge im Stylesheet. Bei den
+   Mitgliedern (.row, gleiche Spezifität, frühere Zeile) ging es deshalb, in
+   den Statuten nicht. Am 11.09.2026 in Chromium am echten Stylesheet gemessen:
+   markierter Paragraph und unmarkierter Paragraph hatten denselben
+   Hintergrund. Beide Fälle stehen jetzt ausdrücklich mit drin. */
+.geaendert,details.para.geaendert,details.amt.geaendert{position:relative;background:var(--accent-weich)}
 .geaendert::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+
+/* Die geänderte Textstelle (1.48). Sie steht im Körper des Eintrags, nicht in
+   der Zeile daneben: Ein Statutentext hat bis zu 1.471 Zeichen – in der
+   Preisspalte wäre das eine Tapete. */
+.aendblock{margin:12px 0 0;border-top:1px solid var(--line);padding-top:10px;
+  display:flex;flex-direction:column;gap:8px}
+.aendblock .was{font-size:12.5px;font-weight:600;color:var(--accent)}
+.aendblock .paar{display:flex;flex-direction:column;gap:2px;font-size:13px;line-height:1.55}
+.aendblock .lbl{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.aendblock .alt{color:var(--muted);text-decoration:line-through}
+/* Das geänderte Wort trägt Volltonfarbe. Der blasse Farbton reichte auf der
+   ohnehin schon getönten Karte nicht – zwei schwache Töne übereinander sind
+   kein Unterschied mehr (am Bildschirmfoto geprüft). */
+.aendblock mark{background:var(--accent);color:#fff;border-radius:3px;padding:0 3px}
+.aendblock .alt mark{background:var(--accent-tint);color:var(--text);padding:0 2px}
 .neupill{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;background:var(--accent);
   color:#fff;font-size:10.5px;font-weight:700;letter-spacing:.04em;vertical-align:middle}
 .aendkarte{border:1px solid var(--accent);border-radius:14px;padding:15px;margin-top:18px;background:var(--surface)}
@@ -1253,6 +1277,12 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    Service Worker, meldete keine neue Fassung und die Hülle würde erst nach
    einem vollständigen Neustart still ausgetauscht. Eine neue Nummer räumt
    das in einem Zug auf. */
+/* 1.48 (11.09.2026): Auftrag 43 – Statuten-Markierung und freie Strafe.
+   Die farbige Markierung nach einer abgeschlossenen Änderungsrunde war in den
+   Statuten und bei den Ämtern unsichtbar (Spezifität, siehe Stylesheet), der
+   Sprung aus der Karte zeichnete den Reiter nicht neu und scrollte nicht, und
+   die geänderte Textstelle war nirgends zu sehen. Dazu der Schalter "Ohne
+   Zahlungsfrist" in der Maske für freie Strafe und Umlage. */
 /* 1.47 (11.09.2026): Auftrag 42 – Startseite. Der WhatsApp-Satz ist raus,
    die Geister-Auswertung auch, das Datum in der Teilnehmerliste ist repariert
    und die Terminkarte neu gebaut.
@@ -1262,7 +1292,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    ist aber bewusst nicht hochgeladen. Zwei verschiedene Dateien unter
    derselben Nummer sind genau der Fehler, der am 08.09.2026 zu kc-v1.38
    geführt hat – deshalb wird 1.45 übersprungen, nicht zweitverwendet. */
-const APP_VERSION = '1.47';
+const APP_VERSION = '1.48';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -2155,16 +2185,103 @@ let aendKeys = null;
 function aendSchluessel(){
   if (aendKeys) return aendKeys;
   aendKeys = {};
+  /* Seit 1.48 liegt hier der ganze Eintrag, nicht nur die Notiz: Ohne Vorher
+     und Nachher lässt sich nicht zeigen, WAS sich geändert hat.
+     Zwei Einträge zum selben Gegenstand fallen auf denselben Schlüssel – dann
+     gilt der LETZTE. Was zuletzt geschah, ist der Stand, den der Kegelbruder
+     vor sich hat. */
   if (aendNeu()) ((aendStand() || {}).neu || []).forEach(e => {
-    aendKeys[aendVergleich(e.bereich) + '|' + aendVergleich(e.betrifft)] = e.was || 'geändert';
+    aendKeys[aendVergleich(e.bereich) + '|' + aendVergleich(e.betrifft)] = {
+      was: e.was || 'geändert', vorher: e.vorher || '', nachher: e.nachher || ''
+    };
   });
   return aendKeys;
 }
+/** Der ganze Protokoll-Eintrag zu diesem Gegenstand – oder null. */
+function aendInfo(bereich, betrifft){
+  return aendSchluessel()[aendVergleich(bereich) + '|' + aendVergleich(betrifft)] || null;
+}
 /** Ist dieser Eintrag Teil der letzten, noch nicht zur Kenntnis genommenen Runde? */
 function istGeaendert(bereich, betrifft){
-  return aendSchluessel()[aendVergleich(bereich) + '|' + aendVergleich(betrifft)] || '';
+  const e = aendInfo(bereich, betrifft);
+  return e ? aendKurz(e.was) : '';
+}
+/* Die Pille trägt seit 1.48 ein KURZES Wort. Bis dahin stand dort die ganze
+   Notiz des Protokolls ("Betrag 1,00 € → 2,00 €; Beschreibung geändert") –
+   als pinke Pille mitten in der Überschrift, gemessen 202 px breit. Die
+   Einzelheiten stehen jetzt im Körper, wo Platz dafür ist. */
+function aendKurz(was){
+  const t = String(was || '').toLowerCase();
+  if (t.indexOf('abgeschafft') >= 0) return 'abgeschafft';
+  if (t.indexOf('umbenannt') >= 0) return 'umbenannt';
+  if (t.indexOf('neu angelegt') >= 0 || t.indexOf('neuer paragraph') >= 0
+      || t.indexOf('neues amt') >= 0 || t.indexOf('aufgenommen') >= 0) return 'neu';
+  if (t.indexOf('neu besetzt') >= 0) return 'neu besetzt';
+  return 'geändert';
 }
 const neuPille = was => was ? `<span class="neupill">${esc(was)}</span>` : '';
+
+/* ------------------------------------------- Die geänderte Textstelle (1.48)
+   WORTWEISE, nicht zeichenweise. Aus "5,00 €" gegen "6,00 €" macht ein
+   Zeichen-Diff ein Buchstabensalat-Bild, aus dem niemand mehr liest, was sich
+   geändert hat. Ein Wort ist die kleinste Einheit, die man noch vorlesen kann. */
+function aendWorte(t){
+  return String(t == null ? '' : t).split(/(\s+)/).filter(x => x !== '');
+}
+/** Längste gemeinsame Wortfolge. Die Texte sind kurz (längster Statutentext
+ *  1.471 Zeichen), deshalb die einfache Tabelle über alt × neu. */
+function aendWortDiff(alt, neu){
+  const a = aendWorte(alt), b = aendWorte(neu);
+  const n = a.length, m = b.length;
+  const tab = [];
+  for (let i = 0; i <= n; i++) tab.push(new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--)
+    for (let j = m - 1; j >= 0; j--)
+      tab[i][j] = a[i] === b[j] ? tab[i+1][j+1] + 1 : Math.max(tab[i+1][j], tab[i][j+1]);
+  const links = [], rechts = [];
+  /* Ein reines Leerzeichen wird nie hervorgehoben – eine pinke Lücke sagt
+     niemandem etwas und zerreist den Satz optisch. */
+  const raus = (arr, w, weg) =>
+    arr.push((weg && !/^\s+$/.test(w)) ? '<mark>' + esc(w) + '</mark>' : esc(w));
+  let i = 0, j = 0;
+  while (i < n && j < m){
+    if (a[i] === b[j]){ raus(links, a[i], false); raus(rechts, b[j], false); i++; j++; }
+    else if (tab[i+1][j] >= tab[i][j+1]){ raus(links, a[i], true); i++; }
+    else { raus(rechts, b[j], true); j++; }
+  }
+  while (i < n){ raus(links, a[i], true); i++; }
+  while (j < m){ raus(rechts, b[j], true); j++; }
+  return { alt: links.join(''), neu: rechts.join('') };
+}
+/**
+ * Der Vergleich im Körper eines geänderten Eintrags.
+ *
+ * Steht nur eine Seite da (neu angelegt, abgeschafft), wird NICHTS
+ * hervorgehoben – es gibt nichts zu vergleichen, und eine Markierung würde
+ * dort eine Aussage vortäuschen.
+ *
+ * Was das Protokoll nicht führt, kann hier auch nicht stehen: Bis Backend 1.44
+ * wurde bei einer Änderung am Wortlaut nur "Beschreibung geändert"
+ * mitgeschrieben, ohne den Text selbst. Für ältere Runden bleibt es deshalb
+ * bei der Notiz ohne Gegenüberstellung.
+ */
+function aendBlock(bereich, betrifft, titel){
+  const e = aendInfo(bereich, betrifft);
+  if (!e) return '';
+  const alt = String(e.vorher || '').trim(), neu = String(e.nachher || '').trim();
+  let paar = '';
+  if (alt && neu){
+    const d = aendWortDiff(alt, neu);
+    paar = `<div class="paar"><span class="lbl">vorher</span><span class="alt">${d.alt}</span></div>
+      <div class="paar"><span class="lbl">jetzt</span><span>${d.neu}</span></div>`;
+  } else if (alt || neu){
+    paar = `<div class="paar"><span class="lbl">${neu ? 'jetzt' : 'vorher'}</span><span${
+      neu ? '' : ' class="alt"'}>${esc(neu || alt)}</span></div>`;
+  }
+  return `<div class="aendblock">
+    <div class="was">${titel ? esc(titel) + ' · ' : ''}${esc(e.was || 'geändert')}</div>
+    ${paar}</div>`;
+}
 
 function aendKarte(){
   if (!aendNeu()) return '';
@@ -2207,6 +2324,32 @@ function aendAnsehen(bereich){
   if (bereich === 'Mitglieder'){
     const m = document.querySelector('#vereinSeg button[data-mode="leute"]'); if (m) m.click();
   }
+  /* ERZWUNGEN neu zeichnen (1.48). Der Klick auf den Reiter zeichnet nur, wenn
+     der Reiter als überholt vermerkt ist. Wer die Statuten in dieser Sitzung
+     schon einmal offen hatte, sah sonst das alte HTML – ohne "open", ohne
+     Markierung. */
+  reiterZeichnen(ziel, true);
+  aendHinspringen(ziel);
+}
+
+/**
+ * Zum ersten markierten Eintrag scrollen.
+ *
+ * Ohne das steht der Kegelbruder oben bei §1 und sucht selbst; bei 40
+ * Paragraphen ist das genau der Griff, den die Karte ihm abnehmen soll. Der
+ * kurze Aufschub ist nötig, weil der Reiterwechsel selbst nach oben scrollt –
+ * wir dürfen erst danach zielen.
+ */
+function aendHinspringen(reiter){
+  setTimeout(() => {
+    const box = $('tab-' + reiter);
+    if (!box) return;
+    const erste = box.querySelector('.geaendert');
+    if (!erste) return;
+    if (erste.tagName === 'DETAILS') erste.open = true;
+    try { erste.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+    catch (e) { erste.scrollIntoView(); }
+  }, 80);
 }
 
 /* -------------------------------------------------------------- Start */
@@ -3062,6 +3205,8 @@ function zeichneStatuten(rows){
         + (s.items || []).map(i =>
         `<div>${esc(i.t)}${neuPille(istGeaendert('Statuten', i.t))}<span>${
           istDurchmesser(i.b) ? DURCHMESSER_SVG : esc(preisText(i.b))}</span></div>`).join('')}</div>` : ''}
+      ${aendBlock('Statuten', s.t, '')}${(s.items || []).map(i =>
+        aendBlock('Statuten', i.t, i.t)).join('')}
     </div></details>`;
   }).join('');
 }
@@ -3207,6 +3352,7 @@ function zeichneWarte(){
           ? wer.map((w,i) => `<span class="${i===0?'first':''}"${traegt(a.amt,i) ? ' title="Trägt einen Orden oder eine Medaille"' : ''}>${traegt(a.amt,i) ? ORDEN_SVG : ''}${esc(w)}</span>`).join('')
           : '<span>nicht besetzt</span>'}</div>
         ${a.d ? `<p>${esc(a.d)}</p>` : ''}
+        ${aendBlock('Ämter', a.amt, '')}
       </div></details>`;
   }).join('');
 }
@@ -3219,7 +3365,8 @@ function zeichneMitglieder(){
     ae.sort((x, y) => x.pos - y.pos);
     const marke = istGeaendert('Mitglieder', m.name);
     return `<div class="row${marke ? ' geaendert' : ''}"><div><div class="n">${esc(m.name)}${neuPille(marke)}</div>
-      <div class="m">${ae.length ? ae.map(x => esc(x.pos + '. ' + x.amt)).join(' · ') : 'Kegelbruder'}</div></div></div>`;
+      <div class="m">${ae.length ? ae.map(x => esc(x.pos + '. ' + x.amt)).join(' · ') : 'Kegelbruder'}</div>
+      ${aendBlock('Mitglieder', m.name, '')}</div></div>`;
   }).join('');
 }
 /* Wer Termine pflegen darf, entscheidet allein das Backend (1. und 2. Kegelvater
@@ -5590,12 +5737,28 @@ let fsAbweichend = false;       // Betrag von Hand statt aus den Statuten
 let fsBetragText = '';
 let fsBezeichnung = '';
 let fsDatum = '';
+/* OHNE ZAHLUNGSFRIST (1.48, Wunsch Johannes vom 11.09.2026).
+   "Frist aufheben" gibt es seit 1.24 in der Kasse: Es streicht die Fälligkeit
+   ganz, es setzt kein neues Datum, und der Posten bleibt mit Marke in der
+   Liste stehen. Hier wird nur der ZEITPUNKT der Entscheidung vorgezogen – die
+   Bedeutung bleibt dieselbe, und es entsteht KEIN zweiter Weg im Backend. */
+let fsOhneFrist = false;
 let fsBezug = '';
 let fsSuche = '';
 let fsPosten = null;            // gewählter offener Posten für die Korrektur
 let fsLaedt = false;
 let fsFehlerText = '';
 
+/* Wer die Frist aufheben darf: dieselbe Regel, die postenSetzen im Backend
+   anwendet (Kassenwart ODER wer erfassen darf – darin steckt auch der
+   2. Schriftführer, solange die Freigabe "Erfassung" gesetzt ist). Der
+   Schalter gibt also niemandem eine Befugnis, die er nicht ohnehin hätte;
+   solange das Backend älter als 1.45 ist und nichts dazu sagt, entscheidet
+   dieselbe Regel hier. */
+function fsDarfFrist(){
+  if (!FS || fsSicht === 'korrektur') return false;
+  return FS.darfFrist !== undefined ? !!FS.darfFrist : (darfErfassen() || darfKasseAendern());
+}
 function darfKorrektur(){
   return !!(D && D.ich && (D.ich.darfKorrektur !== undefined ? D.ich.darfKorrektur
                                                              : D.ich.darfErfassen));
@@ -5628,6 +5791,10 @@ function fsStrafartText(){
 function fsZuruecksetzen(){
   fsSchritt = 'form'; fsStrafart = ''; fsEigene = false; fsAnzahl = 1;
   fsAbweichend = false; fsBetragText = ''; fsBezeichnung = ''; fsBezug = '';
+  /* Bewusst zurück auf "mit Frist": Die Entscheidung gehört zum einzelnen
+     Posten. Würde der Schalter stehen bleiben, liefe die nächste Buchung
+     stillschweigend ohne Fälligkeit – und genau das fällt niemandem auf. */
+  fsOhneFrist = false;
   fsSuche = ''; fsPosten = null; fsFehlerText = '';
   fsDatum = (FS && FS.heute) || (D && D.heute) || '';
   /* Neue Kennung für den nächsten Vorgang. Sie bleibt so lange dieselbe, bis
@@ -5847,9 +6014,24 @@ function fsStrafeZeichnen(){
       <div class="eyebrow" style="margin-bottom:10px">Datum</div>
       <input class="search" type="date" id="fsDatumFeld" value="${esc(fsDatum)}"
              min="${esc(FS.grenze)}" max="${esc(FS.heute)}" aria-label="Datum">
-      <p class="note" style="margin-top:8px">${istUml ? 'Wann die Umlage angefallen ist.' : 'Wann die Strafe angefallen ist.'} Bezahlt sein muss sie
-        bis zum nächsten Kegelabend${FS.faellig ? ' – das ist der ' + dat(FS.faellig) : ''}.</p>
+      <p class="note" style="margin-top:8px">${istUml ? 'Wann die Umlage angefallen ist.' : 'Wann die Strafe angefallen ist.'} ${
+        fsOhneFrist ? 'Eine Fälligkeit wird nicht gesetzt.' : 'Bezahlt sein muss sie bis zum nächsten Kegelabend'
+        + (FS.faellig ? ' – das ist der ' + dat(FS.faellig) : '') + '.'}</p>
     </div>
+
+    ${fsDarfFrist() ? `
+    <div class="list" style="margin-top:18px"><div class="row">
+      <div><div class="n">Ohne Zahlungsfrist</div>
+        <div class="m">${fsOhneFrist
+          ? 'Keine Fälligkeit – der Verspätungszuschlag nach §20 entsteht nicht'
+          : 'Fällig wie üblich zum nächsten Kegelabend'}</div></div>
+      <button class="switch" role="switch" id="fsFrist" aria-checked="${fsOhneFrist}"
+              aria-label="Ohne Zahlungsfrist"></button>
+    </div></div>
+    <p class="note" style="margin-top:8px">Dasselbe wie "Frist aufheben" in der Kasse, nur schon
+      hier entschieden. Der Posten bleibt sichtbar und bleibt offen – er hat nur kein
+      Fälligkeitsdatum.${fsMaenner.length > 1 ? ' Gilt für alle '
+      + fsMaenner.length + ' Gewählten.' : ''}</p>` : ''}
 
     <div style="margin-top:18px">
       <div class="eyebrow" style="margin-bottom:10px">Bezug oder Notiz</div>
@@ -5859,7 +6041,8 @@ function fsStrafeZeichnen(){
 
     <div class="list" style="margin-top:18px"><div class="row">
       <div><div class="n">${fsMaenner.length ? esc(fsMaennerText()) : 'Noch kein Kegelbruder'}</div>
-        <div class="m">${fsStrafartText() ? esc(fsStrafartText()) : 'noch keine Strafart'}${fsDatum ? ' · ' + dat(fsDatum) : ''}</div></div>
+        <div class="m">${fsStrafartText() ? esc(fsStrafartText()) : 'noch keine Strafart'}${fsDatum ? ' · ' + dat(fsDatum) : ''}${
+          fsOhneFrist ? ' · ohne Frist' : ''}</div></div>
       <div class="summe">${betrag > 0
         ? (fsMaenner.length > 1 ? eur(betrag * fsMaenner.length) : eur(betrag))
         : '–'}</div></div></div>
@@ -5910,6 +6093,11 @@ function fsStrafeZeichnen(){
       const p = fsPreisVon(fsStrafart) * fsAnzahl;
       fsBetragText = p > 0 ? p.toFixed(2).replace('.', ',') : '';
     }
+    fsZeichnen();
+  });
+  if ($('fsFrist')) $('fsFrist').addEventListener('click', () => {
+    fsFelderSichern();
+    fsOhneFrist = !fsOhneFrist;
     fsZeichnen();
   });
   $('fsSpeichern').addEventListener('click', () => fsSenden($('fsSpeichern')));
@@ -6115,6 +6303,21 @@ function fsPostenZeichnen(){
     }));
 }
 
+/* Sagt die Wahrheit über die Frist, statt sie zu versprechen.
+   Ist der Schalter gesetzt und das Backend hat ihn umgesetzt, steht es da. Hat
+   ein älteres Backend den Schalter übergangen, steht es AUCH da – sonst hält
+   der Schriftführer einen Posten für fristlos, der in vier Wochen den
+   Zuschlag nach §20 bekommt. */
+function fsFristNachsatz(ergebnisse){
+  if (!fsOhneFrist) return '';
+  const liste = (ergebnisse || []).filter(x => x && !x.fehler);
+  if (!liste.length) return '';
+  const ohne = liste.filter(x => x.ohneFrist === true).length;
+  if (ohne === liste.length) return ' · ohne Zahlungsfrist';
+  if (!ohne) return ' · ACHTUNG: mit Frist gebucht, das Backend ist noch älter als 1.45';
+  return ' · ' + ohne + ' von ' + liste.length + ' ohne Zahlungsfrist';
+}
+
 /* -------------------------------------------------------- Senden */
 
 async function fsSenden(knopf){
@@ -6154,6 +6357,10 @@ async function fsSenden(knopf){
         ({ id: fsKennung + (i ? '#' + i : ''), modus: umlage ? 'umlage' : 'strafe',
            datum: fsDatum, name: n,
            strafart: fsStrafartText(), anzahl: umlage ? 1 : fsAnzahl, bezug: fsBezug.trim(),
+           /* Kennt das Backend den Schalter nicht (älter als 1.45), bucht es wie
+              bisher MIT Frist – derselbe Rückfall-Gedanke wie bei
+              freiStrafeBuchenViele. Die App sagt es dann hinterher. */
+           ohneFrist: fsOhneFrist && fsDarfFrist(),
            betrag: (umlage || fsEigene || fsAbweichend) ? num(fsBetragText) : '' }));
   const mehrere = eintraege.length > 1;
 
@@ -6196,7 +6403,8 @@ async function fsSenden(knopf){
                + schlecht.map(x => x.name || '?').join(', ') + ' – ' + schlecht[0].fehler);
       } else {
         hinweisleiste(plural(gut, umlage ? 'Umlage' : 'Strafe', umlage ? 'Umlagen' : 'Strafen')
-                    + ' eingetragen · ' + eur(r.summe || 0) + ' zusammen.');
+                    + ' eingetragen · ' + eur(r.summe || 0) + ' zusammen'
+                    + fsFristNachsatz(r.ergebnisse) + '.');
       }
       if (schlecht.length){ fsLaden(); aktualisieren(true); return; }
     }
@@ -6206,7 +6414,8 @@ async function fsSenden(knopf){
         ? 'Korrektur gebucht – der Posten ist damit erledigt.'
         : 'Korrektur gebucht – offen bleiben ' + eur(r.offen) + '.');
     } else {
-      hinweisleiste(eintraege[0].name + ': ' + eur(r.betrag) + ' eingetragen.');
+      hinweisleiste(eintraege[0].name + ': ' + eur(r.betrag) + ' eingetragen'
+                  + fsFristNachsatz([r]) + '.');
     }
     if (r.warnung) setTimeout(() => hinweisleiste(r.warnung, 'warn'), LEISTE_DAUER + 200);
     const maenner = fsMaenner.slice();
