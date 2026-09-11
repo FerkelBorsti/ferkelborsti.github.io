@@ -357,6 +357,11 @@ svg.orden.big{width:19px;height:19px}
 .tag.ja{color:var(--ok);border-color:var(--ok)}
 .tag.wartet{color:var(--warn);border-color:var(--warn)}
 .tag.alk{color:var(--accent);border-color:var(--accent)}
+/* "kommt spaeter, 18:45" (1.49). Gelb heisst in der ganzen App "eine Frist" –
+   deshalb traegt die Marke die Warnfarbe NICHT, sie ist ein Hinweis und keine
+   Frist; sie steht in derselben Farbe wie "dabei", nur gestrichelt, weil die
+   Zusage eingeschraenkt ist. */
+.tag.spaet{color:var(--ok);border-color:var(--ok);border-style:dashed}
 
 /* --- Die Terminkarte (1.47) ---
    Festgelegt am 11.09.2026: ein abgesetzter Kopf mit dem vollen Datum, darunter
@@ -1085,6 +1090,19 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
     </div>
   </div>
 
+  <!-- ICH KOMME SPÄTER: die Verspätung nach §3 (1.49) -->
+  <div class="sheet hidden" id="spaetSheet" role="dialog" aria-label="Ich komme später">
+    <div class="sheet-in">
+      <div class="sheet-head">
+        <h2 id="spaetTitel">Ich komme später</h2>
+        <button class="iconbtn" id="spaetSchliessen" aria-label="Schließen">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div id="spaetBody"></div>
+    </div>
+  </div>
+
   <!-- EINSTELLUNGEN -->
   <!-- JAHRESABSCHLUSS: DER EINE BILDSCHIRM -->
   <div class="sheet hidden" id="abschluss" role="dialog" aria-label="Kegeljahr abschließen">
@@ -1292,7 +1310,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    ist aber bewusst nicht hochgeladen. Zwei verschiedene Dateien unter
    derselben Nummer sind genau der Fehler, der am 08.09.2026 zu kc-v1.38
    geführt hat – deshalb wird 1.45 übersprungen, nicht zweitverwendet. */
-const APP_VERSION = '1.48';
+const APP_VERSION = '1.49';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -2441,15 +2459,23 @@ function zeichneStart(){
 
    1.47: Der Satz "Abmelden geht vorerst weiter ueber WhatsApp" ist ersatzlos
    gestrichen. Ab- und angemeldet wird ausschliesslich in der App. */
-function abmeldeFuss(t){
+function abmeldeFuss(t, s){
   const strafe = betragText('§2');
   const heute  = t.datum === D.heute;
   const vorbei = heute && fristVorbei(t.beginn);
+  /* §3 haengt an derselben Frist. Solange sie laeuft, steht sie fuer beides;
+     ist sie durch, gehoert hierhin der Satz fuer die UNANGEMELDETE Verspaetung
+     – das ist ab diesem Moment der einzige, den es noch gibt. */
+  const unText = verspSatzText(s, false);
   const kern = vorbei
-    ? `Die Abmeldefrist ist verstrichen – eine Abmeldung kostet jetzt ${
-        strafe ? esc(strafe) : 'den Zuschlag'} nach §2.`
-    : `Abmeldung bis <b>${esc(uhrMinus(t.beginn))} Uhr</b>${
-        strafe ? ' – danach ' + esc(strafe) + ' nach §2' : ' nach §2'}.`;
+    ? `Die ${unText ? 'Frist' : 'Abmeldefrist'} ist verstrichen – eine Abmeldung kostet jetzt ${
+        strafe ? esc(strafe) : 'den Zuschlag'} nach §2${
+        unText ? `, eine unangemeldete Verspätung <b>${esc(unText)}</b> nach §3` : ''}.`
+    /* Ohne §3 im Backend bleibt es beim Wortlaut bis 1.48 – sonst stuende dort
+       "Abmeldung und Verspaetung", ohne dass es einen Knopf dafuer gibt. */
+    : `${unText ? 'Abmeldung und Verspätung' : 'Abmeldung'} bis <b>${esc(uhrMinus(t.beginn))} Uhr</b>${
+        strafe ? ' – danach ' + esc(strafe) + ' nach §2' : ' nach §2'}${
+        unText ? ' oder ' + esc(unText) + ' nach §3' : ''}.`;
   return `<div class="deadline kartenfuss${heute ? ' frist' : ''}">${kern}</div>`;
 }
 
@@ -4133,7 +4159,7 @@ $('tabs').addEventListener('click', e => {
    bleibt hängen und man landet nach dem Schließen an einer anderen Stelle. */
 let gemerkteHoehe = 0;
 function ebenenOffen(){
-  return ['settings', 'verwaltung', 'stamm', 'stammForm', 'stammFrage', 'terminSheet', 'rmListe', 'erfassung', 'freistrafe', 'abschluss', 'absForm', 'lightbox', 'tour']
+  return ['settings', 'verwaltung', 'stamm', 'stammForm', 'stammFrage', 'terminSheet', 'rmListe', 'spaetSheet', 'erfassung', 'freistrafe', 'abschluss', 'absForm', 'lightbox', 'tour']
     .some(id => $(id) && !$(id).classList.contains('hidden'));
 }
 function hintergrundPruefen(){
@@ -4186,7 +4212,7 @@ document.addEventListener('keydown', e => {
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  ebene('rmListe', false);
+  ebene('rmListe', false); ebene('spaetSheet', false);
   ebene('lightbox', false); ebene('stammFrage', false); ebene('stammForm', false);
   ebene('stamm', false); ebene('verwaltung', false); ebene('settings', false);
   ebene('freistrafe', false); ebene('absForm', false); ebene('abschluss', false);
@@ -4215,6 +4241,101 @@ function rmStand(datum){
   const r = rmDaten();
   if (!r || !r.termine) return null;
   return r.termine.filter(t => t.datum === datum)[0] || null;
+}
+
+/* ======================================== Verspaetung nach §3 (1.49)
+
+   §3: "Wenn ein Kegelbruder am Kegelabend erst spaeter erscheinen kann, so hat
+   er dies EBENFALLS in der WhatsApp-Gruppe bis spaetestens eine Stunde vor
+   Beginn mitzuteilen." Dieselbe Frist wie die Abmeldung, derselbe Weg – und
+   seit die Abmeldung nur noch ueber die App laeuft, muss die Verspaetung es
+   auch, sonst gibt es fuer den guenstigeren Satz keinen Beleg mehr.
+
+   Die Saetze RECHNET DIE APP NICHT SELBST AUS den Statuten: Satz,
+   Schrittweite, Startzeit und Deckel kommen fertig im Stand mit (s.versp), das
+   Backend liest sie aus den beiden Unterzeilen des §3. Fehlt s.versp, ist das
+   Backend aelter als 1.46 – dann erscheint der Knopf gar nicht, und niemand
+   meldet etwas, das nirgends ankommt. */
+
+function uhrMinuten(hhmm){
+  const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  return (+m[1]) * 60 + (+m[2]);
+}
+
+function minutenUhr(min){
+  if (min === null || min === undefined || !isFinite(min)) return '';
+  const m = Math.max(0, Math.min(24 * 60 - 1, Math.round(min)));
+  return (m / 60 | 0) + ':' + ('0' + (m % 60)).slice(-2);
+}
+
+/* Gezaehlt wird jede ANGEFANGENE Einheit (Johannes, 11.09.2026): 18:20 ist
+   eine angefangene halbe Stunde ab 18:15 und kostet 1,50 €, 18:50 sind zwei
+   und kosten 3,00 €. Genau zur Startzeit kostet es nichts – die Viertelstunde
+   ist dann erreicht, aber keine weitere Einheit angefangen.
+
+   Dieselbe Rechnung steht im Backend (rmVerspBetrag). Sie ist hier ein zweites
+   Mal, weil die App den Betrag zeigen muss, waehrend jemand noch an der
+   Uhrzeit dreht – verbindlich ist die des Backends. */
+function verspBetrag(s, hhmm, angemeldet){
+  const v = s && s.versp;
+  if (!v) return 0;
+  const teil = angemeldet ? v.an : v.un;
+  if (!teil) return 0;
+  const start = uhrMinuten(teil.start), an = uhrMinuten(hhmm);
+  if (start === null || an === null) return 0;
+  const diff = an - start;
+  if (diff <= 0) return 0;
+  let b = Math.ceil(diff / Math.max(1, Number(teil.schritt) || 1)) * (Number(teil.satz) || 0);
+  const deckel = Number(teil.deckel) || 0;
+  if (deckel > 0 && b > deckel) b = deckel;
+  return Math.round(b * 100) / 100;
+}
+
+/* "0,75 € je 5 Minuten, hoechstens 15,00 €" – aus denselben Werten gebaut,
+   damit in der App kein Betrag im Text mitgeschrieben steht. */
+function verspSatzText(s, angemeldet){
+  const v = s && s.versp;
+  const teil = v && (angemeldet ? v.an : v.un);
+  if (!teil || !teil.satz) return '';
+  let t = eur(teil.satz) + ' je ' + plural(Number(teil.schritt) || 0, 'Minute', 'Minuten');
+  if (angemeldet && teil.start) t += ' ab ' + teil.start + ' Uhr';
+  if (!angemeldet && Number(teil.deckel) > 0) t += ', höchstens ' + eur(teil.deckel);
+  return t;
+}
+
+/* Ist die §3-Frist fuer diesen Termin durch? Zwei Quellen, beide noetig:
+   Das Backend hat die Frist beim Abruf gerechnet (s.fristVorbei) – das kann
+   eine halbe Stunde alt sein. Die Geraeteuhr rechnet live, kennt aber nur die
+   Anfangszeit. Wer spaeter trotzdem tippt, wird vom Backend abgewiesen. */
+function spaetFristWeg(t, s){
+  if (!s) return true;
+  if (s.fristVorbei) return true;
+  return t.datum === D.heute && fristVorbei(t.beginn);
+}
+
+/* Laeuft die App auf einem Backend, das aelter als 1.46 ist, traegt dasselbe
+   Feld "spaet" noch einen WAHRHEITSWERT (die zu spaete Abmeldung nach §2). Ohne
+   diese Pruefung stuende in der Liste "kommt spaeter, true". Deshalb geht jeder
+   Zugriff auf die Ankunftszeit durch diesen Filter: Uhrzeit oder nichts. */
+function spaetZeit(e){
+  const t = (e && typeof e.spaet === 'string') ? e.spaet : '';
+  return uhrMinuten(t) !== null ? t : '';
+}
+
+/* Umgekehrt: die zu spaete ABMELDUNG. Neu heisst sie spaetAbmeldung, auf einem
+   aelteren Backend steht sie als spaet === true. */
+function spaetAbmeldung(e){
+  if (!e) return false;
+  if (e.spaetAbmeldung !== undefined) return !!e.spaetAbmeldung;
+  return e.spaet === true;
+}
+
+function darfSpaetMelden(t, s, ich){
+  if (!s || !s.versp || !s.kegelabend) return false;
+  if (s.eingefroren) return false;
+  if ((ich || {}).stand !== 'zu') return false;
+  return !spaetFristWeg(t, s);
 }
 
 /* =========================================== Die Terminkarte (1.47)
@@ -4295,7 +4416,7 @@ function rmKoerper(t){
   const s = rmStand(t.datum);
   /* Kein Stand da – altes Backend oder das Modul ist ausgefallen. Dann bleibt
      es beim Verhalten bis 1.43: der Hinweis auf die Frist, sonst nichts. */
-  if (!s) return (t.art === 'Kegelabend' ? abmeldeFuss(t) : '') + erfassen;
+  if (!s) return (t.art === 'Kegelabend' ? abmeldeFuss(t, null) : '') + erfassen;
   if (s.modus === 'keine') return erfassen;
 
   const ich = s.ich || {};
@@ -4306,7 +4427,16 @@ function rmKoerper(t){
   // --- Der eigene Stand in einem Satz. Groesser als der Rest der Karte.
   let h = '<div class="rmstand ' + (zu ? 'ja' : beantragt ? 'wartet' : 'nein') + '">'
      + (s.kegelabend
-        ? (zu ? 'Du bist dabei.' : 'Du hast dich abgemeldet.')
+        ? (zu ? (spaetZeit(ich)
+                 /* Der Betrag gehoert in denselben Satz: Nach Fristablauf steht in
+                    der Fusszeile der Satz fuer die UNANGEMELDETE Verspaetung, und
+                    wer rechtzeitig gemeldet hat, soll ihn nicht auf sich beziehen. */
+                 ? 'Du kommst später – ' + esc(spaetZeit(ich)) + ' Uhr'
+                   + (Number(ich.spaetBetrag) > 0
+                      ? ' (' + eur(ich.spaetBetrag) + ' nach §3).'
+                      : (ich.spaetRechtzeitig === false ? ' (nach Fristablauf gemeldet).' : '.'))
+                 : 'Du bist dabei.')
+              : 'Du hast dich abgemeldet.')
         : beantragt ? 'Deine Zusage liegt beim Kegelvater.'
         : abgelehnt ? 'Deine späte Zusage wurde abgelehnt.'
         : zu ? 'Du bist angemeldet.'
@@ -4330,12 +4460,21 @@ function rmKoerper(t){
     const beschriftung = zu
       ? ('Ich kann nicht' + (preis ? ' – ' + preis + ' nach §2' : ''))
       : 'Doch dabei';
-    /* Die Reihe ist ein Raster. Heute steht ein Knopf darin; mit Auftrag 44
-       kommt die angemeldete Verspaetung nach §3 daneben, ohne Umbau. */
-    h += '<div class="tkbtn">'
+    /* Die Reihe ist ein Raster. Seit 1.49 steht die angemeldete Verspaetung
+       nach §3 daneben – aber nur, solange die Frist laeuft und nur fuer den,
+       der dabei ist. Ist sie durch, sagt die Fusszeile, was eine unangemeldete
+       Verspaetung kostet; ein Knopf, der dann noch "anmelden" anbietet, waere
+       eine Falle. */
+    const kannSpaet = darfSpaetMelden(t, s, ich);
+    h += '<div class="tkbtn' + (kannSpaet ? ' zwei' : '') + '">'
        + '<button class="btn' + (zu ? ' ghost' : '') + '" data-rm-antwort="'
        + (zu ? 'ab' : 'zu') + '" data-rm-datum="' + esc(t.datum) + '">'
-       + esc(beschriftung) + '</button></div>';
+       + esc(beschriftung) + '</button>'
+       + (kannSpaet
+          ? '<button class="btn ghost" data-rm-spaet="' + esc(t.datum) + '">'
+            + (spaetZeit(ich) ? 'Verspätung ändern' : 'Ich komme später') + '</button>'
+          : '')
+       + '</div>';
   } else {
     /* Zwei gleichwertige Knoepfe. Hervorgehoben ist ausschliesslich die
        Antwort, die WIRKLICH gegeben wurde – wer noch nicht geantwortet hat,
@@ -4373,7 +4512,7 @@ function rmKoerper(t){
   h += erfassen;
 
   // --- Die Frist als Fusszeile
-  h += s.kegelabend ? abmeldeFuss(t) : rmSchlussFuss(s);
+  h += s.kegelabend ? abmeldeFuss(t, s) : rmSchlussFuss(s);
 
   return h;
 }
@@ -4404,7 +4543,11 @@ function rmZaehlZeile(s, datum){
   const z = s.zaehler || {};
   let text;
   if (s.kegelabend){
-    text = (z.zu || 0) + ' dabei · ' + (z.ab || 0) + ' abgemeldet';
+    /* Die Verspaeteten sind in "dabei" mitgezaehlt – die dritte Zahl addiert
+       sich also nicht dazu, sondern sagt, wie viele der Dabeien spaeter
+       kommen. Sie steht nur da, wenn es wirklich jemanden gibt. */
+    text = (z.zu || 0) + ' dabei · ' + (z.ab || 0) + ' abgemeldet'
+         + (z.spaet ? ' · ' + z.spaet + ' später' : '');
   } else if (s.fristVorbei){
     text = (z.zu || 0) + ' Teilnehmer · ' + (z.ab || 0) + ' nicht dabei'
          + (z.beantragt ? ' · ' + z.beantragt + ' beantragt' : '');
@@ -4477,7 +4620,18 @@ function rmListeOeffnen(datum){
       const wann = zeitpunktText(e.zeit);
       if (wann) zusatz.push(wann);
     }
-    if (e.spaet) zusatz.push('nach Fristablauf');
+    /* ACHTUNG, zwei verschiedene Dinge heissen fast gleich: "e.spaetAbmeldung"
+       (1.49) ist die zu spaete ABMELDUNG nach §2, "e.spaet" die gemeldete
+       Ankunftszeit nach §3. Bis 1.48 hiess die Abmeldung selbst "spaet"; seit
+       die Verspaetung dazugekommen ist, braucht sie einen eigenen Namen. */
+    if (spaetAbmeldung(e)) zusatz.push('nach Fristablauf');
+    if (spaetZeit(e)){
+      zusatz.push(e.spaetRechtzeitig === false
+        ? 'Verspätung erst nach Fristablauf gemeldet'
+        : 'Verspätung angemeldet'
+          + (zeitpunktText(e.spaetGemeldet) ? ' am ' + zeitpunktText(e.spaetGemeldet) : ''));
+      if (Number(e.spaetBetrag) > 0) zusatz.push(eur(e.spaetBetrag) + ' nach §3');
+    }
     if (e.erfasser && e.erfasser !== e.name) zusatz.push('eingetragen von ' + e.erfasser);
     return `<div class="row rmrow">
       <div class="n"><b>${esc(e.name)}</b>
@@ -4486,7 +4640,8 @@ function rmListeOeffnen(datum){
       <div class="rmtags">
         ${s.kegelabend && e.stand === 'zu'
           ? `<span class="tag ${e.alkohol ? 'alk' : ''}">${e.alkohol ? 'Alkohol' : 'ohne'}</span>` : ''}
-        <span class="tag ${marke}">${esc(wort)}</span>
+        ${spaetZeit(e) ? `<span class="tag spaet">kommt später, ${esc(spaetZeit(e))}</span>`
+                       : `<span class="tag ${marke}">${esc(wort)}</span>`}
       </div></div>`;
   };
 
@@ -4508,10 +4663,147 @@ function rmListeOeffnen(datum){
 
 function rmZaehlText(s){
   const z = s.zaehler || {};
-  if (s.kegelabend) return z.zu + ' dabei, ' + z.ab + ' abgemeldet.';
+  if (s.kegelabend) return z.zu + ' dabei, ' + z.ab + ' abgemeldet'
+    + (z.spaet ? ', davon ' + plural(z.spaet, 'kommt später', 'kommen später') : '') + '.';
   return s.fristVorbei
     ? z.zu + ' Teilnehmer, ' + z.ab + ' nicht dabei.'
     : z.zu + ' angemeldet, ' + z.ab + ' abgesagt, ' + z.offen + ' ohne Rückmeldung.';
+}
+
+/* ------------------------------------------- Die Maske "Ich komme spaeter"
+
+   Drei Wege zur Uhrzeit, weil niemand auf der Kegelbahn tippen will: die
+   haeufigen Zeiten als Chips, ein Zeitfeld fuer alles andere – und der Betrag
+   steht sofort daneben. Wer sieht, was es kostet, bevor er tippt, meldet es
+   auch dann, wenn es teurer wird. */
+
+let spaetDatum = '';
+let spaetWahl  = '';
+
+function spaetOeffnen(datum){
+  const s = rmStand(datum);
+  if (!s || !s.versp) return;
+  spaetDatum = datum;
+  spaetWahl  = spaetZeit(s.ich);
+  spaetZeichnen();
+  ebene('spaetSheet', true);
+  $('spaetSheet').scrollTop = 0;
+}
+
+/* Die Vorschlaege: der Beginn in Schritten der angemeldeten Einheit. Bei
+   Beginn 18:00 und halben Stunden sind das 18:30, 19:00, 19:30, 20:00 – genau
+   die Zeiten, zu denen jemand "nach dem Essen" oder "nach der Spaetschicht"
+   kommt. Die Stufe selbst beginnt schon um 18:15; eine Ankunft um 18:20 kostet
+   dasselbe wie eine um 18:45, deshalb stehen die runden Zeiten da. */
+function spaetChips(s){
+  /* Der Beginn steckt schon im Stand: Die unangemeldete Verspaetung zaehlt ab
+     ihm. Damit braucht diese Maske die Terminliste nicht und stimmt auch dann,
+     wenn ein Abend verlegt wurde. */
+  const beginn = uhrMinuten(s.versp.un.start);
+  const schritt = Math.max(5, Number(s.versp.an.schritt) || 30);
+  if (beginn === null) return [];
+  const out = [];
+  for (let i = 1; i <= 4; i++) out.push(minutenUhr(beginn + i * schritt));
+  return out;
+}
+
+/* Die Frist als reine Uhrzeit – gerechnet hat sie das Backend (s.frist). */
+function spaetFristUhr(s){
+  const m = String((s && s.frist) || '').match(/T(\d{2}:\d{2})$/);
+  return m ? m[1] : '';
+}
+
+function spaetZeichnen(){
+  const s = rmStand(spaetDatum);
+  if (!s || !s.versp){ ebene('spaetSheet', false); return; }
+  const schon = spaetZeit(s.ich);
+  const fristUhr = spaetFristUhr(s);
+  const chips = spaetChips(s);
+  const betrag = spaetWahl ? verspBetrag(s, spaetWahl, true) : null;
+
+  $('spaetTitel').textContent = schon ? 'Verspätung ändern' : 'Ich komme später';
+
+  let h = `<p class="note">§3 behandelt die Verspätung wie die Abmeldung: Sie gehört
+      <b>${fristUhr ? 'bis ' + esc(fristUhr) + ' Uhr' : 'bis eine Stunde vor Beginn'}</b> gemeldet.
+      Dann kostet sie
+      ${esc(verspSatzText(s, true) || 'den Satz nach §3')}.
+      Nach Ablauf der Frist lässt sie sich nicht nachmelden – wer dann später kommt,
+      zahlt ${esc(verspSatzText(s, false) || 'den höheren Satz')}.</p>
+
+    <div class="chips" style="margin-top:16px" role="group" aria-label="Ankunftszeit">
+      ${chips.map(c => `<button type="button" data-spaet-chip="${esc(c)}"
+        aria-pressed="${spaetWahl === c}">${esc(c)} Uhr</button>`).join('')}
+    </div>
+
+    <p class="note" style="margin:16px 0 6px">Oder eine andere Uhrzeit:</p>
+    <input class="search" type="time" id="spaetFeld" value="${esc(spaetWahl)}"
+      aria-label="Ankunftszeit">`;
+
+  if (spaetWahl){
+    h += `<div class="list" style="margin-top:18px">
+        <div class="row"><div><div class="n">Ankunft ${esc(spaetWahl)} Uhr</div>
+          <div class="m">${esc(verspSatzText(s, true))}</div></div>
+          <div class="v">${eur(betrag)}</div></div>
+      </div>`;
+    if (!betrag){
+      h += `<p class="note" style="margin-top:8px">Bis
+        ${esc(s.versp.an.start)} Uhr kostet es nichts – erst danach beginnt die erste Stufe von
+        ${esc(plural(Number(s.versp.an.schritt) || 30, 'Minute', 'Minuten'))}.
+        Gemeldet wird es trotzdem: Der Schriftführer weiß dann, auf wen er wartet.</p>`;
+    }
+  }
+
+  h += `<button class="btn" id="spaetOk" style="margin-top:18px"${spaetWahl ? '' : ' disabled'}>
+      ${schon ? 'Änderung melden' : 'Verspätung melden'}</button>`;
+  if (schon){
+    h += `<button class="btn ghost" id="spaetWeg" style="margin-top:10px">Doch pünktlich</button>`;
+  }
+  h += `<p class="note" style="margin-top:14px">Du bleibst damit <b>dabei</b> – der Zähler und die
+      Vorschau nach §18 rechnen dich weiter mit. Abgerechnet wird am Abend vom Schriftführer;
+      die App schlägt ihm den Betrag vor.</p>`;
+
+  $('spaetBody').innerHTML = h;
+
+  $('spaetBody').querySelectorAll('button[data-spaet-chip]').forEach(b =>
+    b.addEventListener('click', () => { spaetWahl = b.dataset.spaetChip; spaetZeichnen(); }));
+  const f = $('spaetFeld');
+  f.addEventListener('change', () => {
+    const v = String(f.value || '').slice(0, 5);
+    spaetWahl = /^\d{2}:\d{2}$/.test(v) ? v : '';
+    spaetZeichnen();
+  });
+  if ($('spaetOk')) $('spaetOk').addEventListener('click', () => spaetSenden(spaetWahl, $('spaetOk')));
+  if ($('spaetWeg')) $('spaetWeg').addEventListener('click', () => spaetSenden('-', $('spaetWeg')));
+}
+
+/* Gesendet wird ueber denselben Weg wie jede andere Rueckmeldung – die
+   Verspaetung ist ein Zusatz zu "dabei" und kein eigener Zustand. 'antwort:zu'
+   muss mit, sonst stolpert eine Abmeldung, die danach noch kommt, ueber eine
+   Zeile ohne Antwort.
+
+   Die Probe danach ist wichtig: Kennt das Backend die Verspaetung noch nicht,
+   kommt der Stand OHNE sie zurueck. Dann darf die App nicht behaupten, sie sei
+   gemeldet – sonst glaubt jemand, er habe den guenstigen Satz. */
+async function spaetSenden(wert, knopf){
+  const zurueck = (wert === '-');
+  const ok = await rmSenden(spaetDatum, { antwort: 'zu', spaet: wert }, knopf);
+  if (!ok) return;
+  const s = rmStand(spaetDatum);
+  const jetzt = spaetZeit(s && s.ich);
+  if (zurueck){
+    if (jetzt){ hinweisleiste('Das Backend hat die Rücknahme nicht übernommen – bitte melden.'); return; }
+    ebene('spaetSheet', false);
+    hinweisleiste('Zurückgenommen – du kommst pünktlich.');
+    return;
+  }
+  if (jetzt !== wert){
+    hinweisleiste('ACHTUNG: Die Verspätung ist nicht angekommen – das Backend ist älter als 1.46. '
+      + 'Melde dich beim Schriftführer.');
+    return;
+  }
+  ebene('spaetSheet', false);
+  const b = verspBetrag(s, wert, true);
+  hinweisleiste('Gemeldet: ' + wert + ' Uhr' + (b ? ' · ' + eur(b) + ' nach §3' : ' · kostenlos'));
 }
 
 /* §18: "Bei mangelnder Beteiligung (4 Alkohol trinkende Kegelbrueder oder
@@ -4602,6 +4894,8 @@ document.addEventListener('click', e => {
   }
   const liste = e.target.closest('[data-rm-liste]');
   if (liste){ rmListeOeffnen(liste.dataset.rmListe); return; }
+  const spt = e.target.closest('[data-rm-spaet]');
+  if (spt){ spaetOeffnen(spt.dataset.rmSpaet); return; }
   const ja = e.target.closest('[data-rm-ja]');
   if (ja){ rmAntragSenden(ja.dataset.rmJa, ja.dataset.rmWer, true, ja); return; }
   const nein = e.target.closest('[data-rm-nein]');
@@ -4609,6 +4903,7 @@ document.addEventListener('click', e => {
 });
 
 $('rmListeSchliessen').addEventListener('click', () => ebene('rmListe', false));
+$('spaetSchliessen').addEventListener('click', () => ebene('spaetSheet', false));
 
 /* ============================================== Strafen erfassen (1.14) */
 /* Erfasst wird vom Kegelbruder aus: Man tippt den an, der sich die Strafe
@@ -5088,6 +5383,7 @@ function erfZeichnen(){
   if (erfSicht === 'mann')        return erfMannZeichnen();
   if (erfSicht === 'anwesenheit') return erfAnwesenheitZeichnen();
   if (erfSicht === 'sammel')      return erfSammelZeichnen();
+  if (erfSicht === 'spaet')       return erfSpaetZeichnen();
   erfListeZeichnen();
 }
 
@@ -5176,6 +5472,7 @@ function erfListeZeichnen(){
       <div class="v">${eur(gesamt)}</div></div></div>`;
 
   h += erfVorschlagBlock();
+  h += erfVerspBlock();
 
   h += erfSyncBlock();
 
@@ -5197,6 +5494,13 @@ function erfListeZeichnen(){
     erfSchalter('p18', '', ERF.p18, '§18 ' + (ERF.p18 ? 'gesetzt' : 'entfernt'));
     erfZeichnen();
   });
+  if ($('erfZuSpaet')) $('erfZuSpaet').addEventListener('click', () => {
+    erfSicht = 'spaet'; erfSpaetMann = ''; erfSpaetZeit = ''; erfSpaetAn = false; erfZeichnen();
+  });
+  $('erfBody').querySelectorAll('button[data-v3-ja]').forEach(b => b.addEventListener('click',
+    () => erfVerspUebernehmen(b.dataset.v3Ja)));
+  $('erfBody').querySelectorAll('button[data-v3-nein]').forEach(b => b.addEventListener('click',
+    () => erfVerspVerwerfen(b.dataset.v3Nein)));
   $('erfBody').querySelectorAll('button[data-vs-ja]').forEach(b => b.addEventListener('click',
     () => erfVorschlagUebernehmen(b.dataset.vsJa)));
   $('erfBody').querySelectorAll('button[data-vs-nein]').forEach(b => b.addEventListener('click',
@@ -5601,6 +5905,8 @@ function erfVorschlagBlock(){
   const zeile = x => `<div class="row rmrow">
       <div class="n"><b>${esc(x.name)}</b>
         <span class="sub">${esc(x.fall)}${zeitpunktText(x.zeit) ? ' · ' + esc(zeitpunktText(x.zeit)) : ''}</span>
+        ${spaetZeit(x) ? `<span class="sub warnton">hatte für ${esc(spaetZeit(x))} Uhr eine Verspätung
+          gemeldet und ist nicht gekommen</span>` : ''}
         ${x.notiz ? `<span class="sub">„${esc(x.notiz)}“</span>` : ''}</div>
       <div class="v">${eur(x.betrag)}</div>
     </div>
@@ -5615,6 +5921,103 @@ function erfVorschlagBlock(){
     <p class="note" style="margin-top:8px">Die Durchschnittsstrafe nach §17 rechnet das Blatt
       ohnehin – vorgeschlagen wird allein der Zuschlag nach §2. Verwerfen fragt nach dem Grund;
       er landet im Protokoll.</p>`;
+}
+
+/* ------------------------------------------ Verspaetungen nach §3 (1.49)
+
+   Der eigentliche Gewinn: abhaken statt rechnen. Was gemeldet wurde, steht
+   hier als fertiger Posten – Name, Art der Verspaetung, Betrag. Was NICHT
+   gemeldet wurde, kann die App nicht wissen; dafuer gibt es den Rechner
+   "Verspaetung nachtragen" darunter.
+
+   Die Saetze kommen aus derselben Antwort (v.versp), nicht aus den
+   Rueckmeldungen der Startseite – so rechnet die Erfassung auch an einem Abend
+   richtig, der nicht mehr in der Terminliste der App steht. */
+function erfVerspBlock(){
+  const v = erfVorschlaege;
+  if (!v || !v.versp) return '';            // aelteres Backend: kein §3
+  const liste = v.verspaetungen || [];
+  if (!liste.length && !ERF.anwesend.length) return '';
+
+  const zeile = x => `<div class="row rmrow">
+      <div class="n"><b>${esc(x.name)}</b>
+        <span class="sub">${esc(x.fall)}</span>
+        <span class="sub">${esc(anzeigeLabel(x.strafart))}</span></div>
+      <div class="v">${eur(x.betrag)}</div>
+    </div>
+    ${x.betrag > 0
+      ? `<div class="rmzwei" style="margin:0 0 10px">
+          <button class="btn small" data-v3-ja="${esc(x.name)}">Übernehmen</button>
+          <button class="btn ghost small" data-v3-nein="${esc(x.name)}">Verwerfen</button>
+        </div>`
+      : `<p class="note" style="margin:0 0 10px">Kostet nichts – ${esc(x.spaet)} Uhr liegt
+          noch innerhalb der ersten ${esc(plural(Number(v.versp.an.schritt) || 30, 'Minute', 'Minuten'))}
+          ab ${esc(v.versp.an.start)} Uhr. Nichts zu tun.</p>`}`;
+
+  let h = '';
+  if (liste.length){
+    h += `<div class="list" style="margin-top:20px">
+        <div class="group-head"><span>Verspätungen nach §3</span><span>${liste.length}</span></div>
+        ${liste.map(zeile).join('')}
+      </div>`;
+  }
+  h += `<button class="btn ghost small" id="erfZuSpaet" style="margin-top:${liste.length ? 10 : 20}px">
+      Verspätung nachtragen</button>
+    <p class="note" style="margin-top:8px">Angemeldet sind nur die oben – wer unangemeldet
+      zu spät kam, gehört nachgetragen: ${esc(verspSatzTextRoh(v.versp, false))}.</p>`;
+  return h;
+}
+
+/* Derselbe Satz-Text wie auf der Startseite, aber aus dem Paket der Erfassung.
+   Zwei Textbausteine fuer dieselbe Sache waeren zwei Stellen, an denen ein
+   Betrag veralten kann. */
+function verspSatzTextRoh(versp, angemeldet){
+  return verspSatzText({ versp: versp }, angemeldet);
+}
+
+/* Uebernommen wird der Betrag als ZIELWERT, nicht als Zuschlag: Es gibt je
+   Abend eine Ankunftszeit. Haette jemand vorher 1,50 € von Hand eingetragen
+   und der Vorschlag lautet 3,00 €, sollen am Ende 3,00 € stehen und nicht
+   4,50 €. Bei den Strafen nach §2 ist es anders – dort wird eine ANZAHL um
+   eins hochgezaehlt. */
+async function erfVerspUebernehmen(name){
+  const v = erfVorschlaege;
+  const fall = (v && (v.verspaetungen || []).filter(x => x.name === name)[0]) || null;
+  if (!fall) return;
+  const z = erfVerspZeile(fall.strafart);
+  if (!z){
+    hinweisleiste('Die Zeile „' + anzeigeLabel(fall.strafart) + '" steht nicht im Blatt dieses Abends.');
+    return;
+  }
+  const alt = erfWert(name, z.label);
+  erfBuchen(name, z.label, Math.round((fall.betrag - alt) * 100) / 100,
+    'Verspätung §3 · ' + fall.spaet + ' Uhr' + (fall.angemeldet ? ' angemeldet' : ' unangemeldet'));
+  v.verspaetungen = v.verspaetungen.filter(x => x.name !== name);
+  erfZeichnen();
+}
+
+/* Die Zeile im Blatt. Gesucht wird ueber die geglaettete Beschriftung: In den
+   Blaettern stehen Zeilenumbrueche und doppelte Leerzeichen mitten im Text
+   ("unangemeldete Verspaetung\n(je 5  Min.)"), und die Statuten schreiben sie
+   anders als das Blatt. */
+function erfVerspZeile(strafart){
+  const gleich = anzeigeLabel(strafart).toLowerCase();
+  return ERF.zeilen.filter(z => anzeigeLabel(z.label).toLowerCase() === gleich)[0]
+      || ERF.zeilen.filter(z => /versp/i.test(z.label)
+           && (/unangemeldet/i.test(z.label) === /unangemeldet/i.test(strafart)))[0]
+      || null;
+}
+
+async function erfVerspVerwerfen(name){
+  const grund = window.prompt('Warum bekommt ' + name + ' die Verspätung nicht?\n'
+    + '(war doch pünktlich, Absprache – darf leer bleiben)', '') || '';
+  try {
+    await api('rmVerwerfen', { token: token,
+      eintrag: { datum: ERF.datum, name: name, grund: 'Verspätung §3: ' + (grund || 'ohne Angabe') } });
+  } catch (e) { /* Das Protokoll ist wichtig, aber nicht wichtiger als der Abend. */ }
+  erfVorschlaege.verspaetungen = erfVorschlaege.verspaetungen.filter(x => x.name !== name);
+  erfZeichnen();
+  hinweisleiste('Verworfen – der Grund steht im Protokoll.');
 }
 
 async function erfVorschlagUebernehmen(name){
@@ -5642,6 +6045,97 @@ async function erfVorschlagVerwerfen(name){
   erfVorschlaege.vorschlaege = erfVorschlaege.vorschlaege.filter(x => x.name !== name);
   erfZeichnen();
   hinweisleiste('Verworfen – der Grund steht im Protokoll.');
+}
+
+/* -------------------------------- Verspaetung nachtragen (1.49)
+
+   Fuer den Fall, den keine Rueckmeldung kennt: Jemand kommt um 18:50 zur Tuer,
+   ohne etwas gemeldet zu haben. Der Schriftfuehrer waehlt ihn, tippt die
+   Ankunftszeit, und die App rechnet – 0,75 € je angefangene fuenf Minuten ab
+   Beginn, hoechstens 15,00 €. Das ist dieselbe Rechnung wie oben, nur mit dem
+   anderen Satz.
+
+   Der Schalter "war angemeldet" steht bewusst da und bewusst auf AUS: Wer
+   angemeldet war, steht schon im Vorschlag darueber; hier zaehlt der teurere
+   Satz. Gibt es doch einen Beleg – ein Anruf beim Schriftfuehrer –, kann er
+   umschalten. Die Entscheidung trifft ein Mensch, wie bei §2. */
+let erfSpaetMann = '';
+let erfSpaetZeit = '';
+let erfSpaetAn   = false;
+
+function erfSpaetZeichnen(){
+  const versp = (erfVorschlaege && erfVorschlaege.versp) || null;
+  if (!versp){ erfSicht = 'liste'; return erfZeichnen(); }
+  const anwesend = ERF.mitglieder.filter(m => ERF.anwesend.indexOf(m) >= 0);
+  const teil = erfSpaetAn ? versp.an : versp.un;
+  const betrag = (erfSpaetMann && erfSpaetZeit)
+    ? verspBetrag({ versp: versp }, erfSpaetZeit, erfSpaetAn) : null;
+  const z = erfVerspZeile(teil.name);
+
+  let h = `<button class="btn ghost small" id="erfZurueck">← Alle Kegelbrüder</button>
+    <h2 class="sec" style="margin-top:16px">Verspätung nachtragen</h2>
+    <p class="note">Für jemanden, der einfach später zur Tür kam. Zeit eintippen, die App
+      rechnet: ${esc(verspSatzTextRoh(versp, erfSpaetAn))}.</p>
+
+    <div class="chips" style="margin-top:16px" role="group" aria-label="Kegelbruder">
+      ${anwesend.map(m => `<button type="button" data-sp-mann="${esc(m)}"
+        aria-pressed="${erfSpaetMann === m}">${esc(m)}</button>`).join('')
+        || '<span class="note">Niemand als anwesend markiert.</span>'}
+    </div>
+
+    <p class="note" style="margin:16px 0 6px">Angekommen um:</p>
+    <input class="search" type="time" id="erfSpaetFeld" value="${esc(erfSpaetZeit)}"
+      aria-label="Ankunftszeit">
+
+    <div class="list" style="margin-top:16px"><div class="setrow">
+      <div><div class="lbl">War die Verspätung angemeldet?</div>
+        <div class="dsc">Dann gilt der günstigere Satz nach §3:
+          ${esc(verspSatzTextRoh(versp, true))}. Nur setzen, wenn es dafür einen Beleg gibt –
+          eine Meldung in der App steht schon in der Liste davor.</div></div>
+      <button class="switch" role="switch" aria-checked="${erfSpaetAn}" id="erfSpaetSchalter"
+        aria-label="War angemeldet"></button>
+    </div></div>`;
+
+  if (betrag !== null){
+    h += `<div class="list" style="margin-top:16px"><div class="row">
+        <div><div class="n">${esc(erfSpaetMann)} · ${esc(erfSpaetZeit)} Uhr</div>
+          <div class="m">${esc(anzeigeLabel(teil.name))} · gezählt ab ${esc(teil.start)} Uhr</div></div>
+        <div class="v">${eur(betrag)}</div></div></div>`;
+    if (!z){
+      h += `<p class="note warnton" style="margin-top:10px">Die Zeile
+        „${esc(anzeigeLabel(teil.name))}" steht nicht im Blatt dieses Abends – eintragen lässt
+        sich das hier nicht.</p>`;
+    } else if (!betrag){
+      h += `<p class="note" style="margin-top:10px">Das kostet nichts – die Zeit liegt noch
+        innerhalb der ersten ${esc(plural(Number(teil.schritt) || 5, 'Minute', 'Minuten'))}
+        ab ${esc(teil.start)} Uhr.</p>`;
+    }
+  }
+
+  h += `<button class="btn" id="erfSpaetOk" style="margin-top:16px"${
+      (betrag && z) ? '' : ' disabled'}>Eintragen</button>`;
+  erfBody(h);
+
+  $('erfZurueck').addEventListener('click', () => { erfSicht = 'liste'; erfZeichnen(); });
+  $('erfBody').querySelectorAll('button[data-sp-mann]').forEach(b => b.addEventListener('click',
+    () => { erfSpaetMann = b.dataset.spMann; erfSpaetZeichnen(); }));
+  const f = $('erfSpaetFeld');
+  f.addEventListener('change', () => {
+    const v = String(f.value || '').slice(0, 5);
+    erfSpaetZeit = /^\d{2}:\d{2}$/.test(v) ? v : '';
+    erfSpaetZeichnen();
+  });
+  $('erfSpaetSchalter').addEventListener('click', () => { erfSpaetAn = !erfSpaetAn; erfSpaetZeichnen(); });
+  $('erfSpaetOk').addEventListener('click', () => {
+    if (!betrag || !z) return;
+    const alt = erfWert(erfSpaetMann, z.label);
+    erfBuchen(erfSpaetMann, z.label, Math.round((betrag - alt) * 100) / 100,
+      'Verspätung §3 · ' + erfSpaetZeit + ' Uhr'
+      + (erfSpaetAn ? ' angemeldet' : ' unangemeldet') + ' · nachgetragen');
+    hinweisleiste(erfSpaetMann + ' · ' + eur(betrag) + ' nach §3');
+    erfSicht = 'liste'; erfSpaetMann = ''; erfSpaetZeit = ''; erfSpaetAn = false;
+    erfZeichnen();
+  });
 }
 
 /* "Mehrere auf einmal": erst die Strafart, dann alle Betroffenen antippen.
@@ -8522,6 +9016,11 @@ const TOUR_NEU      = 'kc-tour-neu';      // App-Fassung, deren Neuerungen schon
    geht jetzt zum ersten Mal an die Kegelbrüder. Der erste Eintrag zählt
    deshalb nicht auf, was sich GEÄNDERT hat, sondern was die App KANN. */
 const NEUERUNGEN = [
+  { fassung: '1.49', punkte: [
+      'Du kannst jetzt auch eine Verspätung anmelden: „Ich komme später“ auf der Terminkarte, Uhrzeit antippen – fertig. Die App zeigt dir gleich, was es nach §3 kostet.',
+      'Gemeldet werden muss sie wie eine Abmeldung: bis eine Stunde vor Beginn. Danach verschwindet der Knopf, und es gilt der teurere Satz für eine unangemeldete Verspätung.',
+      'Du bleibst dabei angemeldet – in der Liste steht bei dir „kommt später“ mit deiner Uhrzeit.'
+    ] },
   { fassung: '1.46', punkte: [
       'Umlagen zählen nicht mehr als Strafe: Sie stehen in der Kasse in einem eigenen Reiter und in eigenen Zeilen der Übersicht.',
       'Zu jeder Strafe steht jetzt die Notiz dabei, die beim Erfassen eingetippt wurde – aufzuklappen in der Kasse und in der Auswertung.',
