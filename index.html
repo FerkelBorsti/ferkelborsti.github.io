@@ -280,7 +280,7 @@ details.para summary:focus-visible{outline:2px solid var(--accent);outline-offse
 .para .price{font-family:'Archivo Black',system-ui,sans-serif;font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap;color:var(--text)}
 .para .price.zeichen{font-size:17px;line-height:1;display:inline-flex;align-items:center}
 /* Bewusst nicht auf .price beschränkt: Das Zeichen taucht auch in der
-   aufgeklappten Unterliste von §4 auf, dort ohne .price-Umgebung – ohne diese
+   aufgeklappten Unterliste von §12 auf, dort ohne .price-Umgebung – ohne diese
    Regel bliebe es dort unsichtbar (im Test am 27.08.2026 genau so passiert). */
 svg.dm{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;
   stroke-linecap:round;display:inline-block;vertical-align:-5px}
@@ -382,7 +382,7 @@ svg.orden.big{width:19px;height:19px}
    gruen dabei, gelb wartend, grau abgemeldet. */
 .tkarte .rmstand{font-size:17px;line-height:1.3}
 /* Die Knopfreihe. Ein Knopf nimmt die volle Breite, zwei teilen sie sich –
-   damit der Knopf fuer die angemeldete Verspaetung nach §3 spaeter ohne Umbau
+   damit der Knopf fuer die angemeldete Verspaetung nach §14 spaeter ohne Umbau
    danebenpasst (Auftrag 44). */
 .tkbtn{display:grid;gap:8px;margin-top:12px;grid-template-columns:1fr}
 .tkbtn.zwei{grid-template-columns:1fr 1fr}
@@ -716,7 +716,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
         </div>
         <div id="modeLesen">
           <p class="note" style="margin-top:16px">Alle Paragraphen zum Nachlesen – antippen klappt den
-            Text auf. Steht rechts ein Betrag, ist es eine Strafe; bei §4 hängt die komplette
+            Text auf. Steht rechts ein Betrag, ist es eine Strafe; bei §12 hängt die komplette
             Preisliste darunter. Gesucht wird über Nummer, Bezeichnung und Beschreibung.</p>
           <input enterkeyhint="done" class="search" id="statutSearch" placeholder="Paragraph oder Strafe suchen …"
                  aria-label="Statuten durchsuchen" style="margin-top:14px">
@@ -731,7 +731,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
       </section>
 
       <section id="tab-verein" class="hidden">
-        <!-- Bis 1.37 eine Segmentleiste mit vier Knöpfen. Mit "Runden" (§32)
+        <!-- Bis 1.37 eine Segmentleiste mit vier Knöpfen. Mit "Runden" (§37)
              wären es fünf, und fünf feste Spalten sind auf einem schmalen
              Handy nicht mehr zu lesen. Deshalb dieselbe Chip-Leiste wie in
              Kasse und Auswertung: Sie schiebt sich zur Seite und verträgt
@@ -747,7 +747,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
           <p class="note" style="margin-top:16px">Wer welches Amt hat und was dazugehört.
             Zum Aufklappen antippen – der Erstgenannte hat das Amt, die anderen vertreten.</p>
           <p class="note ordenlegende"><svg class="orden big" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.4 3.2 10.7 9M15.6 3.2 13.3 9"/><circle cx="12" cy="15.2" r="5.9"/><circle cx="12" cy="15.2" r="2.1"/></svg>
-            <span id="ordenLegende">trägt einen Orden (§6) oder eine Medaille (§8).</span></p>
+            <span id="ordenLegende">trägt einen Orden (§7) oder eine Medaille (§29).</span></p>
           <div class="list" id="warteList" style="margin-top:14px"></div>
         </div>
         <div id="modeLeute" class="hidden">
@@ -760,7 +760,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
           <p class="note hidden" id="terminHinweis" style="margin-top:10px">Termine legt der Kegelvater an – das Erfassen der Strafen bleibt Sache des Schriftführers.</p>
         </div>
         <div id="modeRunden" class="hidden">
-          <p class="note" style="margin-top:16px">Wer nach §32 noch eine Runde ausgeben muss –
+          <p class="note" style="margin-top:16px">Wer nach §37 noch eine Runde ausgeben muss –
             Geburtstag, neues Auto, Beförderung, etc. Oben steht, welche Runden am
             längsten offen sind.</p>
           <button class="btn ghost small hidden" id="rundeNeu" style="margin-top:14px">Runde eintragen</button>
@@ -793,7 +793,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
                "Umlage" mit den sonstigen Einnahmen des Vereins. -->
           <button data-kasse="umlagen" aria-pressed="false">Umlagen</button>
           <!-- Fällig (1.51): alles Überfällige nach Alter, mit dem
-               auflaufenden Zuschlag nach §20. -->
+               auflaufenden Zuschlag nach §34. -->
           <button data-kasse="faellig" aria-pressed="false">Fällig</button>
           <button data-kasse="spenden" aria-pressed="false">Spenden</button>
           <button data-kasse="konto" aria-pressed="false">Konto</button>
@@ -1097,7 +1097,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
     </div>
   </div>
 
-  <!-- ICH KOMME SPÄTER: die Verspätung nach §3 (1.49) -->
+  <!-- ICH KOMME SPÄTER: die Verspätung nach §14 (1.49) -->
   <div class="sheet hidden" id="spaetSheet" role="dialog" aria-label="Ich komme später">
     <div class="sheet-in">
       <div class="sheet-head">
@@ -1317,7 +1317,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    ist aber bewusst nicht hochgeladen. Zwei verschiedene Dateien unter
    derselben Nummer sind genau der Fehler, der am 08.09.2026 zu kc-v1.38
    geführt hat – deshalb wird 1.45 übersprungen, nicht zweitverwendet. */
-const APP_VERSION = '1.51';
+const APP_VERSION = '1.53';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -1392,22 +1392,55 @@ const num = s => {
 };
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
+/* ------------------------------------------- Paragraphen über den NAMEN (1.53)
+   Bis 1.51 stand hier die NUMMER: rechenwert('§23'). Nach einer Umsortierung
+   der Statuten hätte das lautlos auf einen ANDEREN Paragraphen gezeigt – die
+   Königs-Hürde wäre verschwunden, der Zuschlag der Kasse auf 0 € gefallen,
+   beides ohne Fehlermeldung. Ab 1.53 steht hier der NAME; die Nummer ist nur
+   noch Anzeige. Fehlt ein Name, bleibt die Stelle LEER – kein Rückfall auf
+   eine alte Nummer, die inzwischen einen anderen Paragraphen trägt. */
+const STATUT = {
+  ABMELDUNG:      'unabgemeldetes Fehlen/ zu späte Abmeldung',
+  VERSPAETUNG:    'Verspätungen',
+  STRAFEN:        'Strafen',
+  KLEIDERORDNUNG: 'Kleiderordnung',
+  FAHRRADENGEL:   'ADAC-Fahrradengel',
+  ABWESENHEIT:    'Strafen für Abwesenheit',
+  BETEILIGUNG:    'Mangelnde Beteiligung',
+  ZUSCHLAG:       'Verspätungszuschlag',
+  KOENIG:         'Kegelkönig',
+  MONATSBEITRAG:  'Monatsbeitrag',
+  RUNDEN:         'Runden',
+  FEGEN:          'Fegen',
+  GESCHAEFTSJAHR: 'Geschäftsjahr'
+};
+const statutNorm = x => String(x == null ? '' : x).toLowerCase().replace(/\s+/g, ' ').trim();
+/* Der Paragraph zu einer Bezeichnung – oder null. Nur echte Paragraphenzeilen
+   kommen infrage; eine gleichnamige Unterzeile darf nicht gewinnen. */
+const statutNach = name => {
+  const z = statutNorm(name);
+  return (D.statuten || []).filter(x => statutNorm(x.t) === z)[0] || null;
+};
+/* Seine heutige Nummer, allein zum Anzeigen. '' wenn er fehlt. */
+const statutNr = name => { const x = statutNach(name); return x ? String(x.p || '') : ''; };
+
 /* ------------------------------------------------------------ Rechenwerte
    Manche Zahlen in den Statuten sind keine Strafe, sondern eine Rechenregel:
-   die Aufrundung der Durchschnittsstrafe nach §17, die Mindest-Anwesenheit für
-   den Kegelkönig nach §23. Sie stehen – wie jeder andere Wert, der etwas
+   die Aufrundung der Durchschnittsstrafe nach §15, die Mindest-Anwesenheit für
+   den Kegelkönig nach §26. Sie stehen – wie jeder andere Wert, der etwas
    auslöst – an genau EINER Stelle: beim Paragraphen selbst. Hier steht deshalb
    nur, wie so ein Wert HEISST und in welcher Einheit er zu lesen ist, nie die
    Zahl. Wird sie in den Stammdaten geändert, ändert sich die App von allein. */
 const RECHENWERT_ART = {
-  '§17': { label: 'Aufrundung auf', kurz: 'Aufrundung', einheit: 'euro',
+  'strafen für abwesenheit': { label: 'Aufrundung auf', kurz: 'Aufrundung', einheit: 'euro',
            note: 'Der Durchschnitt für Abwesende wird auf dieses Vielfache aufgerundet. '
                + 'Gilt ab dem nächsten Abend; Abende, die schon waren, behalten ihre Aufrundung.' },
-  '§23': { label: 'Mindest-Anwesenheit in Prozent', kurz: 'Mindest-Anwesenheit', einheit: 'prozent',
+  'kegelkönig': { label: 'Mindest-Anwesenheit in Prozent', kurz: 'Mindest-Anwesenheit', einheit: 'prozent',
            note: 'So viel Prozent aller Termine muss ein Kegelbruder anwesend gewesen sein, '
                + 'um Kegelkönig werden zu können.' }
 };
-const rechenwertArt = p => RECHENWERT_ART[p]
+/* Nachgeschlagen wird über die BEZEICHNUNG (1.53), nicht über die Nummer. */
+const rechenwertArt = name => RECHENWERT_ART[statutNorm(name)]
   || { label: 'Rechenwert', kurz: 'Rechenwert', einheit: 'zahl', note: '' };
 const prozentText = n => (Number(n)||0).toLocaleString('de-DE',{maximumFractionDigits:1}) + ' %';
 function rechenwertText(p, v){
@@ -1417,8 +1450,8 @@ function rechenwertText(p, v){
 /* Die Zahl selbst – immer frisch aus den Statuten. Fehlt sie dort, kommt null
    zurück; die Stellen, die sie brauchen, lassen den Satz dann einfach weg,
    statt eine erfundene Zahl zu zeigen. */
-function rechenwert(p){
-  const s = (D.statuten || []).filter(x => x.p === p)[0];
+function rechenwert(name){
+  const s = statutNach(name);
   const r = s && s.rechenwert;
   return (typeof r === 'number' && r > 0) ? r : null;
 }
@@ -1430,10 +1463,11 @@ function rechenwert(p){
 
    Findet sich nichts, kommt null zurück – der Satz lässt den Betrag dann weg.
    Lieber eine Lücke als eine Zahl, die nicht mehr stimmt. */
-function strafBetrag(p, bezeichnung){
-  const norm = x => String(x == null ? '' : x).toLowerCase().replace(/\s+/g, ' ').trim();
-  const zp = norm(p), zt = bezeichnung ? norm(bezeichnung) : '';
-  const treffer = (D.preise || []).filter(x => norm(x.p) === zp && (!zt || norm(x.t) === zt))[0];
+function strafBetrag(statut, bezeichnung){
+  const nr = statutNr(statut);
+  if (!nr) return null;
+  const zp = statutNorm(nr), zt = statutNorm(bezeichnung || statut);
+  const treffer = (D.preise || []).filter(x => statutNorm(x.p) === zp && statutNorm(x.t) === zt)[0];
   if (!treffer) return null;
   const n = num(treffer.b);
   return (isFinite(n) && n > 0) ? n : null;
@@ -1476,7 +1510,7 @@ function standAusTabelle(wert){
 
    Repariert wird an beiden Enden. Das Backend liefert seit 1.44 ISO; hier
    werden BEIDE Formen verstanden. Was sich nicht lesen laesst, ergibt einen
-   leeren Text: lieber gar nichts als Bruchstuecke – bei §2 ist der Zeitpunkt
+   leeren Text: lieber gar nichts als Bruchstuecke – bei §13 ist der Zeitpunkt
    ein Beleg. */
 function zeitpunktText(wert){
   const t = String(wert == null ? '' : wert).trim();
@@ -2361,7 +2395,7 @@ function aendAnsehen(bereich){
 /**
  * Zum ersten markierten Eintrag scrollen.
  *
- * Ohne das steht der Kegelbruder oben bei §1 und sucht selbst; bei 40
+ * Ohne das steht der Kegelbruder oben bei §20 und sucht selbst; bei 40
  * Paragraphen ist das genau der Griff, den die Karte ihm abnehmen soll. Der
  * kurze Aufschub ist nötig, weil der Reiterwechsel selbst nach oben scrollt –
  * wir dürfen erst danach zielen.
@@ -2383,7 +2417,7 @@ function zeichneStart(){
   const t = D.naechsterTermin;
   const la = D.letzterAbend;
   /* Seit 1.38 steht hier ALLES, was er dem Verein schuldet – Strafen und
-     Monatsbeiträge nach §14 (Wunsch Johannes vom 07.09.2026). Vorher stand da
+     Monatsbeiträge nach §2 (Wunsch Johannes vom 07.09.2026). Vorher stand da
      nur die Strafensumme; wer drei Beiträge offen hatte, las 0,00 € und hielt
      sich für quitt. Der Rückfall greift bei einem Backend älter als 1.36. */
   const beitragOffen = Number(D.offenBeitrag) || 0;
@@ -2405,7 +2439,7 @@ function zeichneStart(){
     ${aendKarte()}
 
     <div class="stat breit" style="margin-top:20px">
-      <div><div class="eyebrow">Fehltage §12</div>
+      <div><div class="eyebrow">Fehltage §39</div>
         <div class="sub" style="margin-top:3px">Punkte für Abwesenheit</div></div>
       <b>${D.punkte}</b>
     </div>`;
@@ -2440,7 +2474,7 @@ function zeichneStart(){
       <div class="kassenstand">${esc(preisText(D.kasse.kontostand) || 'kein Stand hinterlegt')}</div>
       ${D.kasse.stand ? `<div class="sub">Stand ${esc(standAusTabelle(D.kasse.stand))}</div>` : ''}
       <p class="note" style="margin:12px 0 0">Strafen müssen bis zum nächsten Kegeln auf dem Konto
-        sein (§4). Danach greift der Verspätungszuschlag nach §20.</p>
+        sein (§12). Danach greift der Verspätungszuschlag nach §34.</p>
     </div>`;
 
   $('tab-start').innerHTML = h;
@@ -2468,22 +2502,22 @@ function zeichneStart(){
    1.47: Der Satz "Abmelden geht vorerst weiter ueber WhatsApp" ist ersatzlos
    gestrichen. Ab- und angemeldet wird ausschliesslich in der App. */
 function abmeldeFuss(t, s){
-  const strafe = betragText('§2');
+  const strafe = betragText(STATUT.ABMELDUNG);
   const heute  = t.datum === D.heute;
   const vorbei = heute && fristVorbei(t.beginn);
-  /* §3 haengt an derselben Frist. Solange sie laeuft, steht sie fuer beides;
+  /* §14 haengt an derselben Frist. Solange sie laeuft, steht sie fuer beides;
      ist sie durch, gehoert hierhin der Satz fuer die UNANGEMELDETE Verspaetung
      – das ist ab diesem Moment der einzige, den es noch gibt. */
   const unText = verspSatzText(s, false);
   const kern = vorbei
     ? `Die ${unText ? 'Frist' : 'Abmeldefrist'} ist verstrichen – eine Abmeldung kostet jetzt ${
-        strafe ? esc(strafe) : 'den Zuschlag'} nach §2${
-        unText ? `, eine unangemeldete Verspätung <b>${esc(unText)}</b> nach §3` : ''}.`
-    /* Ohne §3 im Backend bleibt es beim Wortlaut bis 1.48 – sonst stuende dort
+        strafe ? esc(strafe) : 'den Zuschlag'} nach §13${
+        unText ? `, eine unangemeldete Verspätung <b>${esc(unText)}</b> nach §14` : ''}.`
+    /* Ohne §14 im Backend bleibt es beim Wortlaut bis 1.48 – sonst stuende dort
        "Abmeldung und Verspaetung", ohne dass es einen Knopf dafuer gibt. */
     : `${unText ? 'Abmeldung und Verspätung' : 'Abmeldung'} bis <b>${esc(uhrMinus(t.beginn))} Uhr</b>${
-        strafe ? ' – danach ' + esc(strafe) + ' nach §2' : ' nach §2'}${
-        unText ? ' oder ' + esc(unText) + ' nach §3' : ''}.`;
+        strafe ? ' – danach ' + esc(strafe) + ' nach §13' : ' nach §13'}${
+        unText ? ' oder ' + esc(unText) + ' nach §14' : ''}.`;
   return `<div class="deadline kartenfuss${heute ? ' frist' : ''}">${kern}</div>`;
 }
 
@@ -2613,8 +2647,8 @@ function rueckblick(la){
       <span>${la.anwesend ? la.anwesend + ' anwesend' : 'Anwesenheit nicht erfasst'}</span></div>`;
 
   const schnitt = typeof la.schnitt === 'number' && la.schnitt > 0
-    ? hl('Ø','Durchschnittsstrafe §17','Strafen der Anwesenden geteilt durch ihre Anzahl'
-        + (rechenwert('§17') ? ', aufgerundet auf ' + eur(rechenwert('§17')) : ''), eur(la.schnitt))
+    ? hl('Ø','Durchschnittsstrafe §15','Strafen der Anwesenden geteilt durch ihre Anzahl'
+        + (rechenwert(STATUT.ABWESENHEIT) ? ', aufgerundet auf ' + eur(rechenwert(STATUT.ABWESENHEIT)) : ''), eur(la.schnitt))
     : '';
 
   if (D.ich.schriftfuehrer){
@@ -2800,7 +2834,7 @@ function histWert(kat, seite){
 }
 
 const HIST_FUSS = {
-  vollen: 'Durchschnitt je Termin nach §23, gerechnet über die tatsächlich gekegelten Abende. Nicht nachgeholte Würfe zählen als 0 Holz.',
+  vollen: 'Durchschnitt je Termin nach §26, gerechnet über die tatsächlich gekegelten Abende. Nicht nachgeholte Würfe zählen als 0 Holz.',
   pumpen: 'Gesamtzahl der Pumpen der Saison. Weniger ist besser – Pumpenkönig wird trotzdem, wer die meisten hat.'
 };
 
@@ -2839,7 +2873,7 @@ function histTeile(wert){
            zusatz:  stuecke.join(' · ') };
 }
 
-/* Beim Kegelkönig ist der Wert per Definition der Schnitt je Termin (§23) –
+/* Beim Kegelkönig ist der Wert per Definition der Schnitt je Termin (§26) –
    die Einheit heisst deshalb schlicht "Holz", und die Erklaerung steht in der
    Fussnote der Kategorie. Bei den Pumpen zaehlt dagegen die Gesamtzahl; dort
    darf ein "je Termin" nicht stillschweigend verschwinden. */
@@ -3226,7 +3260,7 @@ function zeichneStrafen(){
   const erlassen = summeVon(strafenT.filter(t => !t.bezahlt && t.ausgesetzt));
   const umlSumme = summeVon(umlagenT);
   const umlOffen = umlagenT.filter(t => !t.bezahlt).reduce((s,t) => s + t.summe, 0);
-  /* Der Verspätungszuschlag nach §20 ist keine Strafe dieser Saison, sondern
+  /* Der Verspätungszuschlag nach §34 ist keine Strafe dieser Saison, sondern
      die Folge einer verstrichenen Frist. Er zählt deshalb weder in "Saison
      gesamt" noch bei "teuerster Termin" mit – aber verschwiegen wird er auch
      nicht: Wer einen bezahlt hat, sieht ihn in einer eigenen Zeile. */
@@ -3264,7 +3298,7 @@ function zeichneStrafen(){
         <div class="m">keine Strafe – ${plural(ausglTage, 'Abend', 'Abende')} nicht dabei</div></div>
         <div class="v">${eur(ausglSum)}</div></div>` : ''}
       ${zuschSumme > 0 ? `<div class="row"><div><div class="n">Verspätungszuschlag</div>
-        <div class="m">keine Strafe – nach §20, weil eine Frist verstrichen war</div></div>
+        <div class="m">keine Strafe – nach §34, weil eine Frist verstrichen war</div></div>
         <div class="v">${eur(zuschSumme)}</div></div>` : ''}
       ${umlagenT.length && hatVoll ? `<div class="row"><div><div class="n">Umlagen</div>
         <div class="m">keine Strafe – ${umlOffen > 0 ? eur(umlOffen) + ' davon noch offen' : 'alles bezahlt'}</div></div>
@@ -3287,7 +3321,7 @@ function zeichneStrafen(){
              : 'Frist aufgehoben – kein Zahlungsziel'}</div></div></div>`
         : (t.faellig && !t.bezahlt ? `<div class="row"><div><div class="m${
             t.faellig < D.heute ? ' frist' : ''}">Fällig am ${dat(t.faellig)}${
-            t.faellig < D.heute ? ' – Frist verstrichen, §20 greift' : ''}</div></div></div>` : '')}
+            t.faellig < D.heute ? ' – Frist verstrichen, §34 greift' : ''}</div></div></div>` : '')}
     </div>`).join('');
   }
   $('tab-strafen').innerHTML = h;
@@ -3334,7 +3368,7 @@ function zeichneStatuten(rows){
     <div class="body">${esc(s.d)}
       ${(s.items && s.items.length) || typeof s.rechenwert === 'number' ? `<div class="items">${
         (typeof s.rechenwert === 'number'
-          ? `<div>${esc(rechenwertArt(s.p).kurz)}<span>${esc(rechenwertText(s.p, s.rechenwert))}</span></div>` : '')
+          ? `<div>${esc(rechenwertArt(s.t).kurz)}<span>${esc(rechenwertText(s.t, s.rechenwert))}</span></div>` : '')
         + (s.items || []).map(i =>
         `<div>${esc(i.t)}${neuPille(istGeaendert('Statuten', i.t))}<span>${
           istDurchmesser(i.b) ? DURCHMESSER_SVG : esc(preisText(i.b))}</span></div>`).join('')}</div>` : ''}
@@ -3387,15 +3421,17 @@ let rechnerFilter = '';
 
 /* Der Rechner zählt Einzelstrafen zusammen. Drei Paragraphen haben zwar einen
    Betrag, aber keinen Einzelpreis zum Antippen – die gehören ausdrücklich nicht
-   hinein. Die Ausnahme steht als §-Nummer da und nicht als Textmuster: In der
-   Tabelle steht bei §18 eine blanke Zahl mit dem Zusatz "max." nur im Zellformat,
-   ein Filter über den Text greift dort ins Leere.
-     §17  Strafen für Abwesenheit – der Abendschnitt, keine feste Strafe
-     §18  Mangelnde Beteiligung   – gedeckelter Betrag, kein Einzelpreis
-     §37  Fegen                   – gedeckelter Betrag, kein Einzelpreis
-   Ändert sich die Nummerierung der Statuten, gehört diese Liste geprüft. */
-const RECHNER_AUSNAHMEN = ['§17', '§18', '§37'];
-const ausnahme = s => RECHNER_AUSNAHMEN.indexOf(String(s.p || '').replace(/\s/g,'')) >= 0;
+   hinein. Die Ausnahme steht als BEZEICHNUNG da (1.53, vorher als §-Nummer) und
+   nicht als Textmuster über die Beschreibung: In der Tabelle steht bei der
+   mangelnden Beteiligung eine blanke Zahl mit dem Zusatz "max." nur im
+   Zellformat, ein Filter über den Text greift dort ins Leere.
+     Strafen für Abwesenheit – der Abendschnitt, keine feste Strafe
+     Mangelnde Beteiligung   – gedeckelter Betrag, kein Einzelpreis
+     Fegen                   – gedeckelter Betrag, kein Einzelpreis
+   Eine Umsortierung der Statuten berührt diese Liste nicht mehr. */
+const RECHNER_AUSNAHMEN = [STATUT.ABWESENHEIT, STATUT.BETEILIGUNG, STATUT.FEGEN]
+  .map(statutNorm);
+const ausnahme = s => RECHNER_AUSNAHMEN.indexOf(statutNorm(s.t)) >= 0;
 const rechenbar = s => istParagraph(s) && !ausnahme(s) && num(s.b) > 0;
 const rechnerZeilen = () => D.preise.filter(s => rechenbar(s) && (!rechnerFilter
   || s.t.toLowerCase().includes(rechnerFilter)
@@ -3409,7 +3445,7 @@ $('calcSearch').addEventListener('input', e => {
 const ORDEN_SVG = '<svg class="orden" viewBox="0 0 24 24" aria-hidden="true">'
   + '<path d="M8.4 3.2 10.7 9M15.6 3.2 13.3 9"/><circle cx="12" cy="15.2" r="5.9"/><circle cx="12" cy="15.2" r="2.1"/></svg>';
 
-/* Welche Aemter einen Orden tragen, steht in §6 der Statuten – die Liste wird
+/* Welche Aemter einen Orden tragen, steht in §7 der Statuten – die Liste wird
    von dort gelesen, damit die Statuten die einzige Quelle bleiben. Scheitert das
    (weil jemand den Satz umformuliert), greift die feste Liste als Notnagel. */
 const ORDEN_NOTNAGEL = { kegelvater:[0,1], kassenwart:[0], schriftfuehrer:[0],
@@ -3441,8 +3477,8 @@ function ordenListe(){
   return notnagel;
 }
 
-/* Manche Ämter tragen keinen Orden nach §6, sondern eine Medaille nach ihrem eigenen
-   Paragraphen – z. B. der ADAC-Fahrradengel (§8). Erkannt wird das daran, dass der
+/* Manche Ämter tragen keinen Orden nach §7, sondern eine Medaille nach ihrem eigenen
+   Paragraphen – z. B. der ADAC-Fahrradengel (§29). Erkannt wird das daran, dass der
    Paragraph genauso heißt wie das Amt und das Tragen vorschreibt. */
 function ergaenzeMedaillen(ziel){
   const aemter = {};
@@ -3454,14 +3490,18 @@ function ergaenzeMedaillen(ziel){
   });
 }
 
-/* §6 regelt den Orden, §8 die Medaille – zwei Paragraphen mit zwei
+/* §7 regelt den Orden, §29 die Medaille – zwei Paragraphen mit zwei
    verschiedenen Beträgen. Beide werden hier aus den Statuten geholt. Fehlt
    einer, wird er weggelassen; fehlen beide, bleibt der schlichte Satz stehen. */
 function ordenLegendeText(){
-  const o = betragText('§6', 'Orden vergessen');
-  const m = betragText('§8', 'Fahrradengel vergessen');
-  const teil = (was, par, b) => was + ' (' + par + (b ? ', ' + b : '') + ')';
-  const satz = 'trägt ' + teil('einen Orden', '§6', o) + ' oder ' + teil('eine Medaille', '§8', m) + '.';
+  const o = betragText(STATUT.KLEIDERORDNUNG, 'Orden vergessen');
+  const m = betragText(STATUT.FAHRRADENGEL,   'Fahrradengel vergessen');
+  /* Die Nummer wird HIER geholt statt hingeschrieben – nach einer Umsortierung
+     steht im Satz von allein die richtige. */
+  const teil = (was, par, b) => was + (par ? ' (' + par + (b ? ', ' + b : '') + ')'
+                                            : (b ? ' (' + b + ')' : ''));
+  const satz = 'trägt ' + teil('einen Orden',   statutNr(STATUT.KLEIDERORDNUNG), o)
+             + ' oder ' + teil('eine Medaille', statutNr(STATUT.FAHRRADENGEL),   m) + '.';
   return satz + ((o || m) ? ' Wer sie nicht trägt, zahlt den jeweiligen Betrag.' : '');
 }
 
@@ -3541,14 +3581,14 @@ function zeichneTermine(){
   }).join('');
 }
 
-/* ============================================ §32 Runden (1.38) */
-/* Wer muss noch einen ausgeben? §32 zählt neunzehn Anlässe auf – Geburtstag,
+/* ============================================ §37 Runden (1.38) */
+/* Wer muss noch einen ausgeben? §37 zählt neunzehn Anlässe auf – Geburtstag,
    neues Auto, Beförderung, Führerschein und so weiter. Bis 1.37 stand das nur
    im Statutentext, und wer dran war, wusste am Ende niemand mehr.
 
    Sehen dürfen die Liste ALLE Kegelbrüder – das ist ihr Sinn. Pflegen dürfen
    sie Kegelvater, Schriftführer und Kassenwart (Entscheidung Johannes vom
-   07.09.2026). Welche Anlässe zur Auswahl stehen, liest das Backend aus §32;
+   07.09.2026). Welche Anlässe zur Auswahl stehen, liest das Backend aus §37;
    ändert die Generalversammlung den Paragraphen, ändert sich die Auswahl mit. */
 
 const darfRundenPflegen = () => !!(D && D.ich && D.ich.darfRunden);
@@ -3642,8 +3682,8 @@ function rundeNeuMaske(){
       optionen: anlaesse.map(a => ({ wert: a, text: a }))
                         .concat([{ wert: RUNDE_FREI, text: '— anderer Anlass —' }]),
       note: anlaesse.length
-        ? 'Die Auswahl kommt aus §32. Passt nichts, unten einen eigenen Anlass eintragen.'
-        : 'In §32 steht keine Aufzählung – bitte unten einen Anlass eintragen.' },
+        ? 'Die Auswahl kommt aus §37. Passt nichts, unten einen eigenen Anlass eintragen.'
+        : 'In §37 steht keine Aufzählung – bitte unten einen Anlass eintragen.' },
     { art: 'text', label: 'Anderer Anlass', id: 'rdFrei', wert: '', max: 120,
       platzhalter: 'nur ausfüllen, wenn oben nichts passt' },
     { art: 'datum', label: 'Anlass war am', id: 'rdSeit', wert: D.heute,
@@ -3802,7 +3842,7 @@ function terminRmSetzen(modus){
     ? 'Wer nicht zusagt, ist nicht dabei. Für Veranstaltungen, die geplant werden müssen.'
     : m === 'keine'
       ? 'Es wird nicht nachgefragt. Der Termin steht nur im Kalender.'
-      : 'Wer nichts tut, ist dabei. Abgemeldet wird bis eine Stunde vor Beginn (§2).';
+      : 'Wer nichts tut, ist dabei. Abgemeldet wird bis eine Stunde vor Beginn (§13).';
   $('terminSchlussFeld').classList.toggle('hidden', m !== 'Anmeldung');
 }
 
@@ -3933,18 +3973,18 @@ let aktuelleAmtSicht = 'dash';
 const gesamtPumpen = r => r.pumpenS + r.pumpenZ;
 const gesamtSonder = r => r.kranz + r.koenig + r.acht + r.alle9;
 
-/* §23: Der Kegelkönig wird nicht über die Summe ermittelt, sondern über den
+/* §26: Der Kegelkönig wird nicht über die Summe ermittelt, sondern über den
    individuellen Durchschnitt bei "5 in die Vollen" – nicht nachgeholte Würfe
    zählen als 0 Holz. Und Kegelkönig kann nur werden, wer eine Mindest-Anwesenheit
-   erreicht. Wie hoch die ist, steht in §23 und NUR dort – hier wird sie gelesen,
+   erreicht. Wie hoch die ist, steht in §26 und NUR dort – hier wird sie gelesen,
    nicht wiederholt. Liefert das Backend den Durchschnitt noch nicht mit, wird er
    hier aus Summe und Terminzahl gebildet. */
 const huerdeAnteil = () => {
-  const p = rechenwert('§23');
+  const p = rechenwert(STATUT.KOENIG);
   return p === null ? null : (p > 1 ? p / 100 : p);
 };
 const huerdeText = () => {
-  const p = rechenwert('§23');
+  const p = rechenwert(STATUT.KOENIG);
   return p === null ? '' : prozentText(p > 1 ? p : p * 100);
 };
 const vollenSchnitt = r => typeof r.vollenSchnitt === 'number'
@@ -4012,7 +4052,7 @@ function bwBlock(titel, key, mehrIstBesser, fmt, fuss){
 /* Die Anwesenheit des ganzen Vereins als eine Kachel: Anteil gross, die
    Rechnung dahinter klein daneben, darunter der Balken. Gezaehlt werden alle
    Veranstaltungen, nicht nur die Kegelabende – die Hürde für den Kegelkönig
-   nach §23 ist etwas anderes und steht oben bei "5 in die Vollen". */
+   nach §26 ist etwas anderes und steht oben bei "5 in die Vollen". */
 function anwesenheitKachel(A){
   const dabei    = A.reduce((a, r) => a + (r.da || 0), 0);
   const moeglich = A.reduce((a, r) => a + (r.termine || 0), 0);
@@ -4076,7 +4116,7 @@ const SICHTEN = {
     return `<div class="list" style="margin-top:16px">
       ${bwBlock('5 in die Vollen (Ø je Termin)', vollenSchnitt, true,
         r=>vollenSchnitt(r).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+' Holz',
-        'Nach §23 zählt der Durchschnitt, nicht die Summe. Kegelkönig wird nur, wer mindestens '
+        'Nach §26 zählt der Durchschnitt, nicht die Summe. Kegelkönig wird nur, wer mindestens '
         + (huerdeText() || '60 %') + ' anwesend war.')}
       ${bwBlock('Pumpen', gesamtPumpen, false, r=>gesamtPumpen(r).toLocaleString('de-DE'),
         'Weniger ist besser. Pumpenkönig wird trotzdem, wer die meisten hat – das ist der Schlechteste hier.')}
@@ -4101,7 +4141,7 @@ const SICHTEN = {
     const koenig = l.filter(koenigsfaehig)[0];
     const holz = r => vollenSchnitt(r).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1}) + ' Holz';
     const hT = huerdeText();
-    return `<p class="note" style="margin-top:16px">Gewertet wird nach §23 der <strong style="color:var(--text)">Durchschnitt
+    return `<p class="note" style="margin-top:16px">Gewertet wird nach §26 der <strong style="color:var(--text)">Durchschnitt
         je Termin</strong>, nicht die Summe. Nicht nachgeholte Würfe zählen als 0 Holz.
         ${hT ? 'Kegelkönig kann nur werden, wer mindestens ' + esc(hT) + ' anwesend war.' : ''}</p>
       ${koenig ? `<p class="note" style="margin-top:8px">Aktuell vorn und königsfähig:
@@ -4114,9 +4154,9 @@ const SICHTEN = {
   alle9(){
     const l = (D.auswertung||[]).slice().sort((a,b)=>b.alle9-a.alle9);
     if (!l.length) return `<p class="note" style="margin-top:16px">Noch keine Daten.</p>`;
-    // §4 "alle 9 (alle anderen zahlen)" – Satz UND Rechnung holen den Betrag
+    // §12 "alle 9 (alle anderen zahlen)" – Satz UND Rechnung holen den Betrag
     // von dort. Ohne hinterlegten Betrag wird nur gezählt, nicht gerechnet.
-    const satz = strafBetrag('§4', 'alle 9 (alle anderen zahlen)');
+    const satz = strafBetrag(STATUT.STRAFEN, 'alle 9 (alle anderen zahlen)');
     return `<p class="note" style="margin-top:16px">Wer die meisten alle 9 geworfen hat.
       ${satz === null ? 'Jeder Wurf kostet alle anderen etwas – der Werfer selbst zahlt nichts.'
                       : 'Jeder Wurf kostet alle anderen ' + esc(eur(satz)) + ' – der Werfer selbst zahlt nichts.'}</p>`
@@ -4136,10 +4176,10 @@ const SICHTEN = {
   anwesenheit(){
     const l = (D.auswertung||[]).slice().sort((a,b)=>b.da-a.da);
     /* Zwei Zahlen, die nicht dasselbe messen – deshalb steht es hier
-       ausdrücklich: Die Rangliste zählt nach §12 alles mit, die Königs-Hürde
-       nach §23 seit 1.38 nur die Kegelabende. */
+       ausdrücklich: Die Rangliste zählt nach §39 alles mit, die Königs-Hürde
+       nach §26 seit 1.38 nur die Kegelabende. */
     return `<p class="note" style="margin-top:16px">Kegelabende und Veranstaltungen zusammen –
-      so zählt §12. Für die Königs-Hürde nach §23 zählen dagegen nur die Kegelabende –
+      so zählt §39. Für die Königs-Hürde nach §26 zählen dagegen nur die Kegelabende –
       die stehen als zweite Zahl darunter.</p>
       <div class="list">${l.map((r,i)=>`<div class="rank ${i===0?'first':''}">
         <div class="pos">${i+1}</div>
@@ -4400,7 +4440,7 @@ window.addEventListener('online', () => { hinweisleiste(''); aktualisieren(); })
    - Es wird keine Anwesenheit gesetzt. Wer zusagt und nicht kommt, ist nicht
      anwesend; das entscheidet allein das X im Termin-Blatt.
    - Es wird keine Strafe gebucht. Die App schlaegt vor, der Schriftfuehrer hakt ab.
-   - Es wird kein §18-Haekchen gesetzt. Die Vorschau sagt voraus, mehr nicht.
+   - Es wird kein §22-Haekchen gesetzt. Die Vorschau sagt voraus, mehr nicht.
 
    BEIM KEGELABEND gibt es nur "dabei" und "abgemeldet" – keine dritte Zahl.
    Wer nichts tut, ist dabei, und eine Spalte "ohne Rueckmeldung" waere eine
@@ -4414,9 +4454,9 @@ function rmStand(datum){
   return r.termine.filter(t => t.datum === datum)[0] || null;
 }
 
-/* ======================================== Verspaetung nach §3 (1.49)
+/* ======================================== Verspaetung nach §14 (1.49)
 
-   §3: "Wenn ein Kegelbruder am Kegelabend erst spaeter erscheinen kann, so hat
+   §14: "Wenn ein Kegelbruder am Kegelabend erst spaeter erscheinen kann, so hat
    er dies EBENFALLS in der WhatsApp-Gruppe bis spaetestens eine Stunde vor
    Beginn mitzuteilen." Dieselbe Frist wie die Abmeldung, derselbe Weg – und
    seit die Abmeldung nur noch ueber die App laeuft, muss die Verspaetung es
@@ -4424,7 +4464,7 @@ function rmStand(datum){
 
    Die Saetze RECHNET DIE APP NICHT SELBST AUS den Statuten: Satz,
    Schrittweite, Startzeit und Deckel kommen fertig im Stand mit (s.versp), das
-   Backend liest sie aus den beiden Unterzeilen des §3. Fehlt s.versp, ist das
+   Backend liest sie aus den beiden Unterzeilen des §14. Fehlt s.versp, ist das
    Backend aelter als 1.46 – dann erscheint der Knopf gar nicht, und niemand
    meldet etwas, das nirgends ankommt. */
 
@@ -4475,7 +4515,7 @@ function verspSatzText(s, angemeldet){
   return t;
 }
 
-/* Ist die §3-Frist fuer diesen Termin durch? Zwei Quellen, beide noetig:
+/* Ist die §14-Frist fuer diesen Termin durch? Zwei Quellen, beide noetig:
    Das Backend hat die Frist beim Abruf gerechnet (s.fristVorbei) – das kann
    eine halbe Stunde alt sein. Die Geraeteuhr rechnet live, kennt aber nur die
    Anfangszeit. Wer spaeter trotzdem tippt, wird vom Backend abgewiesen. */
@@ -4486,7 +4526,7 @@ function spaetFristWeg(t, s){
 }
 
 /* Laeuft die App auf einem Backend, das aelter als 1.46 ist, traegt dasselbe
-   Feld "spaet" noch einen WAHRHEITSWERT (die zu spaete Abmeldung nach §2). Ohne
+   Feld "spaet" noch einen WAHRHEITSWERT (die zu spaete Abmeldung nach §13). Ohne
    diese Pruefung stuende in der Liste "kommt spaeter, true". Deshalb geht jeder
    Zugriff auf die Ankunftszeit durch diesen Filter: Uhrzeit oder nichts. */
 function spaetZeit(e){
@@ -4656,7 +4696,7 @@ function rmKoerper(t){
                     wer rechtzeitig gemeldet hat, soll ihn nicht auf sich beziehen. */
                  ? 'Du kommst später – ' + esc(spaetZeit(ich)) + ' Uhr'
                    + (Number(ich.spaetBetrag) > 0
-                      ? ' (' + eur(ich.spaetBetrag) + ' nach §3).'
+                      ? ' (' + eur(ich.spaetBetrag) + ' nach §14).'
                       : (ich.spaetRechtzeitig === false ? ' (nach Fristablauf gemeldet).' : '.'))
                  : 'Du bist dabei.')
               : 'Du hast dich abgemeldet.')
@@ -4676,15 +4716,15 @@ function rmKoerper(t){
        + 'entschieden hat, bekommst du eine Nachricht.</p>';
   } else if (s.kegelabend){
     /* Nach Fristablauf sagt der Knopf, was er kostet. Ein Knopf, der die Folge
-       verschweigt, ist an dieser Stelle eine Falle – die 10,00 € nach §2 fallen
+       verschweigt, ist an dieser Stelle eine Falle – die 10,00 € nach §13 fallen
        an, sobald hier getippt wird. */
     const spaet   = zu && t.datum === D.heute && fristVorbei(t.beginn);
-    const preis   = spaet ? betragText('§2') : '';
+    const preis   = spaet ? betragText(STATUT.ABMELDUNG) : '';
     const beschriftung = zu
-      ? ('Ich kann nicht' + (preis ? ' – ' + preis + ' nach §2' : ''))
+      ? ('Ich kann nicht' + (preis ? ' – ' + preis + ' nach §13' : ''))
       : 'Doch dabei';
     /* Die Reihe ist ein Raster. Seit 1.49 steht die angemeldete Verspaetung
-       nach §3 daneben – aber nur, solange die Frist laeuft und nur fuer den,
+       nach §14 daneben – aber nur, solange die Frist laeuft und nur fuer den,
        der dabei ist. Ist sie durch, sagt die Fusszeile, was eine unangemeldete
        Verspaetung kostet; ein Knopf, der dann noch "anmelden" anbietet, waere
        eine Falle. */
@@ -4716,7 +4756,7 @@ function rmKoerper(t){
     }
   }
 
-  // --- Alkohol: nur beim Kegelabend, nur wenn er dabei ist. §18 zaehlt die
+  // --- Alkohol: nur beim Kegelabend, nur wenn er dabei ist. §22 zaehlt die
   //     Trinkenden unter den ANWESENDEN – wer nicht kommt, zaehlt gar nicht.
   if (s.kegelabend && zu && !s.eingefroren){
     h += '<div class="rmalk" style="margin-top:12px">'
@@ -4837,15 +4877,15 @@ function rmListeOeffnen(datum){
                : (s.kegelabend ? 'abgemeldet' : 'nicht dabei');
     const zusatz = [];
     /* "still" heisst: Er hat nie etwas getippt. Dann steht da auch kein
-       Zeitpunkt – eine erfundene Uhrzeit waere bei §2 das Gegenteil eines
+       Zeitpunkt – eine erfundene Uhrzeit waere bei §13 das Gegenteil eines
        Belegs. */
     if (!e.still && e.zeit){
       const wann = zeitpunktText(e.zeit);
       if (wann) zusatz.push(wann);
     }
     /* ACHTUNG, zwei verschiedene Dinge heissen fast gleich: "e.spaetAbmeldung"
-       (1.49) ist die zu spaete ABMELDUNG nach §2, "e.spaet" die gemeldete
-       Ankunftszeit nach §3. Bis 1.48 hiess die Abmeldung selbst "spaet"; seit
+       (1.49) ist die zu spaete ABMELDUNG nach §13, "e.spaet" die gemeldete
+       Ankunftszeit nach §14. Bis 1.48 hiess die Abmeldung selbst "spaet"; seit
        die Verspaetung dazugekommen ist, braucht sie einen eigenen Namen. */
     if (spaetAbmeldung(e)) zusatz.push('nach Fristablauf');
     if (spaetZeit(e)){
@@ -4853,7 +4893,7 @@ function rmListeOeffnen(datum){
         ? 'Verspätung erst nach Fristablauf gemeldet'
         : 'Verspätung angemeldet'
           + (zeitpunktText(e.spaetGemeldet) ? ' am ' + zeitpunktText(e.spaetGemeldet) : ''));
-      if (Number(e.spaetBetrag) > 0) zusatz.push(eur(e.spaetBetrag) + ' nach §3');
+      if (Number(e.spaetBetrag) > 0) zusatz.push(eur(e.spaetBetrag) + ' nach §14');
     }
     if (e.erfasser && e.erfasser !== e.name) zusatz.push('eingetragen von ' + e.erfasser);
     return `<div class="row rmrow">
@@ -4876,7 +4916,7 @@ function rmListeOeffnen(datum){
   let h = `<p class="note">${esc(rmZaehlText(s))}</p>
     <div class="list" style="margin-top:14px">${sortiert.map(reihe).join('')}</div>`;
 
-  // Die §18-Vorschau bekommt, wer sie braucht: Kassenwart und Schriftfuehrer.
+  // Die §22-Vorschau bekommt, wer sie braucht: Kassenwart und Schriftfuehrer.
   if (s.p18 && (D.ich.darfKasseSehen || D.ich.schriftfuehrer)) h += rm18Karte(s.p18);
 
   $('rmListeBody').innerHTML = h;
@@ -4946,10 +4986,10 @@ function spaetZeichnen(){
 
   $('spaetTitel').textContent = schon ? 'Verspätung ändern' : 'Ich komme später';
 
-  let h = `<p class="note">§3 behandelt die Verspätung wie die Abmeldung: Sie gehört
+  let h = `<p class="note">§14 behandelt die Verspätung wie die Abmeldung: Sie gehört
       <b>${fristUhr ? 'bis ' + esc(fristUhr) + ' Uhr' : 'bis eine Stunde vor Beginn'}</b> gemeldet.
       Dann kostet sie
-      ${esc(verspSatzText(s, true) || 'den Satz nach §3')}.
+      ${esc(verspSatzText(s, true) || 'den Satz nach §14')}.
       Nach Ablauf der Frist lässt sie sich nicht nachmelden – wer dann später kommt,
       zahlt ${esc(verspSatzText(s, false) || 'den höheren Satz')}.</p>
 
@@ -4982,7 +5022,7 @@ function spaetZeichnen(){
     h += `<button class="btn ghost" id="spaetWeg" style="margin-top:10px">Doch pünktlich</button>`;
   }
   h += `<p class="note" style="margin-top:14px">Du bleibst damit <b>dabei</b> – der Zähler und die
-      Vorschau nach §18 rechnen dich weiter mit. Abgerechnet wird am Abend vom Schriftführer;
+      Vorschau nach §22 rechnen dich weiter mit. Abgerechnet wird am Abend vom Schriftführer;
       die App schlägt ihm den Betrag vor.</p>`;
 
   $('spaetBody').innerHTML = h;
@@ -5026,30 +5066,30 @@ async function spaetSenden(wert, knopf){
   }
   ebene('spaetSheet', false);
   const b = verspBetrag(s, wert, true);
-  hinweisleiste('Gemeldet: ' + wert + ' Uhr' + (b ? ' · ' + eur(b) + ' nach §3' : ' · kostenlos'));
+  hinweisleiste('Gemeldet: ' + wert + ' Uhr' + (b ? ' · ' + eur(b) + ' nach §14' : ' · kostenlos'));
 }
 
-/* §18: "Bei mangelnder Beteiligung (4 Alkohol trinkende Kegelbrueder oder
+/* §22: "Bei mangelnder Beteiligung (4 Alkohol trinkende Kegelbrueder oder
    weniger) haben die anwesenden Kegelbrueder das Recht, auf Kosten der
    Kegelkasse zu trinken." Die Logik ist umgekehrt zur Intuition: Die Kasse
    braucht Geld, wenn WENIGE trinken. */
 function rm18Karte(p){
   const greift = p.greift;
   return `<div class="card ${greift ? 'warnkarte' : ''}" style="margin-top:18px">
-    <div class="eyebrow">§18 · Vorschau</div>
+    <div class="eyebrow">§22 · Vorschau</div>
     <div class="sub" style="margin-top:6px">${p.trinker} von ${p.dabei} Anwesenden
       trinken Alkohol. Die Schwelle liegt bei ${p.schwelle}.</div>
     ${greift
-      ? `<div class="sub" style="margin-top:8px"><b>§18 greift voraussichtlich.</b>
+      ? `<div class="sub" style="margin-top:8px"><b>§22 greift voraussichtlich.</b>
            Dann trinken alle ${p.dabei} Anwesenden auf Vereinskosten –
            rund ${eur(p.vorhalten)} vorhalten. Durchschnittsstrafe gedeckelt
            auf ${eur(p.deckel)}.</div>`
-      : `<div class="sub" style="margin-top:8px">§18 greift nach heutigem Stand nicht.</div>`}
+      : `<div class="sub" style="margin-top:8px">§22 greift nach heutigem Stand nicht.</div>`}
     ${p.unsicher
       ? `<p class="note" style="margin:10px 0 0">${plural(p.unsicher, 'Angabe stammt', 'Angaben stammen')}
            aus einer Voreinstellung, die noch nie gepflegt wurde. Die Zahl kann kippen.</p>` : ''}
     <p class="note" style="margin:10px 0 0">Das ist eine Vorschau, kein Beschluss.
-      Gesetzt wird §18 am Abend, nach den tatsächlich Anwesenden.</p>
+      Gesetzt wird §22 am Abend, nach den tatsächlich Anwesenden.</p>
   </div>`;
 }
 
@@ -5140,7 +5180,7 @@ $('spaetSchliessen').addEventListener('click', () => ebene('spaetSheet', false))
    tippt danach die Betroffenen an.
 
    Geschrieben wird NICHT nach Rohdaten, sondern in das Termin-Blatt in
-   "Strafenlisten" – dort stecken Abenddurchschnitt, §17-Aufrundung, §18-Deckel
+   "Strafenlisten" – dort stecken Abenddurchschnitt, §15-Aufrundung, §22-Deckel
    und die Verteilung der Sonderwürfe. Die App rechnet nur mit, was sie zur
    Anzeige braucht; verbindlich ist die Tabelle. */
 
@@ -5373,7 +5413,7 @@ async function schlangeSenden(){
 
 /* ------------------------------------------------------------ Rechnen */
 /* Was ein Kegelbruder heute zusammen hat. Bewusst nur eine Vorschau: Der
-   Abenddurchschnitt für Abwesende und der §18-Deckel entstehen erst in der
+   Abenddurchschnitt für Abwesende und der §22-Deckel entstehen erst in der
    Tabelle, weil sie vom ganzen Abend abhängen. */
 function erfWert(name, label){
   return ((ERF.werte || {})[name] || {})[label] || 0;
@@ -5454,7 +5494,7 @@ function erfAnwesenheit(name, anwesend){
   if (!anwesend && i >= 0) ERF.anwesend.splice(i, 1);
   erfSchalter('anwesenheit', name, anwesend, 'Anwesenheit ' + name);
   erfZeichnen();
-  /* Die Vorschläge nach §2 hängen daran, wer als anwesend markiert ist –
+  /* Die Vorschläge nach §13 hängen daran, wer als anwesend markiert ist –
      also nach jeder Änderung neu holen. Läuft nebenher; die Anzeige wartet
      nicht darauf, sonst ruckelte jedes Antippen. */
   clearTimeout(erfVorschlagUhr);
@@ -5660,7 +5700,7 @@ function erfListeZeichnen(){
   if (!anwesend.length){
     h += `<p class="note warnton" style="margin-top:14px">Noch niemand als anwesend markiert.
       ${kegeln
-        ? 'Der Abenddurchschnitt nach §17 wird aus den Anwesenden gerechnet – ohne diese Angabe stimmt am Ende nichts.'
+        ? 'Der Abenddurchschnitt nach §15 wird aus den Anwesenden gerechnet – ohne diese Angabe stimmt am Ende nichts.'
         : 'Ohne die Anwesenheit lässt sich später nicht mehr sagen, wer überhaupt dabei war.'}
       Am besten gleich zu Beginn setzen.</p>`;
   }
@@ -5676,16 +5716,16 @@ function erfListeZeichnen(){
       ${rest.map(zeile).join('')}
     </div>
     <p class="note" style="margin-top:8px">${kegeln
-      ? 'Auch Abwesende können Strafen bekommen – etwa die 20,00 € nach §5.1, wenn der Pumpenkegel fehlt. Sie zahlen dann Durchschnitt <strong>plus</strong> diese Strafe.'
+      ? 'Auch Abwesende können Strafen bekommen – etwa die 20,00 € nach §27.1, wenn der Pumpenkegel fehlt. Sie zahlen dann Durchschnitt <strong>plus</strong> diese Strafe.'
       : 'Auch wer nicht dabei war, kann eine Strafe bekommen – etwa für etwas Vergessenes. Einen Durchschnitt gibt es bei einer Veranstaltung nicht.'}</p>`;
   }
 
   if (ERF.hatP18){
     h += `<div class="list" style="margin-top:20px"><div class="setrow">
-      <div><div class="lbl">§18: mangelnde Beteiligung</div>
+      <div><div class="lbl">§22: mangelnde Beteiligung</div>
         <div class="dsc">Vier Alkohol trinkende Kegelbrüder oder weniger. Deckelt die
-          Durchschnittsstrafe auf ${esc(betragText('§18') || 'den Höchstbetrag nach §18')} und erlaubt das Trinken auf Kosten der Kasse.</div></div>
-      <button class="switch" role="switch" aria-checked="${!!ERF.p18}" id="erfP18" aria-label="§18"></button>
+          Durchschnittsstrafe auf ${esc(betragText(STATUT.BETEILIGUNG) || 'den Höchstbetrag nach §22')} und erlaubt das Trinken auf Kosten der Kasse.</div></div>
+      <button class="switch" role="switch" aria-checked="${!!ERF.p18}" id="erfP18" aria-label="§22"></button>
     </div></div>`;
   }
 
@@ -5714,7 +5754,7 @@ function erfListeZeichnen(){
   $('erfZuSammel').addEventListener('click', () => { erfSicht = 'sammel'; erfSammelZeile = ''; erfZeichnen(); });
   if ($('erfP18')) $('erfP18').addEventListener('click', () => {
     ERF.p18 = !ERF.p18;
-    erfSchalter('p18', '', ERF.p18, '§18 ' + (ERF.p18 ? 'gesetzt' : 'entfernt'));
+    erfSchalter('p18', '', ERF.p18, '§22 ' + (ERF.p18 ? 'gesetzt' : 'entfernt'));
     erfZeichnen();
   });
   if ($('erfZuSpaet')) $('erfZuSpaet').addEventListener('click', () => {
@@ -6043,7 +6083,7 @@ function erfAnwesenheitZeichnen(){
      erst ein Tipp auf "Alle Zugesagten übernehmen" macht daraus Anwesenheit.
      Stillschweigend übernehmen waere der teuerste Fehler der ganzen Funktion:
      Wer zusagt und nicht kommt, zoege einen falschen Abenddurchschnitt, eine
-     falsche Quote nach §23 und falsche Fehltage nach §12 nach sich. */
+     falsche Quote nach §26 und falsche Fehltage nach §39 nach sich. */
   const vorschlag = erfZugesagte();
   const zeile = m => {
     const da = ERF.anwesend.indexOf(m) >= 0;
@@ -6061,7 +6101,7 @@ function erfAnwesenheitZeichnen(){
   erfBody(`<button class="btn ghost small" id="erfZurueck">← Alle Kegelbrüder</button>
     <h2 class="sec" style="margin-top:16px">Anwesenheit</h2>
     <p class="note">Hält fest, wer da war.${kegeln
-      ? ' Daraus entsteht der Abenddurchschnitt nach §17 – und damit das, was die Abwesenden zahlen.'
+      ? ' Daraus entsteht der Abenddurchschnitt nach §15 – und damit das, was die Abwesenden zahlen.'
       : ' Bei einer Veranstaltung gibt es keinen Durchschnitt; der Eintrag hält nur fest, wer dabei war.'}</p>
     ${erfVorbelegBlock(vorschlag)}
     <div class="list" style="margin-top:16px">${ERF.mitglieder.map(zeile).join('')}</div>`);
@@ -6102,7 +6142,7 @@ function erfVorbelegBlock(vorschlag){
   </div>`;
 }
 
-/* --------------------------------------------- Vorschläge nach §2 (1.44)
+/* --------------------------------------------- Vorschläge nach §13 (1.44)
    Erscheint in der Erfassung, sobald jemand als anwesend markiert ist. Die
    App BUCHT NICHTS: sie zeigt je Fall einen Vorschlag, der Schriftfuehrer
    uebernimmt oder verwirft ihn mit Grund. Ob ein Fehlen entschuldigt war,
@@ -6138,15 +6178,15 @@ function erfVorschlagBlock(){
       <button class="btn ghost small" data-vs-nein="${esc(x.name)}">Verwerfen</button>
     </div>`;
   return `<div class="list" style="margin-top:20px">
-      <div class="group-head"><span>Vorschläge nach §2</span><span>${v.vorschlaege.length}</span></div>
+      <div class="group-head"><span>Vorschläge nach §13</span><span>${v.vorschlaege.length}</span></div>
       ${v.vorschlaege.map(zeile).join('')}
     </div>
-    <p class="note" style="margin-top:8px">Die Durchschnittsstrafe nach §17 rechnet das Blatt
-      ohnehin – vorgeschlagen wird allein der Zuschlag nach §2. Verwerfen fragt nach dem Grund;
+    <p class="note" style="margin-top:8px">Die Durchschnittsstrafe nach §15 rechnet das Blatt
+      ohnehin – vorgeschlagen wird allein der Zuschlag nach §13. Verwerfen fragt nach dem Grund;
       er landet im Protokoll.</p>`;
 }
 
-/* ------------------------------------------ Verspaetungen nach §3 (1.49)
+/* ------------------------------------------ Verspaetungen nach §14 (1.49)
 
    Der eigentliche Gewinn: abhaken statt rechnen. Was gemeldet wurde, steht
    hier als fertiger Posten – Name, Art der Verspaetung, Betrag. Was NICHT
@@ -6158,7 +6198,7 @@ function erfVorschlagBlock(){
    richtig, der nicht mehr in der Terminliste der App steht. */
 function erfVerspBlock(){
   const v = erfVorschlaege;
-  if (!v || !v.versp) return '';            // aelteres Backend: kein §3
+  if (!v || !v.versp) return '';            // aelteres Backend: kein §14
   const liste = v.verspaetungen || [];
   if (!liste.length && !ERF.anwesend.length) return '';
 
@@ -6180,7 +6220,7 @@ function erfVerspBlock(){
   let h = '';
   if (liste.length){
     h += `<div class="list" style="margin-top:20px">
-        <div class="group-head"><span>Verspätungen nach §3</span><span>${liste.length}</span></div>
+        <div class="group-head"><span>Verspätungen nach §14</span><span>${liste.length}</span></div>
         ${liste.map(zeile).join('')}
       </div>`;
   }
@@ -6201,7 +6241,7 @@ function verspSatzTextRoh(versp, angemeldet){
 /* Uebernommen wird der Betrag als ZIELWERT, nicht als Zuschlag: Es gibt je
    Abend eine Ankunftszeit. Haette jemand vorher 1,50 € von Hand eingetragen
    und der Vorschlag lautet 3,00 €, sollen am Ende 3,00 € stehen und nicht
-   4,50 €. Bei den Strafen nach §2 ist es anders – dort wird eine ANZAHL um
+   4,50 €. Bei den Strafen nach §13 ist es anders – dort wird eine ANZAHL um
    eins hochgezaehlt. */
 async function erfVerspUebernehmen(name){
   const v = erfVorschlaege;
@@ -6214,7 +6254,7 @@ async function erfVerspUebernehmen(name){
   }
   const alt = erfWert(name, z.label);
   erfBuchen(name, z.label, Math.round((fall.betrag - alt) * 100) / 100,
-    'Verspätung §3 · ' + fall.spaet + ' Uhr' + (fall.angemeldet ? ' angemeldet' : ' unangemeldet'));
+    'Verspätung §14 · ' + fall.spaet + ' Uhr' + (fall.angemeldet ? ' angemeldet' : ' unangemeldet'));
   v.verspaetungen = v.verspaetungen.filter(x => x.name !== name);
   erfZeichnen();
 }
@@ -6236,7 +6276,7 @@ async function erfVerspVerwerfen(name){
     + '(war doch pünktlich, Absprache – darf leer bleiben)', '') || '';
   try {
     await api('rmVerwerfen', { token: token,
-      eintrag: { datum: ERF.datum, name: name, grund: 'Verspätung §3: ' + (grund || 'ohne Angabe') } });
+      eintrag: { datum: ERF.datum, name: name, grund: 'Verspätung §14: ' + (grund || 'ohne Angabe') } });
   } catch (e) { /* Das Protokoll ist wichtig, aber nicht wichtiger als der Abend. */ }
   erfVorschlaege.verspaetungen = erfVorschlaege.verspaetungen.filter(x => x.name !== name);
   erfZeichnen();
@@ -6254,7 +6294,7 @@ async function erfVorschlagUebernehmen(name){
   }
   /* Gebucht wird ueber denselben Weg wie jede andere Strafe – ein zweiter
      Schreibpfad waere ein zweiter Ort, an dem etwas schieflaufen kann. */
-  erfBuchen(name, zeile.label, 1, 'Vorschlag §2 übernommen');
+  erfBuchen(name, zeile.label, 1, 'Vorschlag §13 übernommen');
   erfVorschlaege.vorschlaege = erfVorschlaege.vorschlaege.filter(x => x.name !== name);
   erfZeichnen();
 }
@@ -6281,7 +6321,7 @@ async function erfVorschlagVerwerfen(name){
    Der Schalter "war angemeldet" steht bewusst da und bewusst auf AUS: Wer
    angemeldet war, steht schon im Vorschlag darueber; hier zaehlt der teurere
    Satz. Gibt es doch einen Beleg – ein Anruf beim Schriftfuehrer –, kann er
-   umschalten. Die Entscheidung trifft ein Mensch, wie bei §2. */
+   umschalten. Die Entscheidung trifft ein Mensch, wie bei §13. */
 let erfSpaetMann = '';
 let erfSpaetZeit = '';
 let erfSpaetAn   = false;
@@ -6312,7 +6352,7 @@ function erfSpaetZeichnen(){
 
     <div class="list" style="margin-top:16px"><div class="setrow">
       <div><div class="lbl">War die Verspätung angemeldet?</div>
-        <div class="dsc">Dann gilt der günstigere Satz nach §3:
+        <div class="dsc">Dann gilt der günstigere Satz nach §14:
           ${esc(verspSatzTextRoh(versp, true))}. Nur setzen, wenn es dafür einen Beleg gibt –
           eine Meldung in der App steht schon in der Liste davor.</div></div>
       <button class="switch" role="switch" aria-checked="${erfSpaetAn}" id="erfSpaetSchalter"
@@ -6353,9 +6393,9 @@ function erfSpaetZeichnen(){
     if (!betrag || !z) return;
     const alt = erfWert(erfSpaetMann, z.label);
     erfBuchen(erfSpaetMann, z.label, Math.round((betrag - alt) * 100) / 100,
-      'Verspätung §3 · ' + erfSpaetZeit + ' Uhr'
+      'Verspätung §14 · ' + erfSpaetZeit + ' Uhr'
       + (erfSpaetAn ? ' angemeldet' : ' unangemeldet') + ' · nachgetragen');
-    hinweisleiste(erfSpaetMann + ' · ' + eur(betrag) + ' nach §3');
+    hinweisleiste(erfSpaetMann + ' · ' + eur(betrag) + ' nach §14');
     erfSicht = 'liste'; erfSpaetMann = ''; erfSpaetZeit = ''; erfSpaetAn = false;
     erfZeichnen();
   });
@@ -6421,11 +6461,11 @@ window.addEventListener('offline', () => hinweisleiste('Offline – ' + standTex
 
 /* ================================================= Freie Strafe (1.21) */
 /* Eine Strafe, die zu keinem Termin gehört: das Handy am Tisch zwischen zwei
-   Abenden, ein Verstoß nach §5.1, ein vergessener Orden bei einer Gelegenheit,
+   Abenden, ein Verstoß nach §27.1, ein vergessener Orden bei einer Gelegenheit,
    für die niemand eine Strafenliste anlegt.
 
    Sie geht deshalb einen anderen Weg als der Abend: Es gibt kein Termin-Blatt,
-   in das sie gehören würde – kein Durchschnitt, kein §18-Deckel, keine
+   in das sie gehören würde – kein Durchschnitt, kein §22-Deckel, keine
    Sonderwürfe. Sie ist genau eine Zeile in den Rohdaten und ein offener Betrag.
    Gerechnet wird trotzdem nicht hier: Der offene Betrag entsteht wie immer aus
    der Formel, die App legt die Zeile nur an.
@@ -6696,7 +6736,7 @@ function fsStrafeZeichnen(){
     <div style="margin-top:18px">
       <div class="eyebrow" style="margin-bottom:10px">Bezeichnung</div>
       <input enterkeyhint="done" class="search" id="fsBezeichnung" maxlength="120" placeholder="${
-        istUml ? 'z. B. Umlage KC Kleidung' : 'z. B. Kegel nicht vorgezeigt (§5.1)'}"
+        istUml ? 'z. B. Umlage KC Kleidung' : 'z. B. Kegel nicht vorgezeigt (§27.1)'}"
              value="${esc(fsBezeichnung)}" aria-label="Bezeichnung">
       <p class="note" style="margin-top:8px">${istUml
         ? 'Unter dieser Bezeichnung erscheint die Umlage in der Kasse – am besten für alle Beteiligten gleich schreiben.'
@@ -6740,7 +6780,7 @@ function fsStrafeZeichnen(){
     <div class="list" style="margin-top:18px"><div class="row">
       <div><div class="n">Ohne Zahlungsfrist</div>
         <div class="m">${fsOhneFrist
-          ? 'Keine Fälligkeit – der Verspätungszuschlag nach §20 entsteht nicht'
+          ? 'Keine Fälligkeit – der Verspätungszuschlag nach §34 entsteht nicht'
           : 'Fällig wie üblich zum nächsten Kegelabend'}</div></div>
       <button class="switch" role="switch" id="fsFrist" aria-checked="${fsOhneFrist}"
               aria-label="Ohne Zahlungsfrist"></button>
@@ -6832,7 +6872,7 @@ function fsWahlZeichnen(){
     <div class="list" style="margin-top:12px">
       <button class="row erfmann" data-fswahl="__eigene__" style="width:100%">
         <div><div class="n">Eigene Bezeichnung</div>
-          <div class="m">für alles, wofür in den Statuten kein Betrag steht – etwa §5.1</div></div>
+          <div class="m">für alles, wofür in den Statuten kein Betrag steht – etwa §27.1</div></div>
         <div class="v">›</div></button>
       ${liste.map(s => `<button class="row erfmann" data-fswahl="${esc(s.t)}" style="width:100%">
         <div><div class="n">${esc(s.t)}</div><div class="m">${esc(s.p)}</div></div>
@@ -7024,7 +7064,7 @@ function fsPostenZeichnen(){
    Ist der Schalter gesetzt und das Backend hat ihn umgesetzt, steht es da. Hat
    ein älteres Backend den Schalter übergangen, steht es AUCH da – sonst hält
    der Schriftführer einen Posten für fristlos, der in vier Wochen den
-   Zuschlag nach §20 bekommt. */
+   Zuschlag nach §34 bekommt. */
 function fsFristNachsatz(ergebnisse){
   if (!fsOhneFrist) return '';
   const liste = (ergebnisse || []).filter(x => x && !x.fehler);
@@ -7440,7 +7480,7 @@ function offenNachMann(){
      der Verein noch zu bekommen hat (Wunsch Johannes vom 07.09.2026) – und
      wer NUR Beiträge schuldet, taucht sonst in der Kasse gar nicht auf.
      Der Beitrag steht bewusst nicht als Posten in der Liste: Er hat kein
-     Fälligkeitsdatum aus dem Blatt, keinen §20-Zuschlag und lässt sich hier
+     Fälligkeitsdatum aus dem Blatt, keinen §34-Zuschlag und lässt sich hier
      auch nicht abhaken – das geht im eigenen Reiter. Er hängt deshalb als
      eigener Wert an der Gruppe. */
   const bt = kasseD().beitraege;
@@ -7493,9 +7533,9 @@ function kassePostenMaske(p){
       note: marke === 'ausgesetzt'
         ? 'Die Durchschnittstrafe ist ausgesetzt. Der Betrag bleibt stehen, damit nachvollziehbar bleibt, dass hier nicht gezahlt, sondern erlassen wurde.'
         : marke === 'ohne Frist'
-          ? 'Die Frist ist aufgehoben: kein Zahlungsziel, kein Zuschlag nach §20. Bezahlt werden kann trotzdem.'
+          ? 'Die Frist ist aufgehoben: kein Zahlungsziel, kein Zuschlag nach §34. Bezahlt werden kann trotzdem.'
           : 'Fällig ' + (p.faellig ? dat(p.faellig) : '–')
-            + (p.zuschlag > 0 ? ' · darin ' + eur(p.zuschlag) + ' Zuschlag nach §20' : '')
+            + (p.zuschlag > 0 ? ' · darin ' + eur(p.zuschlag) + ' Zuschlag nach §34' : '')
             + (p.teilzahlung > 0 ? ' · ' + eur(p.teilzahlung) + ' bereits angezahlt' : '') }
   ];
 
@@ -7543,7 +7583,7 @@ function kasseZahlungMaske(titel, posten, summe){
     { art: 'info', label: 'Offen', wert: eur(summe),
       /* Bis 1.37 wurde ein zu kleiner Betrag abgewiesen. Seit 1.38 tilgt er
          die Posten von alt nach neu – der älteste ist der, auf dem der
-         §20-Zuschlag am längsten läuft. */
+         §34-Zuschlag am längsten läuft. */
       note: plural(posten.length, 'Posten', 'Posten') + '. Trag ein, was wirklich überwiesen '
           + 'wurde. Ist es mehr, wird die Differenz als Spende vermerkt. Ist es weniger, werden '
           + 'die ältesten Posten zuerst beglichen und der Rest bleibt als Anzahlung stehen.' },
@@ -7613,7 +7653,7 @@ async function kasseVermerkSenden(p, was, an, knopf){
 function kasseFaelligMaske(p){
   stammMaske(p.name + ' · ' + dat(p.datum), [
     { art: 'info', label: 'Bisher fällig', wert: p.faellig ? dat(p.faellig) : 'keine Frist gesetzt',
-      note: 'Ab dem Tag nach diesem Datum wächst der Zuschlag nach §20. Ein neues Datum nimmt '
+      note: 'Ab dem Tag nach diesem Datum wächst der Zuschlag nach §34. Ein neues Datum nimmt '
           + 'einen gesetzten Vermerk „Frist aufgehoben" zurück.' },
     { art: 'datum', label: 'Neu fällig am', id: 'kasseFaellig', wert: p.faellig || '' }
   ], 'Speichern', async () => {
@@ -7707,7 +7747,7 @@ function kasseBuchungMaske(art, e){
       } });
 }
 
-/* §18-VORSCHAU FÜR DEN KASSENWART (1.44)
+/* §22-VORSCHAU FÜR DEN KASSENWART (1.44)
    Steht ganz oben in der Übersicht, weil sie das einzige ist, wofür er Geld
    VORHER bereithalten muss. Die Logik ist umgekehrt zur Intuition: Die Kasse
    zahlt, wenn WENIGE trinken – bei vier Alkohol trinkenden Kegelbrüdern oder
@@ -7723,7 +7763,7 @@ function kasse18Block(){
   const p = s.p18;
   if (!p.greift) return '';          // kein Alarm, wenn nichts anliegt
   return `<div class="card warnkarte" style="margin-top:16px">
-    <div class="eyebrow">§18 am ${dat(s.datum)}</div>
+    <div class="eyebrow">§22 am ${dat(s.datum)}</div>
     <div class="amount">${eur(p.vorhalten)}</div>
     <div class="sub">${p.trinker} von ${p.dabei} Anwesenden trinken Alkohol –
       Schwelle ${p.schwelle}. Dann geht die Zeche auf die Kasse.</div>
@@ -7731,7 +7771,7 @@ function kasse18Block(){
       bisherigen Ausgaben „Frei Suff“.${p.unsicher
         ? ' ' + plural(p.unsicher, 'Angabe stammt', 'Angaben stammen')
           + ' aus einer ungepflegten Voreinstellung – die Zahl kann kippen.' : ''}
-      Vorschau, kein Beschluss: §18 setzt der Schriftführer am Abend.</p>
+      Vorschau, kein Beschluss: §22 setzt der Schriftführer am Abend.</p>
   </div>`;
 }
 
@@ -7869,7 +7909,7 @@ function tageSeit(iso){
   return Math.max(0, Math.round((heute - von) / 86400000));
 }
 
-/* Wann kommt der nächste Zuschlag nach §20 dazu? (1.51)
+/* Wann kommt der nächste Zuschlag nach §34 dazu? (1.51)
 
    Der Zuschlag wächst je ANGEFANGENEM Monat nach der Fälligkeit – gerechnet
    wird er in der Tabelle, der Satz je Monat steht seit Backend 1.48 am Posten.
@@ -8274,11 +8314,11 @@ const KASSE_SICHTEN = {
         ${b.beitraegeOffen > 0 ? zeile('Davon Monatsbeiträge',
                 b.beitraegeSchuldner
                   ? plural(b.beitraegeSchuldner, 'Kegelbruder im Rückstand', 'Kegelbrüder im Rückstand')
-                  : 'nach §14',
+                  : 'nach §2',
                 eur(b.beitraegeOffen)) : ''}
         ${zeile('Davon überfällig',
                 b.ueberfaellig > 0
-                  ? '<span class="frist">Frist verstrichen – §20 greift</span>'
+                  ? '<span class="frist">Frist verstrichen – §34 greift</span>'
                   : 'nichts überfällig',
                 eur(b.ueberfaellig), b.ueberfaellig > 0)}
         ${zeile('Nächste Fälligkeit', b.naechsteFaelligkeit ? 'für offene Posten' : 'keine offene Frist',
@@ -8336,7 +8376,7 @@ const KASSE_SICHTEN = {
         <div class="summe">${eur(t.summe)}</div></div>`).join('')}</div>` : ''}`;
   },
 
-  /* --------------------------------------------- Monatsbeiträge nach §14 */
+  /* --------------------------------------------- Monatsbeiträge nach §2 */
   /* Entscheidung Johannes vom 08.09.2026: Der Beitrag läuft per Dauerauftrag
      und gilt deshalb als BEZAHLT, solange nichts anderes vermerkt ist. Das
      Blatt im Hintergrund hält nur die Ausnahmen – der Kassenwart trägt ein, wo
@@ -8350,7 +8390,7 @@ const KASSE_SICHTEN = {
            + 'Grundlage – bitte einmal die Daten neu laden.</p>';
     }
     if (!(bt.satz > 0)){
-      return '<p class="note" style="margin-top:16px">In §14 ist kein Betrag hinterlegt. '
+      return '<p class="note" style="margin-top:16px">In §2 ist kein Betrag hinterlegt. '
            + 'Solange dort nichts steht, lässt sich kein Rückstand vermerken.</p>';
     }
 
@@ -8409,9 +8449,9 @@ const KASSE_SICHTEN = {
     }).join('');
 
     return kopf + '<div style="margin-top:14px">' + karten + '</div>'
-         + '<p class="note" style="margin-top:12px">Das Beitragsjahr läuft nach §31 vom 1. Juni bis '
+         + '<p class="note" style="margin-top:12px">Das Beitragsjahr läuft nach §6 vom 1. Juni bis '
          + 'zum 31. Mai – der Mai gehört also noch zur ablaufenden Saison. Ein Rückstand überlebt den '
-         + 'Jahreswechsel und steht weiter hier, bis er beglichen ist. Der Betrag kommt aus §14.</p>';
+         + 'Jahreswechsel und steht weiter hier, bis er beglichen ist. Der Betrag kommt aus §2.</p>';
   },
 
   /* ------------------------------------------- Strafen und Spenden (1.38) */
@@ -8443,7 +8483,7 @@ const KASSE_SICHTEN = {
 
   /* FÄLLIG (1.51, Auftrag 46).
      Alles Überfällige nach Alter – der älteste Posten zuerst, denn auf ihm
-     läuft der Zuschlag nach §20 am längsten. Neben dem, was schon aufgelaufen
+     läuft der Zuschlag nach §34 am längsten. Neben dem, was schon aufgelaufen
      ist, steht, WANN der nächste Schritt dazukommt: Das ist die Zahl, mit der
      sich ein Anruf begründen lässt.
 
@@ -8480,13 +8520,13 @@ const KASSE_SICHTEN = {
         <div class="m">${plural(offen.length, 'Posten', 'Posten')} bei ${
           plural(l.length, 'Kegelbruder', 'Kegelbrüdern')}</div></div>
         <div class="summe" style="color:var(--warn)">${eur(summe)}</div></div>
-      ${zuschl > 0 ? `<div class="row"><div><div class="n">Davon Zuschlag nach §20</div>
+      ${zuschl > 0 ? `<div class="row"><div><div class="n">Davon Zuschlag nach §34</div>
         <div class="m">aufgelaufen, weil die Frist verstrichen ist</div></div>
         <div class="v">${eur(zuschl)}</div></div>` : ''}
     </div>`;
 
     return '<p class="note" style="margin-top:16px">Der älteste Posten steht oben – auf ihm '
-         + 'läuft der Zuschlag nach §20 am längsten. Aufgehobene Fristen stehen hier nicht, '
+         + 'läuft der Zuschlag nach §34 am längsten. Aufgehobene Fristen stehen hier nicht, '
          + 'bei ihnen entsteht kein Zuschlag.</p>'
          + kopf
          + '<div style="margin-top:14px">'
@@ -8500,7 +8540,7 @@ const KASSE_SICHTEN = {
              const naechst = naechsterZuschlag(p);
              const unten = ['fällig am ' + dat(p.faellig),
                'seit ' + plural(tageSeit(p.faellig), 'Tag', 'Tagen'),
-               p.zuschlag > 0 ? 'darin ' + eur(p.zuschlag) + ' nach §20' : ''
+               p.zuschlag > 0 ? 'darin ' + eur(p.zuschlag) + ' nach §34' : ''
              ].filter(Boolean).join(' · ');
              return `<div class="row"><div>
                <div class="n">${esc(p.quelle || 'Termin')} ${dat(p.datum)}</div>
@@ -8563,7 +8603,7 @@ const KASSE_SICHTEN = {
       const offeneP = echteForderungen(g);
       const naechste = offeneP.map(x => x.faellig).filter(Boolean).sort()[0] || '';
       /* Echt kleiner: Am Fälligkeitstag selbst darf noch gezahlt werden, der
-         §20-Zuschlag beginnt am Tag danach. So rechnet es die Formel im Blatt
+         §34-Zuschlag beginnt am Tag danach. So rechnet es die Formel im Blatt
          ("IF(TODAY()<=E;0;…)") und so führt es auch das Backend. Bis 1.28 stand
          hier <=, und die App meldete einen Tag zu früh "überfällig". */
       const ueber = offeneP.some(x => x.zuschlag > 0 || (x.faellig && x.faellig < D.heute));
@@ -8614,7 +8654,7 @@ const KASSE_SICHTEN = {
          aus einem anderen Blatt und wird auch woanders abgehakt. Er steht
          deshalb als eigener Block und nicht als Zeile zwischen den Strafen. */
       const beitragBlock = g.beitrag > 0 ? `<div class="hblock">
-          <div class="group-head"><span>Monatsbeiträge §14</span>
+          <div class="group-head"><span>Monatsbeiträge §2</span>
             <span class="pill open">${eur(g.beitrag)}</span></div>
           <div class="row"><div><div class="n">${plural(g.beitragMonate, 'Monat offen', 'Monate offen')}</div>
             <div class="m">Abhaken im Reiter „Monatsbeiträge“ – hier nicht.</div></div>
@@ -8635,7 +8675,7 @@ const KASSE_SICHTEN = {
           <div class="teaser"><div class="kein">${teaser || 'nichts offen'}</div></div>
         </summary>
         ${g.posten.length ? `<div class="hblock"><div class="group-head"><span>Offene Posten</span>${
-          ueber ? '<span class="pill open">§20 läuft</span>' : ''}</div>${zeilen}</div>` : ''}
+          ueber ? '<span class="pill open">§34 läuft</span>' : ''}</div>${zeilen}</div>` : ''}
         ${beitragBlock}
         ${knoepfe}
       </details>`;
@@ -9663,8 +9703,13 @@ const TOUR_NEU      = 'kc-tour-neu';      // App-Fassung, deren Neuerungen schon
    geht jetzt zum ersten Mal an die Kegelbrüder. Der erste Eintrag zählt
    deshalb nicht auf, was sich GEÄNDERT hat, sondern was die App KANN. */
 const NEUERUNGEN = [
+  { fassung: '1.53', punkte: [
+      'Die Statuten stehen in neuer Reihenfolge: erst der Verein, dann das Kegeln, dann Ehrungen, Veranstaltungen und Sonstiges – §1 Mitglieder bis §39 Anwesenheit.',
+      'Inhaltlich ändert sich nichts: gleiche Regeln, gleiche Beträge, nur neu geordnet und neu nummeriert.',
+      'Merkst du dir eine Nummer aus einer älteren Nachricht: §4 Strafen heißt jetzt §12, §23 Kegelkönig jetzt §26, der Verspätungszuschlag §20 jetzt §34.'
+    ] },
   { fassung: '1.49', punkte: [
-      'Du kannst jetzt auch eine Verspätung anmelden: „Ich komme später“ auf der Terminkarte, Uhrzeit antippen – fertig. Die App zeigt dir gleich, was es nach §3 kostet.',
+      'Du kannst jetzt auch eine Verspätung anmelden: „Ich komme später“ auf der Terminkarte, Uhrzeit antippen – fertig. Die App zeigt dir gleich, was es nach §14 kostet.',
       'Gemeldet werden muss sie wie eine Abmeldung: bis eine Stunde vor Beginn. Danach verschwindet der Knopf, und es gilt der teurere Satz für eine unangemeldete Verspätung.',
       'Du bleibst dabei angemeldet – in der Liste steht bei dir „kommt später“ mit deiner Uhrzeit.'
     ] },
@@ -9697,11 +9742,11 @@ const NEUERUNGEN = [
       'Abende laden spürbar schneller, und das Tippen an der Bahn geht flüssiger.'
     ] },
   { fassung: '1.39', punkte: [
-      'Neu unter „Verein“: die Runden nach §32 – wer aus welchem Anlass noch einen ausgeben muss, für alle sichtbar.',
+      'Neu unter „Verein“: die Runden nach §37 – wer aus welchem Anlass noch einen ausgeben muss, für alle sichtbar.',
       'Alle Kegelabende und Veranstaltungen lassen sich in den Handy-Kalender holen. Zahnrad › Termine im Kalender.',
       'Benachrichtigungen sind ab jetzt von Haus aus eingeschaltet. Ausschalten geht weiterhin über das Zahnrad.',
-      'Der Kontostand wird gerechnet statt eingetippt, und die Monatsbeiträge nach §14 stehen jetzt auch in der App – dein offener Betrag auf der Startseite enthält sie.',
-      'Für den Kegelkönig zählt nach §23 nur noch die Anwesenheit an den Kegelabenden – Veranstaltungen zählen dafür nicht mit.'
+      'Der Kontostand wird gerechnet statt eingetippt, und die Monatsbeiträge nach §2 stehen jetzt auch in der App – dein offener Betrag auf der Startseite enthält sie.',
+      'Für den Kegelkönig zählt nach §26 nur noch die Anwesenheit an den Kegelabenden – Veranstaltungen zählen dafür nicht mit.'
     ] }
 ];
 
@@ -9744,10 +9789,10 @@ function tourGrundKarten(){
        derselben Karte. Zwei Karten für einen Reiter waren ein Grund, warum die
        Tour zu lang wurde. */
     { sym:'start', t:'Start – dein Stand und das Bezahlen',
-      x:'Ganz oben, was du der Kegelkasse schuldest, daneben deine Fehltage nach §12 und der '
+      x:'Ganz oben, was du der Kegelkasse schuldest, daneben deine Fehltage nach §39 und der '
       + 'nächste Kegelabend mit der Abmeldefrist. Ganz unten stehen Empfänger, IBAN, Betrag und '
       + 'Verwendungszweck – ein Tipp darauf legt den Wert in die Zwischenablage.',
-      k:'Auf dem Konto sein muss es bis zum nächsten Kegeln (§4). Danach kommt der Zuschlag nach §20 dazu.' },
+      k:'Auf dem Konto sein muss es bis zum nächsten Kegeln (§12). Danach kommt der Zuschlag nach §34 dazu.' },
 
     { sym:'liste', t:'Strafen – wie es dazu kam',
       x:'Der zweite Reiter zeigt jede einzelne Strafe nach Terminen, dazu deine teuerste '
@@ -9759,7 +9804,7 @@ function tourGrundKarten(){
 
     { sym:'leute', t:'Verein',
       x:'Die Warte mit allen Ämtern, die Kegelbrüder, alle Termine der Saison – und unter '
-      + '„Runden“ die Liste nach §32: wer aus welchem Anlass noch einen ausgeben muss.' },
+      + '„Runden“ die Liste nach §37: wer aus welchem Anlass noch einen ausgeben muss.' },
 
     /* NEU 1.38. Das Abo ist der einzige Punkt der App, den man einmal
        einrichtet und danach nie wieder anfasst – deshalb gehört er in die
@@ -9817,7 +9862,7 @@ function tourBereichKarten(bereich){
       ? 'Im Reiter „Kasse“ stehen die offenen Beträge nach Kegelbruder. Ist Geld eingegangen, '
       + 'hakst du es ab – einzeln oder für alle Termine eines Kegelbruders auf einmal. Wird '
       + 'weniger überwiesen, tilgt der Betrag die ältesten Posten zuerst, der Rest bleibt als '
-      + 'Anzahlung stehen. Dazu die Monatsbeiträge nach §14 – die gelten als bezahlt, solange du '
+      + 'Anzahlung stehen. Dazu die Monatsbeiträge nach §2 – die gelten als bezahlt, solange du '
       + 'nichts anderes vermerkst –, Ausgaben, Einnahmen, Strafen und Spenden. Und das Konto: '
       + 'Anfangsbestand eintragen, den Kontostand rechnet die App.'
       : 'Im Reiter „Kasse“ stehen die offenen Beträge nach Kegelbruder, dazu Kontostand, Ausgaben '
@@ -9831,7 +9876,7 @@ function tourBereichKarten(bereich){
     + '1.38 beim Kassenwart.',
     k: i.nurLesenAmt
       ? 'Du hast als Vertreter Einsicht bekommen: ansehen ja, ändern nein.'
-      : 'Königsfähig ist nach §23 nur, wer bei mindestens ' + (huerdeText() || '60 %') + ' der KEGELABENDE dabei war – '
+      : 'Königsfähig ist nach §26 nur, wer bei mindestens ' + (huerdeText() || '60 %') + ' der KEGELABENDE dabei war – '
       + 'Veranstaltungen zählen dafür nicht mit. Die Zahlen '
       + 'sieht sonst niemand, solange du sie nicht freigibst.' }];
   if (bereich === 'stammdaten') return [{ sym:'stamm', t:'Statuten, Ämter, Mitglieder',
@@ -10259,7 +10304,7 @@ function zeichneAbschluss(){
           <div class="m">${plural(o.anzahl,'Posten','Posten')} · ältester vom ${dat(o.aeltester)}</div></div>
         <div class="v">${eur(Math.round(o.summe * 100) / 100)}</div></div>`).join('')}</div>
       <p class="note" style="margin-top:10px">Diese Posten bleiben mit ihrem bisherigen
-        Fälligkeitsdatum stehen – der Zuschlag nach §20 läuft also weiter.</p>`
+        Fälligkeitsdatum stehen – der Zuschlag nach §34 läuft also weiter.</p>`
     : `<p class="note" style="margin-top:14px">Es ist nichts mehr offen.</p>`;
 
   /* 4 – Das wird neu angelegt */
@@ -10882,8 +10927,8 @@ function stammStatutOeffnen(p, t, betragZeigen){
   const f = stammStatutFinden(p, t);
   if (!f) return;
   const e = f.e;
-  /* Steht in der Betragsspalte ein ZEICHEN statt einer Zahl – das ⌀ bei §17,
-     „max. 200,00€" bei §37 –, dann ist das kein fehlender Betrag, sondern eine
+  /* Steht in der Betragsspalte ein ZEICHEN statt einer Zahl – das ⌀ bei §15,
+     „max. 200,00€" bei §31 –, dann ist das kein fehlender Betrag, sondern eine
      Aussage: Dieser Paragraph hat keinen festen Betrag. Ein Eingabefeld davor zu
      setzen wäre eine Falle; wer dort eine Zahl einträgt, verdreht die Bedeutung
      des Paragraphen und die App zeigt danach einen Eurobetrag, wo der
@@ -10891,9 +10936,9 @@ function stammStatutOeffnen(p, t, betragZeigen){
      (Aufgefallen Johannes, 29.08.2026.) */
   const zeichenBetrag = (e.zahl === null || e.zahl === undefined) && !!e.b;
 
-  /* Viele Paragraphen sind reine Regeln: §21 Generalversammlung, §23 Kegelkönig,
-     §30 Auflösung. Andere sind nur die Überschrift über ihren Strafen – §4, §6,
-     §8. In beiden Fällen gehört in die Betragsspalte nichts hinein, und ein
+  /* Viele Paragraphen sind reine Regeln: §3 Generalversammlung, §26 Kegelkönig,
+     §11 Auflösung. Andere sind nur die Überschrift über ihren Strafen – §12, §7,
+     §29. In beiden Fällen gehört in die Betragsspalte nichts hinein, und ein
      leeres Eingabefeld "Betrag in Euro" ist dort eine Falle: Eine Zahl darin
      macht aus der Regel eine Strafe, und die App zeigt danach einen Eurobetrag
      neben dem Paragraphen. Das Feld erscheint deshalb erst auf ausdrücklichen
@@ -10930,10 +10975,10 @@ function stammStatutOeffnen(p, t, betragZeigen){
   felder.push({ art: 'lang', label: 'Beschreibung', id: 'stammBeschr', wert: e.d || '' });
 
   /* Ein Rechenwert ist eine Zahl, die zwar in den Statuten steht, aber keine
-     Strafe ist – bisher nur die Aufrundung der Durchschnittsstrafe nach §17.
+     Strafe ist – bisher nur die Aufrundung der Durchschnittsstrafe nach §15.
      Das Feld erscheint nur dort, wo wirklich einer hinterlegt ist. */
   const hatRechenwert = e.rechenwert !== null && e.rechenwert !== undefined;
-  const rwArt = rechenwertArt(e.p);
+  const rwArt = rechenwertArt(e.t);
   if (hatRechenwert) felder.push({
     art: 'zahl', label: rwArt.label, id: 'stammRechen', wert: e.rechenwert,
     note: rwArt.note
@@ -11090,14 +11135,14 @@ function stammMitgliedOeffnen(name){
       note: 'Wer austritt, verschwindet aus den künftigen Abenden – seine bisherigen bleiben vollständig erhalten.' },
     { art: 'datum', label: 'Eintritt', id: 'stammMEin', wert: m.eintritt || '' },
     { art: 'datum', label: 'Austritt', id: 'stammMAus', wert: m.austritt || '' },
-    /* Die Voreinstellung für §18 (1.44). Ein "keine Angabe" gibt es nicht –
+    /* Die Voreinstellung für §22 (1.44). Ein "keine Angabe" gibt es nicht –
        deshalb ein Haken und kein drittes Feld. Ist die Zelle im Blatt noch
        leer, steht der Haken auf "nein"; das ist die für die Kasse teurere
        Annahme, und die Lücke wird oben in der Liste angezeigt. */
     { art: 'haken', label: 'Trinkt beim Kegeln Alkohol', id: 'stammMAlk', wert: !!m.alkohol,
       note: m.alkoholGesetzt
         ? 'Voreinstellung für jeden Kegelabend. Umstellen kann er sie am Abend selbst.'
-        : 'Für ihn ist noch nichts hinterlegt – bitte einmal setzen. Solange das fehlt, rechnet die §18-Vorschau mit „nein“.' }
+        : 'Für ihn ist noch nichts hinterlegt – bitte einmal setzen. Solange das fehlt, rechnet die §22-Vorschau mit „nein“.' }
   ], 'Speichern', () => stammSenden('mitgliedSetzen', {
     mitglied: { name: m.name, aktiv: stammHaken('stammMAktiv'),
                 eintritt: stammWert('stammMEin'), austritt: stammWert('stammMAus'),
@@ -11121,12 +11166,12 @@ function stammNeuesMitgliedMaske(){
     { art: 'datum', label: 'Eintritt', id: 'stammNME', wert: (D && D.heute) || '' },
     { art: 'haken', label: 'Als Gast führen', id: 'stammNMG', wert: false,
       note: 'Gäste tauchen in der App nicht auf und bekommen keinen Zugang.' },
-    /* PFLICHT bei einem Mitglied (1.44). Daran hängt die §18-Vorschau, und ein
+    /* PFLICHT bei einem Mitglied (1.44). Daran hängt die §22-Vorschau, und ein
        "keine Angabe" gibt es dort nicht. Deshalb wird hier gefragt statt
        später nachgetragen – eine leere Zelle ist genau die Lücke, die wir
-       nicht wollen. Bei einem Gast fällt die Frage weg: §18 zählt Kegelbrüder. */
+       nicht wollen. Bei einem Gast fällt die Frage weg: §22 zählt Kegelbrüder. */
     { art: 'haken', label: 'Trinkt beim Kegeln Alkohol', id: 'stammNMA', wert: true,
-      note: 'Voreinstellung für jeden Kegelabend. Sie zählt bei §18 mit und lässt sich pro Abend umstellen.' }
+      note: 'Voreinstellung für jeden Kegelabend. Sie zählt bei §22 mit und lässt sich pro Abend umstellen.' }
   ], 'Anlegen', () => stammSenden('mitgliedAnlegen', {
     mitglied: { name: stammWert('stammNMN'), eintritt: stammWert('stammNME'),
                 typ: stammHaken('stammNMG') ? 'Gast' : 'Mitglied',
