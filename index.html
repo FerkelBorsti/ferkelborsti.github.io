@@ -1317,7 +1317,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    ist aber bewusst nicht hochgeladen. Zwei verschiedene Dateien unter
    derselben Nummer sind genau der Fehler, der am 08.09.2026 zu kc-v1.38
    geführt hat – deshalb wird 1.45 übersprungen, nicht zweitverwendet. */
-const APP_VERSION = '1.53';
+const APP_VERSION = '1.54';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -1391,6 +1391,61 @@ const num = s => {
   return isNaN(n) ? 0 : n;
 };
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ------------------------------------------- Listen zeichnen, ohne zuzuklappen
+   (1.54, Meldung Johannes vom 14.09.2026: "Wenn man z.B. in den Statuten einen
+   Punkt aufgeklappt hat, schließt sich dieser nach kurzer Zeit wieder von
+   alleine. Meistens passiert das aber nur ein mal.")
+
+   Die Ursache ist kein Zeitgeber, sondern der Ablauf beim Start: start() zeigt
+   zuerst den gespeicherten Stand aus dem Gerätespeicher und schickt gleichzeitig
+   die Abfrage ans Backend los. Kommt die Antwort ein bis drei Sekunden später an,
+   ruft zeigeApp() den sichtbaren Reiter noch einmal auf, und der setzt sein
+   innerHTML neu. Ein <details>, das der Kegelbruder in der Zwischenzeit
+   aufgeklappt hat, ist danach weg – samt Scrollstelle. Danach passiert es nicht
+   wieder, weil kein zweiter Abruf mehr folgt: genau das "meistens nur ein mal".
+
+   Zwei Sicherungen, in dieser Reihenfolge:
+
+   1. Ist das neue HTML Zeichen für Zeichen dasselbe wie das alte, wird gar
+      nichts angefasst. Das ist beim Start der Normalfall – der Zwischenspeicher
+      stimmt ja meist mit dem Backend überein. Nichts klappt zu, nichts springt.
+   2. Hat sich wirklich etwas geändert, wird vorher gemerkt, welche Blöcke offen
+      waren, und danach wieder aufgeklappt. Geschlüsselt wird über den Text der
+      Zusammenfassung, nicht über die Position – eine neu dazugekommene Zeile
+      darüber verschiebt sonst alles.
+
+   Bewusst kein data-Attribut und keine eigene Kennung an den Aufrufstellen: Die
+   Zeichenfunktionen bleiben, wie sie sind, und geben ihr HTML weiter wie bisher.
+*/
+function detailsSchluessel(d){
+  const s = d.querySelector('summary');
+  return (s ? s.textContent : '').replace(/\s+/g, ' ').trim();
+}
+function listeSetzen(box, html){
+  if (!box) return;
+  /* Verglichen wird gegen das, was ZULETZT HIER GESETZT wurde, nicht gegen
+     box.innerHTML: Der Browser gibt innerHTML normalisiert zurück – andere
+     Anführungszeichen, andere Entities, aufgelöste Kurzschreibweisen. Ein
+     Vergleich damit wäre praktisch immer ungleich, und die Sicherung liefe ins
+     Leere, ohne dass es jemandem auffiele. */
+  if (box.__kcHtml === html) return;           // 1. nichts hat sich geändert
+  box.__kcHtml = html;
+
+  const offen = {};
+  box.querySelectorAll('details[open]').forEach(d => { offen[detailsSchluessel(d)] = true; });
+
+  box.innerHTML = html;
+
+  /* Nur wieder aufklappen, was vorher offen war. Ein Block, den das neue HTML
+     von sich aus offen mitbringt (die rosa Markierung nach einer Änderung),
+     bleibt offen – der wird hier nicht angefasst. */
+  if (Object.keys(offen).length){
+    box.querySelectorAll('details').forEach(d => {
+      if (!d.open && offen[detailsSchluessel(d)]) d.open = true;
+    });
+  }
+}
 
 /* ------------------------------------------- Paragraphen über den NAMEN (1.53)
    Bis 1.51 stand hier die NUMMER: rechenwert('§23'). Nach einer Umsortierung
@@ -2412,6 +2467,30 @@ function aendHinspringen(reiter){
   }, 80);
 }
 
+/* ------------------------------------------------------ Geburtstag (1.54)
+   Wer heute Geburtstag hat, steht ganz oben auf der Startseite – bei allen.
+   Das Backend schickt dafür NUR die Namen von heute und das Alter, nicht die
+   Geburtsdaten aller sechzehn: Die vollen Daten sieht allein, wer die
+   Stammdaten pflegt.
+
+   Die Runde nach §37 entsteht unabhängig davon im Backend; diese Karte zeigt
+   sie nur an. Bleibt sie leer, weil noch kein Geburtsdatum hinterlegt ist,
+   fehlt hier schlicht die Karte – kein Platzhalter, keine Meldung. */
+function geburtstagsKarte(){
+  const liste = (D && D.geburtstageHeute) || [];
+  if (!liste.length) return '';
+  const ichDabei = liste.some(g => g.name === D.ich.name);
+  const namen = liste.map(g => esc(g.name) + (g.alter > 0 ? ' (' + g.alter + ')' : ''));
+  return `<div class="card" style="margin-top:20px">
+      <div class="eyebrow">${liste.length > 1 ? 'Heute haben Geburtstag' : 'Heute hat Geburtstag'}</div>
+      <div class="kassenstand">${namen.join(' · ')}</div>
+      <p class="note" style="margin:12px 0 0">${ichDabei
+        ? 'Herzlichen Glückwunsch! Nach §37 gibst du beim nächsten Kegeln eine Runde aus – sie steht schon unter „Runden“.'
+        : 'Nach §37 gibt ' + (liste.length > 1 ? 'jeder von ihnen' : 'er')
+          + ' beim nächsten Kegeln eine Runde aus. Sie steht schon unter „Runden“.'}</p>
+    </div>`;
+}
+
 /* -------------------------------------------------------------- Start */
 function zeichneStart(){
   const t = D.naechsterTermin;
@@ -2431,6 +2510,8 @@ function zeichneStart(){
         : plural(D.meineTermine.filter(x=>!x.bezahlt).length,'Termin offen','Termine offen')
       } · ${esc(standText())}</div>
     </div>
+
+    ${geburtstagsKarte()}
 
     ${rmAntragKarte()}
 
@@ -2718,9 +2799,11 @@ function istAusgleich(t){
   const s = normStrafe(t);
   return /^ausgleich\b/.test(s) && s.indexOf('abwesenheit') >= 0;
 }
-/* Korrekturen sind Minusbetraege auf eine andere Strafart. In einer
-   Haeufigkeitsliste haben sie nichts verloren – sie wuerden dort als eigene
-   "Strafart" mitzaehlen und den Betrag der echten verfaelschen. */
+/* Korrekturen sind nachtraegliche Berichtigungen auf eine andere Strafart –
+   seit 1.54 nach unten UND nach oben. In einer Haeufigkeitsliste haben sie
+   nichts verloren: Sie wuerden dort als eigene "Strafart" mitzaehlen und den
+   Betrag der echten verfaelschen. Erkannt werden sie an der Bezeichnung, nicht
+   am Vorzeichen – das war schon immer so und traegt deshalb auch jetzt. */
 function istKorrektur(t){ return /^korrektur\b/.test(normStrafe(t)); }
 
 function fasseZusammen(eintraege){
@@ -2798,21 +2881,21 @@ async function historieOeffnen(){
   if (historieLaedt) return;
   if (historieDaten){ zeichneHistorie(); return; }
   historieLaedt = true;
-  $('historieList').innerHTML = `<div class="list"><div class="row">
-    <div class="n">Die Kegeljahre werden geholt …</div></div></div>`;
+  listeSetzen($('historieList'), `<div class="list"><div class="row">
+    <div class="n">Die Kegeljahre werden geholt …</div></div></div>`);
   try {
     const r = await api('historie', { token: token }, API_VERSUCHE);
     if (r.fehler){
-      $('historieList').innerHTML = `<div class="list"><div class="row">
-        <div class="n">${esc(r.fehler)}</div></div></div>`;
+      listeSetzen($('historieList'), `<div class="list"><div class="row">
+        <div class="n">${esc(r.fehler)}</div></div></div>`);
       return;
     }
     historieDaten = r.historie || [];
     zeichneHistorie();
   } catch (e) {
-    $('historieList').innerHTML = `<div class="list"><div class="row">
+    listeSetzen($('historieList'), `<div class="list"><div class="row">
       <div><div class="n">Die Historie ließ sich nicht laden.</div>
-      <div class="m">${esc(fehlerGrund(e))}</div></div></div></div>`;
+      <div class="m">${esc(fehlerGrund(e))}</div></div></div></div>`);
   } finally {
     historieLaedt = false;
   }
@@ -3177,8 +3260,8 @@ function zeichneHistorie(){
   if (laeuft) liste.unshift(laeuft);
 
   if (!liste.length){
-    $('historieList').innerHTML = `<div class="list"><div class="row">
-      <div class="n">Noch keine Kegeljahre hinterlegt.</div></div></div>`;
+    listeSetzen($('historieList'), `<div class="list"><div class="row">
+      <div class="n">Noch keine Kegeljahre hinterlegt.</div></div></div>`);
     return;
   }
 
@@ -3209,7 +3292,7 @@ function zeichneHistorie(){
   });
 
   h += `</div>`;
-  $('historieList').innerHTML = h;
+  listeSetzen($('historieList'), h);
 }
 
 /* ------------------------------------------------------------ Strafen */
@@ -3324,7 +3407,7 @@ function zeichneStrafen(){
             t.faellig < D.heute ? ' – Frist verstrichen, §34 greift' : ''}</div></div></div>` : '')}
     </div>`).join('');
   }
-  $('tab-strafen').innerHTML = h;
+  listeSetzen($('tab-strafen'), h);
 }
 
 /* ----------------------------------------------------------- Statuten */
@@ -3355,8 +3438,8 @@ const istParagraph = s => /^§\s*\d/.test(String(s && s.p || ''));
 function zeichneStatuten(rows){
   rows = (rows || []).filter(istParagraph);
   const box = $('statutList');
-  if (!rows.length){ box.innerHTML = `<div class="row"><div class="n">Nichts gefunden.</div></div>`; return; }
-  box.innerHTML = rows.map(s => {
+  if (!rows.length){ listeSetzen(box, `<div class="row"><div class="n">Nichts gefunden.</div></div>`); return; }
+  listeSetzen(box, rows.map(s => {
     const markePara = istGeaendert('Statuten', s.t);
     const markeItem = (s.items || []).map(i => istGeaendert('Statuten', i.t)).filter(String)[0] || '';
     const marke = markePara || markeItem;
@@ -3375,7 +3458,7 @@ function zeichneStatuten(rows){
       ${aendBlock('Statuten', s.t, '')}${(s.items || []).map(i =>
         aendBlock('Statuten', i.t, i.t)).join('')}
     </div></details>`;
-  }).join('');
+  }).join(''));
 }
 $('statutSearch').addEventListener('input', e => {
   const q = e.target.value.toLowerCase().trim();
@@ -3510,7 +3593,7 @@ function zeichneWarte(){
   if (legende) legende.textContent = ordenLegendeText();
   const orden = ordenListe();
   const traegt = (amt, i) => (orden[ORDEN_GLEICH[amtSchluessel(amt)] || amtSchluessel(amt)] || []).indexOf(i) >= 0;
-  $('warteList').innerHTML = D.aemter.map(a => {
+  listeSetzen($('warteList'), D.aemter.map(a => {
     const wer = a.wer || [];
     const hatOrden = wer.some((w,i) => traegt(a.amt, i));
     const marke = istGeaendert('Ämter', a.amt);
@@ -3527,10 +3610,10 @@ function zeichneWarte(){
         ${a.d ? `<p>${esc(a.d)}</p>` : ''}
         ${aendBlock('Ämter', a.amt, '')}
       </div></details>`;
-  }).join('');
+  }).join(''));
 }
 function zeichneMitglieder(){
-  $('memberList').innerHTML = D.mitglieder.map(m => {
+  listeSetzen($('memberList'), D.mitglieder.map(m => {
     const ae = [];
     D.aemter.forEach(a => (a.wer || []).forEach((w, i) => {
       if (w === m.name) ae.push({ pos: i + 1, amt: a.amt });
@@ -3540,7 +3623,7 @@ function zeichneMitglieder(){
     return `<div class="row${marke ? ' geaendert' : ''}"><div><div class="n">${esc(m.name)}${neuPille(marke)}</div>
       <div class="m">${ae.length ? ae.map(x => esc(x.pos + '. ' + x.amt)).join(' · ') : 'Kegelbruder'}</div>
       ${aendBlock('Mitglieder', m.name, '')}</div></div>`;
-  }).join('');
+  }).join(''));
 }
 /* Wer Termine pflegen darf, entscheidet allein das Backend (1. und 2. Kegelvater
    sowie der Schriftführer). Die Regel wird hier bewusst NICHT nachgebaut – sonst
@@ -3635,9 +3718,9 @@ function zeichneRunden(){
        </summary><div class="hblock">${fertig.slice(0, 40).map(zeile).join('')}</div></details>`
     : '';
 
-  $('rundenBody').innerHTML = offenBlock + fertigBlock
+  listeSetzen($('rundenBody'), offenBlock + fertigBlock
     + (darf ? '' : '<p class="note" style="margin-top:12px">Eintragen und abhaken dürfen '
-                 + 'Kegelvater, Schriftführer und Kassenwart.</p>');
+                 + 'Kegelvater, Schriftführer und Kassenwart.</p>'));
 }
 
 /** Wie viele Tage liegt ein Datum zurück? Negativ, wenn es in der Zukunft liegt. */
@@ -6503,6 +6586,17 @@ let fsOhneFrist = false;
 let fsBezug = '';
 let fsSuche = '';
 let fsPosten = null;            // gewählter offener Posten für die Korrektur
+/* KORREKTUR IN BEIDE RICHTUNGEN (1.54, Wunsch Johannes vom 14.09.2026).
+   Bis 1.53 konnte eine Korrektur nur ABZIEHEN. War ein Posten zu NIEDRIG
+   erfasst, half sie nicht – dann musste eine zweite freie Strafe her, und in
+   der Kasse standen für denselben Abend zwei Zeilen.
+   Gebunden bleibt sie in beide Richtungen an einen vorhandenen, noch nicht
+   abgehakten Posten (Entscheidung vom 14.09.2026): Datum, Kegelbruder und
+   Quelle müssen passen, sonst zieht die SUMIFS-Formel in "Offene Beträge"
+   Original und Korrektur nicht zusammen. Was ohne Bezugsposten oben drauf
+   käme, ist keine Korrektur, sondern eine Strafe – dafür gibt es die freie
+   Strafe direkt daneben. */
+let fsKorrRichtung = 'minus';   // minus (abziehen) | plus (draufrechnen)
 let fsLaedt = false;
 let fsFehlerText = '';
 
@@ -6531,12 +6625,14 @@ function fsDarf(){
                      : (darfErfassen() || darfKasseAendern()),
            korrektur: darfKorrektur() };
 }
+/** −1 beim Abziehen, +1 beim Draufrechnen. An genau einer Stelle. */
+function fsKorrVorzeichen(){ return fsKorrRichtung === 'plus' ? 1 : -1; }
 function fsPreisVon(t){
   const e = (FS && FS.strafarten || []).filter(s => s.t === t)[0];
   return e ? Number(e.b) || 0 : 0;
 }
 function fsBetragZahl(){
-  if (fsSicht === 'korrektur') return -Math.abs(num(fsBetragText));
+  if (fsSicht === 'korrektur') return fsKorrVorzeichen() * Math.abs(num(fsBetragText));
   // Eine Umlage steht in keinen Statuten – ihr Betrag wird immer eingetippt.
   if (fsSicht === 'umlage' || fsEigene || fsAbweichend) return num(fsBetragText);
   return Math.round(fsPreisVon(fsStrafart) * fsAnzahl * 100) / 100;
@@ -6553,6 +6649,7 @@ function fsZuruecksetzen(){
      stillschweigend ohne Fälligkeit – und genau das fällt niemandem auf. */
   fsOhneFrist = false;
   fsSuche = ''; fsPosten = null; fsFehlerText = '';
+  fsKorrRichtung = 'minus';
   fsDatum = (FS && FS.heute) || (D && D.heute) || '';
   /* Neue Kennung für den nächsten Vorgang. Sie bleibt so lange dieselbe, bis
      wirklich gebucht ist – nur dadurch kann das Backend einen zweiten Anlauf
@@ -6897,7 +6994,13 @@ function fsWahlZeichnen(){
 /* ----------------------------------------------------- Korrektur */
 
 function fsKorrekturZeichnen(){
-  const rest = fsPosten ? Math.round((fsPosten.offen - Math.abs(num(fsBetragText))) * 100) / 100 : 0;
+  const plus = fsKorrRichtung === 'plus';
+  const eingabe = Math.abs(num(fsBetragText));
+  /* Was nach der Korrektur offen bliebe. Beim Draufrechnen wächst der Posten,
+     beim Abziehen schrumpft er – deshalb dasselbe Vorzeichen wie beim Buchen. */
+  const rest = fsPosten
+    ? Math.round((fsPosten.offen + fsKorrVorzeichen() * eingabe) * 100) / 100 : 0;
+  const zuviel = !plus && fsPosten && rest < 0;
   $('freiBody').innerHTML = `
     <div style="margin-top:16px">
       <div class="eyebrow" style="margin-bottom:10px">Welcher Posten?</div>
@@ -6912,18 +7015,32 @@ function fsKorrekturZeichnen(){
     </div>
 
     <div style="margin-top:18px">
-      <div class="eyebrow" style="margin-bottom:10px">Betrag, der abgezogen wird</div>
+      <div class="eyebrow" style="margin-bottom:10px">In welche Richtung?</div>
+      <div class="seg" id="fsKorrSeg">
+        <button data-korrri="minus" aria-pressed="${plus ? 'false' : 'true'}">Abziehen</button>
+        <button data-korrri="plus"  aria-pressed="${plus ? 'true' : 'false'}">Draufrechnen</button>
+      </div>
+      <p class="note" style="margin-top:8px">${plus
+        ? 'Der Posten war zu niedrig erfasst – der Betrag kommt oben drauf.'
+        : 'Der Posten war zu hoch erfasst – der Betrag wird abgezogen.'}</p>
+    </div>
+
+    <div style="margin-top:18px">
+      <div class="eyebrow" style="margin-bottom:10px">Betrag, der ${plus ? 'dazukommt' : 'abgezogen wird'}</div>
       <div class="euro"><input class="search" id="fsBetrag" inputmode="decimal" placeholder="z. B. 7,50"
              value="${esc(fsBetragText)}" aria-label="Betrag"><span>€</span></div>
-      <p class="note" style="margin-top:8px${rest < 0 ? ';color:var(--accent);font-weight:600' : ''}">${fsPosten
-        ? (rest < 0
+      <p class="note" style="margin-top:8px${zuviel ? ';color:var(--accent);font-weight:600' : ''}">${fsPosten
+        ? (zuviel
             /* Bis 1.28 stand hier Math.max(0, rest) – eine Korrektur über dem
                Posten sah aus, als bliebe sie bei 0,00 € stehen. Tatsächlich wäre
                ein Guthaben entstanden und der Posten spurlos verschwunden.
-               Das Backend weist es seit 1.29 ab; hier steht es vorher da. */
+               Das Backend weist es seit 1.29 ab; hier steht es vorher da.
+               Nach oben gibt es diese Grenze nicht – ein Posten darf wachsen. */
             ? 'Das ist mehr als der Posten. Höchstens ' + eur(fsPosten.offen) + ' können abgezogen werden.'
-            : 'Voreingetragen ist der ganze Posten. Für einen Teilbetrag überschreiben – es bleiben dann '
-              + eur(rest) + ' offen.'
+            : (plus
+                ? 'Offen wären danach ' + eur(rest) + '.'
+                : 'Voreingetragen ist der ganze Posten. Für einen Teilbetrag überschreiben – es bleiben dann '
+                  + eur(rest) + ' offen.')
            + (fsPosten.zuschlag > 0
               ? ' Der Verspätungszuschlag von ' + eur(fsPosten.zuschlag)
                 + ' bleibt davon unberührt – er entsteht aus der Frist. Soll er weg, die Frist aufheben.'
@@ -6941,12 +7058,14 @@ function fsKorrekturZeichnen(){
     <div class="list" style="margin-top:18px"><div class="row">
       <div><div class="n">${fsPosten ? esc(fsPosten.name) : 'Kein Posten gewählt'}</div>
         <div class="m">${fsPosten ? dat(fsPosten.datum) + ' · ' + esc(fsPosten.quelle) : 'noch nichts ausgewählt'}</div></div>
-      <div class="summe" style="color:var(--accent)">${num(fsBetragText) > 0 ? '− ' + eur(Math.abs(num(fsBetragText))) : '–'}</div></div></div>
+      <div class="summe" style="color:var(--accent)">${eingabe > 0
+        ? (plus ? '+ ' : '− ') + eur(eingabe) : '–'}</div></div></div>
 
     <p class="note hidden" id="fsFehler" style="color:var(--accent);font-weight:600;margin-top:12px"></p>
     <button class="btn" id="fsSpeichern" style="margin-top:14px">Korrektur buchen</button>
-    <p class="note" style="margin-top:12px">Fällt der Posten damit auf null, verschwindet er aus den
-      offenen Beträgen. Die ursprüngliche Zeile bleibt stehen – gelöscht wird nichts.</p>
+    <p class="note" style="margin-top:12px">${plus
+      ? 'Der Posten wächst um den Betrag. Die ursprüngliche Zeile bleibt stehen, die Korrektur kommt als eigene Zeile dazu.'
+      : 'Fällt der Posten damit auf null, verschwindet er aus den offenen Beträgen. Die ursprüngliche Zeile bleibt stehen – gelöscht wird nichts.'}</p>
     ${FS.allePosten === false ? `<p class="note" style="margin-top:10px">Hier stehen nur die freien
       Strafen. Was an einem Kegelabend falsch erfasst wurde, änderst du besser dort, wo es entstanden
       ist – im Abend selbst – und überträgst noch einmal.</p>` : ''}
@@ -6955,6 +7074,22 @@ function fsKorrekturZeichnen(){
 
   fsFehler(fsFehlerText);
   $('fsPostenWahl').addEventListener('click', () => { fsFelderSichern(); fsSuche = ''; fsSchritt = 'posten'; fsZeichnen(); });
+  $('freiBody').querySelectorAll('button[data-korrri]').forEach(b =>
+    b.addEventListener('click', () => {
+      if (fsKorrRichtung === b.dataset.korrri) return;
+      fsFelderSichern();
+      fsKorrRichtung = b.dataset.korrri;
+      /* Der vorbelegte "ganze Posten" gehört zum Abziehen. Beim Umschalten auf
+         Draufrechnen bliebe er sonst stehen und verdoppelte den Posten, weil
+         ihn niemand für eine Voreinstellung hält, die er noch überschreiben
+         soll. Umgekehrt wird er wieder gesetzt, wenn das Feld leer ist. */
+      if (fsKorrRichtung === 'plus'){
+        if (fsPosten && Math.abs(num(fsBetragText) - fsPosten.offen) < 0.005) fsBetragText = '';
+      } else if (fsPosten && !num(fsBetragText)){
+        fsBetragText = fsPosten.offen.toFixed(2).replace('.', ',');
+      }
+      fsFehler(''); fsZeichnen();
+    }));
   $('fsBetrag').addEventListener('input', () => { fsBetragText = $('fsBetrag').value; });
   $('fsSpeichern').addEventListener('click', () => fsSenden($('fsSpeichern')));
   $('freiBody').querySelectorAll('button[data-korrweg]').forEach(b =>
@@ -6976,7 +7111,8 @@ function fsKorrekturListe(){
   return `
     <div class="eyebrow" style="margin:24px 0 10px">Gebuchte Korrekturen</div>
     <div class="list">${liste.map((k, i) => `<div class="row">
-      <div><div class="n">${esc(k.name)} · <span style="color:var(--accent)">− ${eur(Math.abs(k.betrag))}</span></div>
+      <div><div class="n">${esc(k.name)} · <span style="color:var(--accent)">${
+        (Number(k.betrag) > 0 ? '+ ' : '− ') + eur(Math.abs(k.betrag))}</span></div>
         <div class="m">${dat(k.datum)} · ${esc(k.quelle)}</div>
         <div class="m">${esc(k.bezug || k.strafart)}</div></div>
       <button class="btn ghost small" data-korrweg="${i}" data-sicher="">Zurücknehmen</button>
@@ -7014,7 +7150,8 @@ async function fsKorrekturZuruecknehmen(nr, knopf){
     } }, API_VERSUCHE);
     if (r.fehler){ fsFehler(r.fehler); return; }
     eigeneSchreibung();
-    hinweisleiste(k.name + ': Korrektur über ' + eur(Math.abs(k.betrag))
+    hinweisleiste(k.name + ': Korrektur über '
+                + (Number(k.betrag) > 0 ? '+ ' : '− ') + eur(Math.abs(k.betrag))
                 + ' zurückgenommen – offen sind wieder ' + eur(r.offen || 0) + '.');
     if (r.warnung) setTimeout(() => hinweisleiste(r.warnung, 'warn'), LEISTE_DAUER + 200);
     fsPosten = null;          // der alte Stand des Postens stimmt jetzt nicht mehr
@@ -7055,7 +7192,10 @@ function fsPostenZeichnen(){
   $('freiBody').querySelectorAll('button[data-fspost]').forEach(b =>
     b.addEventListener('click', () => {
       fsPosten = liste[Number(b.dataset.fspost)];
-      fsBetragText = fsPosten.offen.toFixed(2).replace('.', ',');
+      /* Nur beim ABZIEHEN ist der ganze Posten die sinnvolle Voreinstellung.
+         Beim Draufrechnen gibt es keine – was fehlt, weiß nur der Mensch. */
+      fsBetragText = fsKorrRichtung === 'plus'
+        ? '' : fsPosten.offen.toFixed(2).replace('.', ',');
       fsSchritt = 'form'; fsFehler(''); fsZeichnen();
     }));
 }
@@ -7084,7 +7224,14 @@ async function fsSenden(knopf){
 
   if (korrektur){
     if (!fsPosten) return fsFehler('Bitte erst den Posten wählen, der korrigiert werden soll.');
-    if (!(num(fsBetragText) > 0)) return fsFehler('Bitte den Betrag eintragen, der abgezogen wird.');
+    if (!(num(fsBetragText) > 0)) return fsFehler(fsKorrRichtung === 'plus'
+      ? 'Bitte den Betrag eintragen, der dazukommt.'
+      : 'Bitte den Betrag eintragen, der abgezogen wird.');
+    if (fsKorrRichtung !== 'plus'
+        && Math.abs(num(fsBetragText)) > Math.round(fsPosten.offen * 100) / 100 + 0.004){
+      return fsFehler('Das ist mehr als der Posten. Höchstens ' + eur(fsPosten.offen)
+                    + ' können abgezogen werden.');
+    }
     if (!fsBezug.trim()) return fsFehler('Ohne Grund wird keine Korrektur gebucht.');
   } else {
     if (!fsMaenner.length) return fsFehler('Bitte mindestens einen Kegelbruder antippen.');
@@ -7109,7 +7256,7 @@ async function fsSenden(knopf){
   const eintraege = korrektur
     ? [{ id: fsKennung, modus: 'korrektur', datum: fsPosten.datum, name: fsPosten.name,
          quelle: fsPosten.quelle, strafart: 'Korrektur: ' + fsBezug.trim(),
-         betrag: -Math.abs(num(fsBetragText)), bezug: fsBezug.trim() }]
+         betrag: fsKorrVorzeichen() * Math.abs(num(fsBetragText)), bezug: fsBezug.trim() }]
     : fsMaenner.map((n, i) =>
         ({ id: fsKennung + (i ? '#' + i : ''), modus: umlage ? 'umlage' : 'strafe',
            datum: fsDatum, name: n,
@@ -7169,7 +7316,8 @@ async function fsSenden(knopf){
     else if (korrektur){
       hinweisleiste(r.erledigt
         ? 'Korrektur gebucht – der Posten ist damit erledigt.'
-        : 'Korrektur gebucht – offen bleiben ' + eur(r.offen) + '.');
+        : 'Korrektur gebucht – offen ' + (fsKorrRichtung === 'plus' ? 'sind jetzt ' : 'bleiben ')
+          + eur(r.offen) + '.');
     } else {
       hinweisleiste(eintraege[0].name + ': ' + eur(r.betrag) + ' eingetragen'
                   + fsFristNachsatz([r]) + '.');
@@ -8224,7 +8372,12 @@ function swAnhang(o, t){
       <div class="v">${esc(o.geld ? eur(summe) : swPille(o, liste))}</div></div>`;
   };
   const h = zeile('Ausgleich für Abwesenheit', t.ausgleich, 'keine Strafe')
-          + zeile('Korrekturen', t.korrektur, 'nachträglich zurückgenommen');
+          /* Seit 1.54 gehen Korrekturen in beide Richtungen. "Nachträglich
+             zurückgenommen" stimmte damit nur noch für die Hälfte. Bewusst ein
+             Wort, das für beide passt, statt einer Fallunterscheidung über das
+             Vorzeichen: In der Anzahl-Ansicht ist "v" die Anzahl und immer
+             positiv – die Unterscheidung wäre dort schlicht falsch. */
+          + zeile('Korrekturen', t.korrektur, 'nachträglich berichtigt');
   return h ? `<div class="list" style="margin-top:16px">${h}</div>` : '';
 }
 
@@ -8465,7 +8618,7 @@ const KASSE_SICHTEN = {
      dazugeschrieben wurde, war in der ganzen App nirgends zu sehen – nur in
      der Tabelle (Auftrag Johannes vom 10.09.2026). Jetzt klappt jede Karte
      auf und zeigt jede einzelne Strafe mit Datum, Bezeichnung, Betrag und
-     Notiz, Korrekturen als Minusbetrag inbegriffen.
+     Notiz, Korrekturen inbegriffen – seit 1.54 mit ihrem Vorzeichen.
 
      Umlagen sind hier bewusst NICHT mehr dabei – sie haben ihren eigenen
      Reiter. */
@@ -9703,6 +9856,12 @@ const TOUR_NEU      = 'kc-tour-neu';      // App-Fassung, deren Neuerungen schon
    geht jetzt zum ersten Mal an die Kegelbrüder. Der erste Eintrag zählt
    deshalb nicht auf, was sich GEÄNDERT hat, sondern was die App KANN. */
 const NEUERUNGEN = [
+  { fassung: '1.54', punkte: [
+      'Hat ein Kegelbruder Geburtstag, steht er morgens auf der Startseite – und seine Runde nach §37 schreibt sich von selbst in die Liste.',
+      'Aufgeklappte Paragraphen klappen sich nicht mehr von allein zu, wenn im Hintergrund neue Daten ankommen.',
+      'Eine Korrektur kann jetzt auch nach oben gehen: War ein Posten zu niedrig erfasst, kommt der Betrag oben drauf.',
+      'Die Durchschnittspumpen für Abwesende stehen auf ganzen Zahlen statt auf 6,29.'
+    ] },
   { fassung: '1.53', punkte: [
       'Die Statuten stehen in neuer Reihenfolge: erst der Verein, dann das Kegeln, dann Ehrungen, Veranstaltungen und Sonstiges – §1 Mitglieder bis §39 Anwesenheit.',
       'Inhaltlich ändert sich nichts: gleiche Regeln, gleiche Beträge, nur neu geordnet und neu nummeriert.',
@@ -11119,7 +11278,8 @@ function stammMitgliederBody(){
     <div class="row stammrow" data-mit="${esc(m.name)}" style="${m.aktiv ? '' : 'opacity:.55'}">
       <div><div class="n">${esc(m.name)}</div>
         <div class="m">${esc(m.typ)} · ${m.aktiv ? 'aktiv' : 'inaktiv'}${m.eintritt ? ' · seit ' + dat(m.eintritt) : ''}${m.austritt ? ' · aus ' + dat(m.austritt) : ''}${
-          m.typ !== 'Gast' && m.aktiv && !m.alkoholGesetzt ? ' · <strong style="color:var(--warn)">Alkohol fehlt</strong>' : ''}</div></div>
+          m.typ !== 'Gast' && m.aktiv && !m.alkoholGesetzt ? ' · <strong style="color:var(--warn)">Alkohol fehlt</strong>' : ''}${
+          m.typ !== 'Gast' && m.aktiv && !m.geburtstag ? ' · <strong style="color:var(--warn)">Geburtstag fehlt</strong>' : ''}</div></div>
       <span class="go">›</span></div>`).join('') + '</div>';
 }
 
@@ -11135,6 +11295,13 @@ function stammMitgliedOeffnen(name){
       note: 'Wer austritt, verschwindet aus den künftigen Abenden – seine bisherigen bleiben vollständig erhalten.' },
     { art: 'datum', label: 'Eintritt', id: 'stammMEin', wert: m.eintritt || '' },
     { art: 'datum', label: 'Austritt', id: 'stammMAus', wert: m.austritt || '' },
+    /* Das Geburtsdatum (1.54). Daran hängt die Runde nach §37: Am Geburtstag
+       trägt das Backend sie von selbst ein. Leer lassen ist erlaubt – dann
+       passiert für ihn nichts. */
+    { art: 'datum', label: 'Geburtstag', id: 'stammMGeb', wert: m.geburtstag || '',
+      note: m.geburtstag
+        ? 'Am Geburtstag wird ihm die Runde nach §37 von selbst aufgeschrieben.'
+        : 'Noch nichts hinterlegt. Sobald das Datum steht, schreibt die App ihm die Runde nach §37 jedes Jahr von selbst auf – auch rückwirkend für dieses Kegeljahr.' },
     /* Die Voreinstellung für §22 (1.44). Ein "keine Angabe" gibt es nicht –
        deshalb ein Haken und kein drittes Feld. Ist die Zelle im Blatt noch
        leer, steht der Haken auf "nein"; das ist die für die Kasse teurere
@@ -11146,6 +11313,7 @@ function stammMitgliedOeffnen(name){
   ], 'Speichern', () => stammSenden('mitgliedSetzen', {
     mitglied: { name: m.name, aktiv: stammHaken('stammMAktiv'),
                 eintritt: stammWert('stammMEin'), austritt: stammWert('stammMAus'),
+                geburtstag: stammWert('stammMGeb'),
                 alkohol: stammHaken('stammMAlk') ? 'ja' : 'nein' }
   }, $('stammSpeichern')));
 }
@@ -11164,6 +11332,8 @@ function stammNeuesMitgliedMaske(){
     { art: 'text', label: 'Name', id: 'stammNMN', wert: '', max: 40,
       note: 'So, wie er künftig überall auftauchen soll.' },
     { art: 'datum', label: 'Eintritt', id: 'stammNME', wert: (D && D.heute) || '' },
+    { art: 'datum', label: 'Geburtstag', id: 'stammNMG2', wert: '',
+      note: 'Darf leer bleiben. Steht es da, schreibt die App ihm die Runde nach §37 jedes Jahr von selbst auf.' },
     { art: 'haken', label: 'Als Gast führen', id: 'stammNMG', wert: false,
       note: 'Gäste tauchen in der App nicht auf und bekommen keinen Zugang.' },
     /* PFLICHT bei einem Mitglied (1.44). Daran hängt die §22-Vorschau, und ein
@@ -11174,6 +11344,7 @@ function stammNeuesMitgliedMaske(){
       note: 'Voreinstellung für jeden Kegelabend. Sie zählt bei §22 mit und lässt sich pro Abend umstellen.' }
   ], 'Anlegen', () => stammSenden('mitgliedAnlegen', {
     mitglied: { name: stammWert('stammNMN'), eintritt: stammWert('stammNME'),
+                geburtstag: stammWert('stammNMG2'),
                 typ: stammHaken('stammNMG') ? 'Gast' : 'Mitglied',
                 alkohol: stammHaken('stammNMA') ? 'ja' : 'nein' }
   }, $('stammSpeichern')));
