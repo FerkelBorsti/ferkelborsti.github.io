@@ -1317,7 +1317,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    ist aber bewusst nicht hochgeladen. Zwei verschiedene Dateien unter
    derselben Nummer sind genau der Fehler, der am 08.09.2026 zu kc-v1.38
    geführt hat – deshalb wird 1.45 übersprungen, nicht zweitverwendet. */
-const APP_VERSION = '1.54';
+const APP_VERSION = '1.55';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -1729,6 +1729,17 @@ const API_VERSUCHE  = 2;
 /* Großzügig, weil eine Abfrage im Ausführungsprotokoll 8 bis 24 Sekunden
    braucht und der Browser zusätzlich auf die Weiterleitung von Google wartet. */
 const API_ZEITLIMIT = 90000;
+/* ERSTER ANLAUF EINER LESENDEN ABFRAGE (1.55). Das Ausführungsprotokoll vom
+   14.09.2026 zeigt für den Abend, an dem die App dreimal "Zeitüberschreitung"
+   meldete, lauter ABGESCHLOSSENE Ausführungen von 8 bis 28 Sekunden. Das
+   Skript war also längst fertig; verlorengegangen ist die Antwort auf dem
+   Rückweg – ein POST auf /exec wird von Google auf script.googleusercontent.com
+   weitergeleitet, und erst dort liegt das Ergebnis.
+   90 Sekunden auf eine Antwort zu warten, die nach 28 Sekunden fertig war und
+   nie kommen wird, ist verschenkte Zeit. Der erste Anlauf bricht deshalb nach
+   45 Sekunden ab; der zweite bekommt wieder die vollen 90, damit eine wirklich
+   langsame Leitung nicht auf halber Strecke abgeschnitten wird. */
+const API_ZEITLIMIT_ERSTER = 45000;
 const warte = ms => new Promise(r => setTimeout(r, ms));
 
 /* Sagt in Klartext, woran es lag. Ohne das steht überall nur "keine Verbindung",
@@ -1736,6 +1747,13 @@ const warte = ms => new Promise(r => setTimeout(r, ms));
 function fehlerGrund(e){
   if (!e) return 'unbekannt';
   if (e.name === 'AbortError') return 'Zeitüberschreitung – das Backend hat nicht rechtzeitig geantwortet';
+  /* HTTP 404 heisst hier nicht "Seite nicht gefunden", sondern: Googles
+     Vorderseite kennt die Bereitstellung in diesem Moment nicht – das kommt
+     ein, zwei Minuten lang vor, nachdem eine neue Fassung bereitgestellt
+     wurde. Unser Skript hat dann gar nicht erst gelaufen. */
+  if (e.istHttp && vorDemSkript(e)) return e.message.indexOf('404') >= 0
+    ? 'Google hat das Backend gerade nicht gefunden (HTTP 404) – meist nur für einen Moment'
+    : 'Google hat die Anfrage abgewiesen (' + e.message + ') – zu viele auf einmal';
   if (e.istHttp) return 'Server antwortete mit ' + e.message;
   if (e instanceof SyntaxError) return 'unerwartete Antwort – der Dienst hat gerade eine Störung';
   if (e instanceof TypeError) return 'Netzwerkfehler – keine Verbindung';
@@ -1793,6 +1811,18 @@ const API_LESEN = ['daten', 'anmelden', 'historie', 'stammdaten', 'erfassungLese
    Wichtig: Die Kennung entsteht EINMAL je Anfrage und bleibt über alle
    Wiederholungen dieselbe. Genau daran ist am 31.08.2026 die freie Strafe
    gescheitert, die ihre Kennung bei jedem Tastendruck neu erzeugt hat. */
+/* Fehler, die VOR dem Skript entstehen (1.55).
+   404: Google kennt die Bereitstellung gerade nicht – typisch in den Minuten
+        nach einem "Version: Neu".
+   429: zu viele Anfragen, von Googles Vorderseite abgewiesen.
+   In beiden Faellen ist doPost nachweislich NICHT gelaufen; ein zweiter Anlauf
+   kann also nichts doppelt anlegen. Bei 500/502/503 sieht das anders aus –
+   die koennen auch entstehen, NACHDEM das Skript geschrieben hat. Deshalb
+   stehen sie hier bewusst nicht. */
+function vorDemSkript(e){
+  return !!(e && e.istHttp) && /^HTTP (404|429)$/.test(String(e.message || ''));
+}
+
 function kennungNeu(){
   try {
     if (self.crypto && crypto.randomUUID) return crypto.randomUUID();
@@ -1802,12 +1832,14 @@ function kennungNeu(){
 
 async function api(aktion, extra, versuche){
   const einmalig = API_EINMALIG.indexOf(aktion) >= 0;
+  const lesen = API_LESEN.indexOf(aktion) >= 0;
   const max = Math.max(1, versuche || 1);
-  const kennung = API_LESEN.indexOf(aktion) < 0 ? kennungNeu() : '';
+  const kennung = lesen ? '' : kennungNeu();
   let letzterFehler;
   for (let i = 1; i <= max; i++){
     const abbruch = new AbortController();
-    const uhr = setTimeout(() => abbruch.abort(), API_ZEITLIMIT);
+    const uhr = setTimeout(() => abbruch.abort(),
+      (lesen && i < max) ? API_ZEITLIMIT_ERSTER : API_ZEITLIMIT);
     try {
       const antwort = await fetch(API, {
         method: 'POST',
@@ -1823,20 +1855,38 @@ async function api(aktion, extra, versuche){
       return await antwort.json();
     } catch (e) {
       letzterFehler = e;
-      // Bei einer Zeitüberschreitung rechnet Apps Script serverseitig WEITER –
-      // ein zweiter Anlauf legt nur eine weitere Ausführung obendrauf und macht
-      // alles langsamer. Nachgelegt wird deshalb nur bei echten Netzfehlern.
-      if (e.name === 'AbortError') break;
+      /* Bei einer Zeitüberschreitung rechnet Apps Script serverseitig WEITER –
+         ein zweiter Anlauf legt nur eine weitere Ausführung obendrauf und macht
+         alles langsamer.
+         SEIT 1.55 GILT DAS NUR NOCH FÜRS SCHREIBEN. Beim Lesen kostet ein
+         zweiter Anlauf nichts als Rechenzeit, und er ist die einzige Rettung,
+         wenn die Antwort auf dem Rückweg verlorengegangen ist – der häufigste
+         Fall am Kegelabend. Beim Schreiben bleibt es beim Abbruch, und zwar
+         mit Grund: Das Backend erkennt eine Wiederholung an der Sendekennung
+         und schickt die gemerkte Antwort zurück, ANSTATT noch einmal zu
+         schreiben – gemerkt wird sie aber erst, wenn der erste Durchlauf
+         fertig ist. Läuft er noch, sieht der zweite nichts und bucht ein
+         zweites Mal. */
+      if (e.name === 'AbortError' && !lesen) break;
       /* Anlegende Aktionen wurden bis 1.37 NIE wiederholt – aus gutem Grund:
          Eine verlorene ANTWORT sieht aus wie eine verlorene Anfrage.
          Seit 1.38 gilt das nur noch für Fälle, in denen die Anfrage angekommen
          sein KANN. Ein TypeError heißt dagegen: Das Gerät hat die Verbindung
          gar nicht erst aufgebaut – da ist ein zweiter Anlauf gefahrlos und
          genau das, was den Kegelabend im Keller rettet. */
-      if (einmalig && !(e instanceof TypeError)) break;
+      /* Seit 1.55 gilt dasselbe fuer HTTP 404 und 429: Da hat Googles
+         Vorderseite geantwortet, bevor unser Skript ueberhaupt dran war –
+         gebucht wurde also sicher nichts. Gemeldet am 14.09.2026: Beim
+         Speichern eines Mitglieds kam um 19:58 Uhr ein HTTP 404, kurz nachdem
+         das Backend neu bereitgestellt worden war. Bis 1.54 hat die App an
+         dieser Stelle sofort aufgegeben. */
+      const frueh = vorDemSkript(e);
+      if (einmalig && !(e instanceof TypeError) && !frueh) break;
       if (i < max){
         hinweisleiste('Versuch ' + i + ' von ' + max + ' fehlgeschlagen (' + fehlerGrund(e) + ') – nächster läuft …');
-        await warte(1500);
+        /* Nach einem 404 laenger warten: Die Bereitstellung braucht ein paar
+           Sekunden, 1,5 davon reichen meist nicht. */
+        await warte(frueh ? 4000 : 1500);
       }
     } finally {
       clearTimeout(uhr);
@@ -5780,6 +5830,16 @@ function erfListeZeichnen(){
       <button class="btn ghost small" id="erfZuSammel">Mehrere auf einmal</button>
     </div>`;
 
+  /* REIHENFOLGE AB 1.55 (Wunsch Johannes vom 15.09.2026). Bis 1.54 standen die
+     beiden Vorschlagslisten ganz unten, hinter der Vorschau – auf dem Handy
+     also erst nach fuenfzehn Kegelbruedern und zwei Abschnitten. Gefunden hat
+     sie dort nur, wer wusste, dass es sie gibt. Sie gehoeren an den Anfang:
+     Erst abarbeiten, was das Backend schon weiss, dann von Hand erfassen.
+     Der Rechner "Verspaetung nachtragen" bleibt unten – er ist kein Vorschlag,
+     sondern Handarbeit, und stuende hier nur im Weg. */
+  h += erfVorschlagBlock();
+  h += erfVerspBlock();
+
   if (!anwesend.length){
     h += `<p class="note warnton" style="margin-top:14px">Noch niemand als anwesend markiert.
       ${kegeln
@@ -5817,8 +5877,7 @@ function erfListeZeichnen(){
         <div class="m">${kegeln ? 'ohne Durchschnitt für Abwesende' : 'Stand dieser Erfassung'}</div></div>
       <div class="v">${eur(gesamt)}</div></div></div>`;
 
-  h += erfVorschlagBlock();
-  h += erfVerspBlock();
+  h += erfVerspNachtragBlock();
 
   h += erfSyncBlock();
 
@@ -6125,7 +6184,14 @@ function erfZaehlerBinden(name){
 
 /* Geldspiele bleiben Handarbeit – jedes Spiel ist anders und trifft andere
    Beträge (Vorgabe Johannes). Die App nimmt deshalb nur Betrag und Grund
-   entgegen; der Grund wird beim Eintrag mitgespeichert. */
+   entgegen; der Grund wird beim Eintrag mitgespeichert.
+
+   AB 1.55 IST DER GRUND FREIWILLIG (Wunsch Johannes vom 15.09.2026). Bis 1.54
+   war er Pflicht – am Kegelabend hiess das: Betrag eingetippt, Tastatur auf,
+   Begruendung tippen, und das fuer jeden einzelnen Posten. Bleibt das Feld
+   leer, wird keine Notiz geschrieben; erfunden wird nichts, sonst staende in
+   der Tabelle ueberall dasselbe nichtssagende Wort. Was eingetragen wird,
+   haengt unveraendert als Notiz an der Zelle im Blatt. */
 function erfGeldspiel(name){
   const z = ERF.zeilen.filter(x => x.art === 'geld')[0];
   if (!z) return;
@@ -6133,8 +6199,8 @@ function erfGeldspiel(name){
   erfBody(`<button class="btn ghost small" id="erfZurueck">← Zurück</button>
     <h2 class="sec" style="margin-top:16px">Strafen aus Geldspielen</h2>
     <p class="note">Für ${esc(name)}. Der Betrag wird zu dem addiert, was schon dasteht.
-      Der Grund ist Pflicht – ohne ihn lässt sich später nicht mehr nachvollziehen, wofür
-      kassiert wurde.</p>
+      Der Grund ist freiwillig – er hängt als Notiz an der Zelle und ist das Einzige,
+      woran sich später ablesen lässt, wofür kassiert wurde.</p>
     ${bisher ? `<div class="list" style="margin-top:14px"><div class="row">
       <div><div class="n">Bisher eingetragen</div></div><div class="v">${eur(bisher)}</div></div></div>` : ''}
     <div style="display:flex;align-items:center;gap:10px;margin-top:14px">
@@ -6142,8 +6208,8 @@ function erfGeldspiel(name){
         aria-label="Betrag in Euro" style="flex:1">
       <span class="v" style="font-size:20px">€</span>
     </div>
-    <input enterkeyhint="done" class="search" id="gsGrund" placeholder="Grund, z. B. Kloppen 3. Runde"
-      aria-label="Grund" style="margin-top:10px">
+    <input enterkeyhint="done" class="search" id="gsGrund" placeholder="Grund (freiwillig), z. B. Kloppen 3. Runde"
+      aria-label="Grund, freiwillig" style="margin-top:10px">
     <p class="note warnton hidden" id="gsFehler" style="margin-top:10px"></p>
     <button class="btn" id="gsOk" style="margin-top:14px">Eintragen</button>
     ${bisher ? `<button class="btn ghost" id="gsWeg" style="margin-top:10px">Betrag auf 0 setzen</button>` : ''}`);
@@ -6155,7 +6221,6 @@ function erfGeldspiel(name){
     const grund = $('gsGrund').value.trim();
     const f = $('gsFehler');
     if (!betrag){ f.textContent = 'Bitte einen Betrag eingeben.'; f.classList.remove('hidden'); return; }
-    if (!grund){ f.textContent = 'Bitte einen Grund eingeben.'; f.classList.remove('hidden'); return; }
     erfBuchen(name, z.label, betrag, grund);
   });
 }
@@ -6300,18 +6365,27 @@ function erfVerspBlock(){
           noch innerhalb der ersten ${esc(plural(Number(v.versp.an.schritt) || 30, 'Minute', 'Minuten'))}
           ab ${esc(v.versp.an.start)} Uhr. Nichts zu tun.</p>`}`;
 
-  let h = '';
-  if (liste.length){
-    h += `<div class="list" style="margin-top:20px">
-        <div class="group-head"><span>Verspätungen nach §14</span><span>${liste.length}</span></div>
-        ${liste.map(zeile).join('')}
-      </div>`;
-  }
-  h += `<button class="btn ghost small" id="erfZuSpaet" style="margin-top:${liste.length ? 10 : 20}px">
+  if (!liste.length) return '';
+  return `<div class="list" style="margin-top:20px">
+      <div class="group-head"><span>Verspätungen nach §14</span><span>${liste.length}</span></div>
+      ${liste.map(zeile).join('')}
+    </div>`;
+}
+
+/* Der Rechner fuer das, was NICHT gemeldet wurde. Bis 1.54 hing er unmittelbar
+   an der Liste oben; seit die Liste an den Anfang der Seite gewandert ist,
+   steht er fuer sich – deshalb nennt der Satz die Liste jetzt beim Namen,
+   statt auf ein "oben" zu zeigen, das drei Abschnitte entfernt liegt. */
+function erfVerspNachtragBlock(){
+  const v = erfVorschlaege;
+  if (!v || !v.versp) return '';            // aelteres Backend: kein §14
+  const liste = v.verspaetungen || [];
+  if (!liste.length && !ERF.anwesend.length) return '';
+  return `<button class="btn ghost small" id="erfZuSpaet" style="margin-top:20px">
       Verspätung nachtragen</button>
-    <p class="note" style="margin-top:8px">Angemeldet sind nur die oben – wer unangemeldet
-      zu spät kam, gehört nachgetragen: ${esc(verspSatzTextRoh(v.versp, false))}.</p>`;
-  return h;
+    <p class="note" style="margin-top:8px">Gemeldete Verspätungen stehen oben unter
+      „Verspätungen nach §14“ – wer unangemeldet zu spät kam, gehört nachgetragen:
+      ${esc(verspSatzTextRoh(v.versp, false))}.</p>`;
 }
 
 /* Derselbe Satz-Text wie auf der Startseite, aber aus dem Paket der Erfassung.
@@ -9856,6 +9930,10 @@ const TOUR_NEU      = 'kc-tour-neu';      // App-Fassung, deren Neuerungen schon
    geht jetzt zum ersten Mal an die Kegelbrüder. Der erste Eintrag zählt
    deshalb nicht auf, was sich GEÄNDERT hat, sondern was die App KANN. */
 const NEUERUNGEN = [
+  { fassung: '1.55', punkte: [
+      'Geht eine Antwort des Servers auf dem Rückweg verloren – im Keller keine Seltenheit –, versucht die App es von allein noch einmal, statt gleich einen Fehler zu zeigen.',
+      'Sie gibt dabei früher auf und probiert es neu, statt anderthalb Minuten auf eine Antwort zu warten, die nicht mehr kommt.'
+    ] },
   { fassung: '1.54', punkte: [
       'Hat ein Kegelbruder Geburtstag, steht er morgens auf der Startseite – und seine Runde nach §37 schreibt sich von selbst in die Liste.',
       'Aufgeklappte Paragraphen klappen sich nicht mehr von allein zu, wenn im Hintergrund neue Daten ankommen.',
