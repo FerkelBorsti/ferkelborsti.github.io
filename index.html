@@ -1317,7 +1317,13 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    ist aber bewusst nicht hochgeladen. Zwei verschiedene Dateien unter
    derselben Nummer sind genau der Fehler, der am 08.09.2026 zu kc-v1.38
    geführt hat – deshalb wird 1.45 übersprungen, nicht zweitverwendet. */
-const APP_VERSION = '1.55';
+/* 1.56 (16.09.2026): Anzahlung und Guthaben auf der Strafen-Karte.
+   Die Karte zeigt unter den Strafen jetzt, was den offenen Rest ausmacht:
+   Verspätungszuschlag, bereits angezahlt, und ein Guthaben als solches statt
+   als rote Minus-Pille. "davon bezahlt" zählt die Anzahlungen mit – das Geld
+   ist ja eingegangen. Braucht Backend 1.54 (Feld "anz"); mit einem älteren
+   Backend fehlt nur die Zeile, falsch wird nichts. */
+const APP_VERSION = '1.56';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -3389,7 +3395,15 @@ function zeichneStrafen(){
 
   const teuersterAbend = termine.slice().sort((a,b) => voll(b) - voll(a))[0];
   const gesamt   = summeVon(strafenT);
-  const bezahlt  = summeVon(strafenT.filter(t => t.bezahlt));
+  /* Seit 1.56 zählen die Anzahlungen auf noch offene Posten mit. Vorher stand
+     "davon bezahlt" um genau das Geld zu niedrig, das schon auf dem Konto lag. */
+  const anz = t => Math.max(0, Number(t.anz) || 0);
+  const bezahlt  = summeVon(strafenT.filter(t => t.bezahlt))
+                 + strafenT.filter(t => !t.bezahlt && !t.ausgesetzt)
+                           .reduce((s,t) => s + Math.min(anz(t), Math.max(0, voll(t))), 0);
+  /* Gedeckelt auf den Strafbetrag des Postens: Eine Anzahlung, die auch einen
+     Verspätungszuschlag oder ein Guthaben enthält, darf "davon bezahlt" nicht
+     über "Saison gesamt" heben – beide Zahlen rechnen ohne Zuschlag. */
   const erlassen = summeVon(strafenT.filter(t => !t.bezahlt && t.ausgesetzt));
   const umlSumme = summeVon(umlagenT);
   const umlOffen = umlagenT.filter(t => !t.bezahlt).reduce((s,t) => s + t.summe, 0);
@@ -3445,9 +3459,22 @@ function zeichneStrafen(){
   } else {
     h += alle.map(t => `<div class="list" style="margin-top:14px">
       <div class="group-head"><span>${esc(t.quelle || 'Termin')} ${dat(t.datum)}</span>
-        <span class="pill ${t.bezahlt?'paid':'open'}">${t.bezahlt?'bezahlt':eur(t.summe)}</span></div>
+        <span class="pill ${t.bezahlt ? 'paid' : (t.summe < 0 ? 'grau' : 'open')}">${
+          t.bezahlt ? 'bezahlt' : (t.summe < 0 ? 'Guthaben ' + eur(-t.summe) : eur(t.summe))}</span></div>
       ${fasseZusammen(t.eintraege).map(x => `<div class="row"><div><div class="n">${esc(x.t)}</div>
         <div class="m">${x.n} × ${eur(x.summe/x.n)}</div></div><div class="v">${eur(x.summe)}</div></div>`).join('')}
+      ${/* 1.56: Was zwischen den Strafen oben und dem Betrag in der Pille liegt.
+           Nur bei offenen, nicht ausgesetzten Posten – ein bezahlter hat keinen
+           Rest, ein ausgesetzter steht ohnehin auf 0,00 €. */
+        !t.bezahlt && !t.ausgesetzt && (Number(t.zusch) || 0) > 0
+        ? `<div class="row"><div><div class="n">Verspätungszuschlag</div>
+            <div class="m">nach §34, Frist verstrichen</div></div><div class="v">+ ${eur(Number(t.zusch))}</div></div>` : ''}
+      ${!t.bezahlt && !t.ausgesetzt && anz(t) > 0
+        ? `<div class="row"><div><div class="n">Bereits angezahlt</div>
+            <div class="m">${t.summe < 0
+              ? 'mehr als der Betrag – das Guthaben wird mit deinen offenen Strafen verrechnet'
+              : 'eingegangen oder als Guthaben angerechnet, wird abgezogen'}</div></div>
+            <div class="v">− ${eur(anz(t))}</div></div>` : ''}
       ${!t.bezahlt && (t.ausgesetzt || t.frist)
         ? `<div class="row"><div><div class="m">${t.ausgesetzt
              ? 'Durchschnittstrafe ausgesetzt – du musst sie nicht zahlen'
