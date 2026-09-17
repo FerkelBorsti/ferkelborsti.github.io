@@ -1361,7 +1361,16 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    - Runterziehen und "Daten neu laden" rufen dieselbe Funktion datenNeuLaden().
    - Statusleiste, Kopfzeile und Menüleiste: siehe --oben / --nav-unten.
    - Messzeile unter der Versionsnummer in den Einstellungen. */
-const APP_VERSION = '1.57';
+/* 1.58 (17.09.2026): Ausgabe an die Kegelbrüder.
+   - "Was ist neu" ist leer: Für die Kegelbrüder gibt es keine ältere Fassung.
+     Der Punkt in den Einstellungen verschwindet, solange die Liste leer ist.
+   - "Es hat sich etwas geändert": Das Protokoll Stammdaten_Log wird geleert
+     (nur Werkstatt-Einträge). Ein Gerät, das sich eine höhere Runde gemerkt
+     hat, als das Backend meldet, zieht den Merker zurück – sonst sähen
+     Johannes und Daniel die nächsten zwei echten Runden nicht.
+   - Die Einführung ist auf den Stand 1.57 gebracht (neu: An- und Abmelden)
+     und TOUR_FASSUNG steht auf 3 – jeder bekommt sie beim nächsten Öffnen. */
+const APP_VERSION = '1.58';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -2463,8 +2472,24 @@ function aendVergleich(t){
 }
 function aendStand(){ return (D && D.stammAenderungen) || null; }
 function aendRunde(){ const a = aendStand(); return a && a.runde ? Number(a.runde) : 0; }
-function aendGesehen(){ return Number(speicher.lies(STAMM_GESEHEN) || 0); }
-function aendNeu(){ return aendRunde() > 0 && aendRunde() > aendGesehen(); }
+/* 1.58: Das Protokoll kann geleert werden (so geschehen zur Ausgabe an die
+   Kegelbrüder am 17.09.2026). Danach zählt das Backend die Runden wieder ab 1.
+   Ein Gerät mit einem höheren Merker hielte die neuen Runden sonst für längst
+   gesehen. Zurückgezogen wird nur, wenn das Backend einen Stand geliefert hat –
+   ein fehlender Stand ist kein leeres Protokoll. */
+function aendGesehen(){
+  const gemerkt = Number(speicher.lies(STAMM_GESEHEN) || 0);
+  const a = aendStand();
+  if (a && typeof a.runde !== 'undefined'){
+    const r = Number(a.runde) || 0;
+    if (r < gemerkt){ speicher.schreib(STAMM_GESEHEN, String(r)); return r; }
+  }
+  return gemerkt;
+}
+/* aendGesehen() ZUERST (1.58): Nur so wird der Merker auch bei einem leeren
+   Protokoll (Runde 0) zurückgezogen – hinter "aendRunde() > 0 &&" käme der
+   Aufruf dort nie an, und die erste neue Runde gälte als längst gesehen. */
+function aendNeu(){ const g = aendGesehen(); return aendRunde() > 0 && aendRunde() > g; }
 
 let aendKeys = null;
 function aendSchluessel(){
@@ -10101,8 +10126,10 @@ $('meldungZeigen').addEventListener('click', () => { meldungSchliessen(); zeigeZ
    Auf 2 gesetzt am 01.09.2026: Die Tour ist vor der Ausgabe an die Kegelbrüder
    überarbeitet worden (kürzer, dazu Könige/Ehrentafel, Historie und
    Jahresabschluss). Wer sie in der Werkstattzeit schon gesehen hat – im
-   Zweifel nur der Schriftführer –, bekommt sie damit einmal neu. */
-const TOUR_FASSUNG  = 2;
+   Zweifel nur der Schriftführer –, bekommt sie damit einmal neu.
+   Auf 3 gesetzt am 17.09.2026 (App 1.58): Ausgabe an die Kegelbrüder. Die Tour
+   ist auf den Stand der App gebracht; auch die Testgeräte sehen sie neu. */
+const TOUR_FASSUNG  = 3;
 const TOUR_GESEHEN  = 'kc-tour-gesehen';  // zuletzt gesehene Fassung der Grundtour
 const TOUR_BEREICHE = 'kc-tour-bereiche'; // Bereiche, deren Karten schon gezeigt wurden
 const TOUR_NEU      = 'kc-tour-neu';      // App-Fassung, deren Neuerungen schon gezeigt wurden
@@ -10120,68 +10147,14 @@ const TOUR_NEU      = 'kc-tour-neu';      // App-Fassung, deren Neuerungen schon
    Entwicklung, und außer dem Schriftführer hat sie niemand erlebt: Die App
    geht jetzt zum ersten Mal an die Kegelbrüder. Der erste Eintrag zählt
    deshalb nicht auf, was sich GEÄNDERT hat, sondern was die App KANN. */
-const NEUERUNGEN = [
-  { fassung: '1.57', punkte: [
-      'Weniger Fehlermeldungen: Kommt die App aus dem Hintergrund zurück, lässt sie dem Handy einen Moment fürs Netz, und ein zweiter Anlauf läuft still im Hintergrund.',
-      'Runterziehen lädt die Daten genau wie „Daten neu laden“ in den Einstellungen – oben steht „Wird geladen …“, bis alles da ist.',
-      'Kopfzeile und Menüleiste sind an die Statusleiste und die Home-Anzeige des iPhones angepasst.'
-    ] },
-  { fassung: '1.55', punkte: [
-      'Geht eine Antwort des Servers auf dem Rückweg verloren – im Keller keine Seltenheit –, versucht die App es von allein noch einmal, statt gleich einen Fehler zu zeigen.',
-      'Sie gibt dabei früher auf und probiert es neu, statt anderthalb Minuten auf eine Antwort zu warten, die nicht mehr kommt.'
-    ] },
-  { fassung: '1.54', punkte: [
-      'Hat ein Kegelbruder Geburtstag, steht er morgens auf der Startseite – und seine Runde nach §37 schreibt sich von selbst in die Liste.',
-      'Aufgeklappte Paragraphen klappen sich nicht mehr von allein zu, wenn im Hintergrund neue Daten ankommen.',
-      'Eine Korrektur kann jetzt auch nach oben gehen: War ein Posten zu niedrig erfasst, kommt der Betrag oben drauf.',
-      'Die Durchschnittspumpen für Abwesende stehen auf ganzen Zahlen statt auf 6,29.'
-    ] },
-  { fassung: '1.53', punkte: [
-      'Die Statuten stehen in neuer Reihenfolge: erst der Verein, dann das Kegeln, dann Ehrungen, Veranstaltungen und Sonstiges – §1 Mitglieder bis §39 Anwesenheit.',
-      'Inhaltlich ändert sich nichts: gleiche Regeln, gleiche Beträge, nur neu geordnet und neu nummeriert.',
-      'Merkst du dir eine Nummer aus einer älteren Nachricht: §4 Strafen heißt jetzt §12, §23 Kegelkönig jetzt §26, der Verspätungszuschlag §20 jetzt §34.'
-    ] },
-  { fassung: '1.49', punkte: [
-      'Du kannst jetzt auch eine Verspätung anmelden: „Ich komme später“ auf der Terminkarte, Uhrzeit antippen – fertig. Die App zeigt dir gleich, was es nach §14 kostet.',
-      'Gemeldet werden muss sie wie eine Abmeldung: bis eine Stunde vor Beginn. Danach verschwindet der Knopf, und es gilt der teurere Satz für eine unangemeldete Verspätung.',
-      'Du bleibst dabei angemeldet – in der Liste steht bei dir „kommt später“ mit deiner Uhrzeit.'
-    ] },
-  { fassung: '1.46', punkte: [
-      'Umlagen zählen nicht mehr als Strafe: Sie stehen in der Kasse in einem eigenen Reiter und in eigenen Zeilen der Übersicht.',
-      'Zu jeder Strafe steht jetzt die Notiz dabei, die beim Erfassen eingetippt wurde – aufzuklappen in der Kasse und in der Auswertung.',
-      'Eine Umlage lässt sich direkt in der App buchen, für mehrere Kegelbrüder auf einmal.'
-    ] },
-  { fassung: '1.36', punkte: [
-      'Die App zeigt dir deinen offenen Betrag, jede einzelne Strafe und die Fristen – und unten auf der Startseite alles, was du zum Überweisen brauchst.',
-      'Statuten zum Nachlesen mit Suche, dazu ein Rechner zum Überschlagen, was ein Abend kosten würde.',
-      'Termine, Ämter, Kegelbrüder, die Ehrentafel und die Kegeljahre davor.',
-      'Wer amtierender König ist, steht auf der Startseite – sobald der Schriftführer die Ergebnisse freigegeben hat.',
-      'Auf Wunsch eine Nachricht aufs Handy, wenn sich für dich etwas ändert. Einschalten über das Zahnrad oben rechts.'
-    ] },
-  { fassung: '1.43', punkte: [
-      'Eine freie Strafe lässt sich jetzt für mehrere Kegelbrüder auf einmal eintragen – einfach alle antippen.',
-      'Auf der Tastatur steht auf der Rückgabetaste „Fertig“ und klappt sie ein.',
-      'Die Namens- und Kategorienleisten springen beim Tippen nicht mehr an den Anfang zurück.'
-    ] },
-  { fassung: '1.41', punkte: [
-      'Die Menüleiste sitzt jetzt auch im Browser dort, wo sie hingehört – bisher hing sie auf dem iPad rund hundert Pixel zu hoch.',
-      'Das Runterziehen am Seitenrand federt wieder wie gewohnt.',
-      'Die Anwesenheit des Vereins zeigt jetzt auch, woraus sie sich rechnet, samt Balken.'
-    ] },
-  { fassung: '1.40', punkte: [
-      'Die Übertragung der Strafen bleibt nicht mehr hängen: Der Knopf sagt jetzt immer, woran es liegt, und beim Öffnen eines Abends steht da, ob eine Übertragung noch läuft oder schon durch ist.',
-      'Ein Eintrag, der aus technischen Gründen nicht rausgeht, blockiert nicht mehr alles dahinter – er landet sichtbar unter „Nicht angekommen“.',
-      'Die Menüleiste bleibt beim Scrollen unten stehen.',
-      'Abende laden spürbar schneller, und das Tippen an der Bahn geht flüssiger.'
-    ] },
-  { fassung: '1.39', punkte: [
-      'Neu unter „Verein“: die Runden nach §37 – wer aus welchem Anlass noch einen ausgeben muss, für alle sichtbar.',
-      'Alle Kegelabende und Veranstaltungen lassen sich in den Handy-Kalender holen. Zahnrad › Termine im Kalender.',
-      'Benachrichtigungen sind ab jetzt von Haus aus eingeschaltet. Ausschalten geht weiterhin über das Zahnrad.',
-      'Der Kontostand wird gerechnet statt eingetippt, und die Monatsbeiträge nach §2 stehen jetzt auch in der App – dein offener Betrag auf der Startseite enthält sie.',
-      'Für den Kegelkönig zählt nach §26 nur noch die Anwesenheit an den Kegelabenden – Veranstaltungen zählen dafür nicht mit.'
-    ] }
-];
+/* GELEERT AM 17.09.2026 (App 1.58) – Ausgabe an die Kegelbrüder.
+   Bis hierher stand die Werkstatt-Geschichte von 1.36 bis 1.57. Die hat außer
+   Johannes und Daniel niemand erlebt; für alle anderen ist 1.58 die erste
+   Fassung, und was sie kann, erklärt die Einführung.
+   Für die NÄCHSTE Fassung kommt hier wieder ein Eintrag hinein:
+     { fassung: '1.59', punkte: [ 'Erster Punkt, ein Satz.', 'Zweiter Punkt.' ] }
+   Solange die Liste leer ist, fehlt der Punkt "Was ist neu" in den Einstellungen. */
+const NEUERUNGEN = [];
 
 
 const TOUR_SYM = {
@@ -10199,18 +10172,29 @@ const TOUR_SYM = {
   orden:  '<svg viewBox="0 0 24 24"><path d="M8.4 3.2 10.7 9M15.6 3.2 13.3 9"/><circle cx="12" cy="15.2" r="5.9"/><circle cx="12" cy="15.2" r="2.1"/></svg>',
   teilen: '<svg viewBox="0 0 24 24"><path d="M12 3.4v11.2"/><path d="m8.3 7.1 3.7-3.7 3.7 3.7"/><path d="M7.6 10.6H6.2A2.2 2.2 0 0 0 4 12.8v5.6a2.2 2.2 0 0 0 2.2 2.2h11.6a2.2 2.2 0 0 0 2.2-2.2v-5.6a2.2 2.2 0 0 0-2.2-2.2h-1.4"/></svg>',
   stamm:  '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="18.5" cy="18" r="2.5"/></svg>',
+  /* NEU 1.58: für die Karte An- und Abmelden. */
+  haken:  '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M8 3v4M16 3v4"/><path d="m8.6 13.6 2.3 2.3 4.6-4.8"/></svg>',
   stern:  '<svg viewBox="0 0 24 24"><path d="m12 3.6 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.8l5.9-.9z"/></svg>'
 };
 
 /* Die Grundtour. Sie gilt für jeden Kegelbruder, unabhängig vom Amt.
 
    ÜBERARBEITET AM 01.09.2026, vor der Ausgabe an die Kegelbrüder.
-   Die alte Fassung stammte aus der Zeit, als es Kasse, Historie, Ehrentafel und
-   Jahresabschluss noch nicht gab, und war stellenweise so ausführlich, dass sie
-   sich wie eine Bedienungsanleitung las. Wer eine Tour wegklickt, sieht sie
-   nicht wieder – also lieber acht kurze Karten, die hängenbleiben, als zwölf
-   vollständige, die niemand zu Ende liest. Alles Weitere steht in der App
-   selbst; die Tour zeigt nur, WO. */
+   Wer eine Tour wegklickt, sieht sie nicht wieder – also lieber kurze Karten,
+   die hängenbleiben, als vollständige, die niemand zu Ende liest. Alles
+   Weitere steht in der App selbst; die Tour zeigt nur, WO.
+
+   AUF DEN STAND 1.57 GEBRACHT AM 17.09.2026 (App 1.58, TOUR_FASSUNG 3):
+   - NEU die Karte "An- und abmelden". Seit 1.47 wird ausschließlich in der App
+     ab- und angemeldet, seit 1.49 gibt es "Ich komme später" – in der Tour
+     kam beides nicht vor.
+   - Start: Monatsbeiträge und Rückblick auf den letzten Abend.
+   - Strafen: Anzahlungen (1.56).
+   - "Könige und Ehrentafel" und "Die Kegeljahre davor" sind EINE Karte: Die
+     Ehrentafel steht seit dem Umbau unter Verein › Historie, beides ist
+     derselbe Ort. So bleibt es bei neun Karten.
+   - Letzte Karte: Runterziehen lädt neu (1.57), Nachrichten sind von Haus aus
+     an (1.39), auf dem iPhone nur mit Symbol auf dem Home-Bildschirm. */
 function tourGrundKarten(){
   return [
     { sym:'logo', t:'Willkommen beim', wortmarke:true,
@@ -10219,17 +10203,27 @@ function tourGrundKarten(){
       k:'Eine Minute, dann bist du durch. Wiederfinden kannst du das über das Zahnrad oben rechts.' },
 
     /* Stand und Bezahlen stehen auf DEMSELBEN Bildschirm – deshalb auch auf
-       derselben Karte. Zwei Karten für einen Reiter waren ein Grund, warum die
-       Tour zu lang wurde. */
+       derselben Karte. */
     { sym:'start', t:'Start – dein Stand und das Bezahlen',
-      x:'Ganz oben, was du der Kegelkasse schuldest, daneben deine Fehltage nach §39 und der '
-      + 'nächste Kegelabend mit der Abmeldefrist. Ganz unten stehen Empfänger, IBAN, Betrag und '
-      + 'Verwendungszweck – ein Tipp darauf legt den Wert in die Zwischenablage.',
+      x:'Ganz oben steht, was du der Kegelkasse schuldest – Strafen und, falls offen, Monatsbeiträge. '
+      + 'Darunter deine Fehltage nach §39, der nächste Termin und dein letzter Abend. Ganz unten '
+      + 'stehen Empfänger, IBAN, Betrag und Verwendungszweck – ein Tipp darauf legt den Wert in die '
+      + 'Zwischenablage.',
       k:'Auf dem Konto sein muss es bis zum nächsten Kegeln (§12). Danach kommt der Zuschlag nach §34 dazu.' },
 
+    /* NEU 1.58. Die Frist hängt am Beginn des Termins (eine Stunde vorher),
+       §13 und §14 teilen sie sich. */
+    { sym:'haken', t:'An- und abmelden',
+      x:'Zu jedem Kegelabend bist du angemeldet. Kannst du nicht, tippst du auf der Terminkarte '
+      + '„Ich kann nicht“, kommst du später, „Ich komme später“ mit der Uhrzeit – beides bis eine '
+      + 'Stunde vor Beginn. Danach kostet die Abmeldung nach §13. Zu Veranstaltungen meldest du dich '
+      + 'selbst an: „Bin dabei“ oder „Bin nicht dabei“.',
+      k:'Auf derselben Karte steht, ob du an dem Abend Alkohol trinkst – das zählt für §22. '
+      + 'Die Liste, wer dabei ist, öffnest du ebenfalls dort.' },
+
     { sym:'liste', t:'Strafen – wie es dazu kam',
-      x:'Der zweite Reiter zeigt jede einzelne Strafe nach Terminen, dazu deine teuerste '
-      + 'Strafart, die häufigste und den teuersten Abend.' },
+      x:'Der zweite Reiter zeigt jede einzelne Strafe nach Terminen und was davon bezahlt oder schon '
+      + 'angezahlt ist. Dazu deine teuerste Strafart, die häufigste und der teuerste Termin.' },
 
     { sym:'paragraf', t:'Statuten und Rechner',
       x:'Alle Paragraphen zum Nachlesen, mit Suche. Daneben der Rechner: Strafen antippen und '
@@ -10237,67 +10231,74 @@ function tourGrundKarten(){
 
     { sym:'leute', t:'Verein',
       x:'Die Warte mit allen Ämtern, die Kegelbrüder, alle Termine der Saison – und unter '
-      + '„Runden“ die Liste nach §37: wer aus welchem Anlass noch einen ausgeben muss.' },
+      + '„Runden“ die Liste nach §37: wer aus welchem Anlass noch einen ausgeben muss.',
+      k:'Hast du Geburtstag, trägt die App deine Runde von selbst ein.' },
 
-    /* NEU 1.38. Das Abo ist der einzige Punkt der App, den man einmal
-       einrichtet und danach nie wieder anfasst – deshalb gehört er in die
-       Tour, sonst findet ihn niemand. */
+    /* Das Abo ist der einzige Punkt der App, den man einmal einrichtet und
+       danach nie wieder anfasst – deshalb gehört er in die Tour. */
     { sym:'kalender', t:'Termine im Kalender',
       x:'Über das Zahnrad › „Termine im Kalender“ holst du dir alle Kegelabende und '
       + 'Veranstaltungen in den Kalender deines Handys. Wird ein Abend verschoben, zieht der '
       + 'Kalender von allein nach.',
       k:'Einmal einrichten, danach nie wieder. Auf dem iPhone genügt ein Tipp, auf Android läuft es über den Google Kalender.' },
 
-    /* NEU am 01.09.2026: Der Tresor und die Ehrentafel kamen in der Tour bisher
-       überhaupt nicht vor – dabei ist das der Teil, den man am ehesten von
-       selbst sucht. */
-    { sym:'orden', t:'Könige und Ehrentafel',
+    { sym:'orden', t:'Könige und Historie',
       x:'Auf der Startseite steht, wer amtierender Kegelkönig ist – sobald der Schriftführer '
-      + 'die Ergebnisse freigegeben hat. Unter Verein findest du die Ehrentafel mit den '
-      + 'Sonderwürfen, dem ADAC-Fahrradengel und den Kranz-Wertungen.',
+      + 'die Ergebnisse freigegeben hat. Unter Verein › Historie findest du die Ehrentafel und die '
+      + 'vergangenen Kegeljahre: Könige, Ämter, Anwesenheit und die Zahlen des Jahres.',
       k:'Bei Gleichstand stehen alle da, die gleichauf liegen – nicht nur einer.' },
-
-    /* NEU am 01.09.2026: Die Historie stand vorher als Nebensatz auf der
-       Verein-Karte und ging dort unter. */
-    { sym:'stern', t:'Die Kegeljahre davor',
-      x:'Unter Verein › Historie stehen die vergangenen Kegeljahre: Könige, Ämter, Anwesenheit '
-      + 'und die Zahlen des Jahres – Jahr für Jahr nebeneinander zu lesen.' },
 
     { sym:'funk', t:'Auf der Bahn und danach',
       x:'Der Empfang in der Gaststätte ist dünn. Die App startet auch ohne Netz und zeigt den '
-      + 'zuletzt geladenen Stand – wann der war, steht unter deinem offenen Betrag.',
-      k:'Über das Zahnrad: Benachrichtigungen einschalten, Darstellung ändern, Daten neu laden.' }
+      + 'zuletzt geladenen Stand – wann der war, steht unter deinem offenen Betrag. Zum Neuladen '
+      + 'ziehst du die Seite nach unten.',
+      k:'Nachrichten aufs Handy sind von Haus aus an, ausschalten geht über das Zahnrad. Auf dem '
+      + 'iPhone kommen sie nur an, wenn die App über „Teilen › Zum Home-Bildschirm“ installiert ist.' }
   ];
 }
 
 /* Die Karten je Bereich. Ein Bereich ist das, was ein Amt in der App
-   freischaltet – nicht das Amt selbst. Wer zwei Ämter hat, bekommt beide. */
+   freischaltet – nicht das Amt selbst. Wer zwei Ämter hat, bekommt beide.
+   17.09.2026 (1.58): Übertragung, Korrektur in beide Richtungen, späte
+   Anmeldungen, Umlagen/Fällig, Strafen und Notizen in der Auswertung,
+   Geburtsdaten in den Stammdaten. Versionsnummern raus aus dem Text – wer die
+   App neu bekommt, kennt keine "1.38". */
 function tourBereichKarten(bereich){
   const i = (D && D.ich) || {};
   if (bereich === 'erfassen'){
     const k = [{ sym:'stift', t:'Strafen erfassen',
       x:'Am Kegelabend steht auf der Startseite der Knopf „Strafen erfassen“. Du tippst den '
       + 'Kegelbruder an und hakst seine Strafen ab. Für Zuspätkommen und Vergessenes gibt es '
-      + '„Mehrere auf einmal“: einmal die Strafart wählen, dann alle Betroffenen antippen.',
+      + '„Mehrere auf einmal“: einmal die Strafart wählen, dann alle Betroffenen antippen. '
+      + 'Zum Schluss „Jetzt übertragen“ – erst dann sehen die anderen ihre Strafen.',
       k:'Ohne Empfang wird gesammelt und später von allein nachgeschickt. Der Papierzettel bleibt trotzdem der Beleg.' }];
     if (i.darfKorrektur) k.push({ sym:'liste', t:'Freie Strafe und Korrektur',
       x:'Unter Verein › Termine legst du eine freie Strafe an – für alles, was zu keinem Abend '
-      + 'gehört. Und du kannst einen Eintrag korrigieren, wenn beim Erfassen etwas danebengegangen ist.',
+      + 'gehört, auch für mehrere Kegelbrüder auf einmal. Und du kannst einen Eintrag korrigieren, '
+      + 'nach unten wie nach oben, wenn beim Erfassen etwas danebengegangen ist.',
       k:'Unten in der Korrektur-Maske stehen die zuletzt gebuchten Korrekturen – eine falsch gebuchte nimmst du dort mit zwei Tippern wieder heraus.' });
     return k;
   }
-  if (bereich === 'termine') return [{ sym:'kalender', t:'Termine anlegen',
-    x:'Unter Verein › Termine legst du Kegelabende und Veranstaltungen an: Datum, Beginn, Ort. '
-    + 'Alle Kegelbrüder sehen den Termin sofort und bekommen eine Nachricht.',
-    k:'Das Erfassen der Strafen zu einem Abend bleibt Sache des Schriftführers.' }];
+  if (bereich === 'termine'){
+    /* Über späte Zusagen entscheiden nur die Kegelväter – nicht jeder, der
+       Termine anlegen darf. Die Regel kommt aus dem Backend. */
+    const entscheidet = !!((rmDaten() || {}).darfEntscheiden);
+    return [{ sym:'kalender', t:'Termine anlegen',
+      x:'Unter Verein › Termine legst du Kegelabende und Veranstaltungen an: Datum, Beginn, Ort. '
+      + 'Alle Kegelbrüder sehen den Termin sofort und bekommen eine Nachricht.'
+      + (entscheidet ? ' Will jemand nach Ablauf der Frist noch zu einer Veranstaltung, steht seine '
+        + 'Anfrage bei dir auf der Startseite – zusagen oder ablehnen.' : ''),
+      k:'Das Erfassen der Strafen zu einem Abend bleibt Sache des Schriftführers.' }];
+  }
   if (bereich === 'kasse') return [{ sym:'geld', t:'Die Kasse',
     x: i.darfKasse
       ? 'Im Reiter „Kasse“ stehen die offenen Beträge nach Kegelbruder. Ist Geld eingegangen, '
       + 'hakst du es ab – einzeln oder für alle Termine eines Kegelbruders auf einmal. Wird '
       + 'weniger überwiesen, tilgt der Betrag die ältesten Posten zuerst, der Rest bleibt als '
       + 'Anzahlung stehen. Dazu die Monatsbeiträge nach §2 – die gelten als bezahlt, solange du '
-      + 'nichts anderes vermerkst –, Ausgaben, Einnahmen, Strafen und Spenden. Und das Konto: '
-      + 'Anfangsbestand eintragen, den Kontostand rechnet die App.'
+      + 'nichts anderes vermerkst –, Ausgaben, Einnahmen, Umlagen, Strafen und Spenden, unter '
+      + '„Fällig“ alles Überfällige mit dem Zuschlag nach §34. Und das Konto: Anfangsbestand '
+      + 'eintragen, den Kontostand rechnet die App.'
       : 'Im Reiter „Kasse“ stehen die offenen Beträge nach Kegelbruder, dazu Kontostand, Ausgaben '
       + 'und sonstige Einnahmen.',
     k: i.darfKasse
@@ -10305,21 +10306,21 @@ function tourBereichKarten(bereich){
       : 'Du hast als Vertreter Einsicht bekommen: ansehen ja, ändern nein.' }];
   if (bereich === 'amt') return [{ sym:'balken', t:'Die Auswertung',
     x:'Der Reiter „Auswertung“ zeigt die laufende Saison: 5 in die Vollen, alle 9, Pumpen, '
-    + 'Anwesenheit und Sonderwürfe – jeweils als Rangliste. Strafen und Spenden stehen seit '
-    + '1.38 beim Kassenwart.',
+    + 'Anwesenheit und Sonderwürfe – jeweils als Rangliste. Dazu, wie oft welche Strafe erfasst '
+    + 'wurde, und die Notizen vom Erfassen. Die Beträge stehen beim Kassenwart.',
     k: i.nurLesenAmt
       ? 'Du hast als Vertreter Einsicht bekommen: ansehen ja, ändern nein.'
       : 'Königsfähig ist nach §26 nur, wer bei mindestens ' + (huerdeText() || '60 %') + ' der KEGELABENDE dabei war – '
       + 'Veranstaltungen zählen dafür nicht mit. Die Zahlen '
       + 'sieht sonst niemand, solange du sie nicht freigibst.' }];
   if (bereich === 'stammdaten') return [{ sym:'stamm', t:'Statuten, Ämter, Mitglieder',
-    x:'Über das Zahnrad › Stammdaten änderst du Beträge, Ämterbesetzungen und die Mitgliederliste. '
-    + 'Gedacht ist das für die Zeit nach der Generalversammlung.',
+    x:'Über das Zahnrad › Stammdaten änderst du Beträge, Ämterbesetzungen und die Mitgliederliste '
+    + 'samt Geburtsdaten. Gedacht ist das vor allem für die Zeit nach der Generalversammlung.',
     k:'Ein neuer Betrag gilt ab dem nächsten Abend – Abende, die schon waren, behalten ihren. '
     + 'Zum Schluss „Änderungen abschließen“: erst dann erfahren es alle anderen.' }];
-  /* NEU am 01.09.2026: Der Jahresabschluss hatte keine Karte. Er betrifft nur
-     zwei Leute, ist aber der Vorgang mit den größten Folgen – und er läuft
-     einmal im Jahr, also genau dann, wenn niemand mehr weiß, wie es ging. */
+  /* Der Jahresabschluss betrifft nur zwei Leute, ist aber der Vorgang mit den
+     größten Folgen – und er läuft einmal im Jahr, also genau dann, wenn
+     niemand mehr weiß, wie es ging. */
   if (bereich === 'abschluss') return [{ sym:'stern', t:'Das Kegeljahr abschließen',
     x:'Ist das Kegeljahr zu Ende, steht auf der Startseite eine Karte dafür. Der Schriftführer '
     + 'startet, der Kegelvater bestätigt – niemand kann beides allein. Zusammen sind es fünf '
@@ -10531,6 +10532,9 @@ $('tourZurueck').addEventListener('click', () => { if (tourPos > 0){ tourPos--; 
 $('tourUeber').addEventListener('click', tourBeenden);
 $('openTour').addEventListener('click', tourVonHand);
 $('openNeuerungen').addEventListener('click', neuerungenVonHand);
+/* 1.58: Ein Menüpunkt, der nur "nichts zu vermelden" antwortet, ist keiner. */
+$('openNeuerungen').classList.toggle('hidden',
+  !NEUERUNGEN.some(n => !fassungKleiner(APP_VERSION, n.fassung)));
 
 /* Wischen wie bei einer Bildergalerie – auf dem Handy erwartet man das. */
 (function(){
