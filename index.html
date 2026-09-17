@@ -1370,7 +1370,22 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
      Johannes und Daniel die nächsten zwei echten Runden nicht.
    - Die Einführung ist auf den Stand 1.57 gebracht (neu: An- und Abmelden)
      und TOUR_FASSUNG steht auf 3 – jeder bekommt sie beim nächsten Öffnen. */
-const APP_VERSION = '1.58';
+/* 1.59 (17.09.2026, Auftrag 50): Guthaben in der Kasse.
+   - Die Kopfleiste je Kegelbruder zeigt den TATSÄCHLICHEN Betrag: ein Guthaben
+     mindert die Summe, statt aus ihr zu fallen (André 35,11 € statt 35,79 €).
+     Genau diese Zahl las der Kegelbruder auf seiner Startseite schon vorher.
+   - Ein Guthaben wird gegen die offenen Strafen desselben Kegelbruders
+     gerechnet, von alt nach neu – dieselbe Reihenfolge, in der eine Zahlung
+     tilgt. Die verbrauchte Guthabenzeile verschwindet aus „Offene Posten",
+     der gedeckte Betrag steht als Vermerk am Posten. Bleibt ein Rest, steht er
+     als „Guthaben" in der Kopfleiste, wie auf der Startseite.
+   - „Zahlung buchen" und „Alles bezahlt" schicken die Guthabenzeilen mit,
+     sonst blieben sie nach dem Abhaken stehen und würden zweimal angerechnet.
+   - Der Verspätungszuschlag in Zeile und Maske zeigt nur noch den OFFENEN
+     Teil (Spalte H minus dem, was davon in Spalte O schon bezahlt ist).
+   Braucht Backend 1.55. Für die Kegelbrüder selbst ändert sich nichts –
+   „Was ist neu" bleibt deshalb bewusst leer. */
+const APP_VERSION = '1.59';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -7893,6 +7908,61 @@ const postenMarke = o => o.ausgesetzt ? 'ausgesetzt' : (o.frist ? 'ohne Frist' :
 const postenRuht  = o => o.ausgesetzt === true;
 const echteForderungen = mann => mann.posten.filter(x => !postenRuht(x) && (x.offen || 0) > 0);
 
+/* NEU 1.59 (Auftrag 50, 17.09.2026): Guthaben werden verrechnet.
+   Ein Posten kann einen negativen Rest haben – dann hat jemand mehr gezahlt,
+   als der Posten nach einer Neuberechnung noch fordert. Bis 1.58 fiel so ein
+   Posten aus jeder Summe, statt sie zu mindern: Die Kopfleiste zeigte 35,79 €,
+   wo derselbe Kegelbruder auf seiner Startseite 35,11 € las.
+
+   "zuBuchen" ist die Liste, die an bezahltSetzen geht: die Guthabenzeilen
+   MUESSEN mit, sonst bleiben sie nach "Alles bezahlt" als Guthaben stehen und
+   werden ein zweites Mal angerechnet.
+
+   Der noch OFFENE Teil des Verspaetungszuschlags ist H minus dem, was davon
+   schon in Spalte O festgeschrieben ist (Backend 1.55). */
+const zuOffen = o => Math.max(0, Math.round((((o.zuschlag || 0) - (o.zuschlagBezahlt || 0))) * 100) / 100);
+const zuBuchen = mann => mann.posten.filter(x => !postenRuht(x) && Math.abs(x.offen || 0) > 0.004);
+const postenRest = o => (o._eff === undefined ? Math.round((o.offen || 0) * 100) / 100 : o._eff);
+
+/** Guthaben eines Kegelbruders gegen seine offenen Strafen rechnen.
+ *  Von ALT nach NEU – dieselbe Reihenfolge, in der bezahltSetzen tilgt, damit
+ *  die Karte genau das zeigt, was "Zahlung buchen" dann auch tut.
+ *  Geschrieben werden nur abgeleitete Felder; der Posten selbst (o.offen)
+ *  bleibt unberuehrt, damit die Maske hinter der Zeile weiter die Wahrheit aus
+ *  dem Blatt zeigt. Mehrfach aufrufbar: die Felder werden jedes Mal neu
+ *  gesetzt.
+ *  Eine verbrauchte Guthabenzeile verschwindet aus der Liste (_gutWeg) – so
+ *  gewollt (Auftrag 50). Ein Posten, den das Guthaben ganz deckt, bleibt
+ *  dagegen mit 0,00 € stehen: Ein Posten ohne Haken, der aus der Kasse
+ *  verschwindet, war am 31.08.2026 schon einmal die Ursache eines Fehlers. */
+function verrechneGuthaben(m){
+  const r2 = n => Math.round(n * 100) / 100;
+  let gut = 0;
+  m.posten.forEach(o => {
+    o._gutAb = 0; o._gutWeg = false;
+    o._eff = postenRuht(o) ? 0 : r2(o.offen || 0);
+    if (o._eff < 0) gut = r2(gut - o._eff);
+  });
+  let uebrig = gut;
+  m.posten.forEach(o => {
+    if (postenRuht(o) || !(o._eff > 0) || uebrig <= 0.004) return;
+    const ab = Math.min(uebrig, o._eff);
+    o._gutAb = r2(ab);
+    o._eff   = r2(o._eff - ab);
+    uebrig   = r2(uebrig - ab);
+  });
+  let verbraucht = r2(gut - uebrig);
+  m.posten.forEach(o => {
+    if (postenRuht(o) || !(o._eff < 0) || verbraucht <= 0.004) return;
+    const ab = Math.min(verbraucht, -o._eff);
+    o._eff     = r2(o._eff + ab);
+    verbraucht = r2(verbraucht - ab);
+    if (Math.abs(o._eff) <= 0.004){ o._eff = 0; o._gutWeg = true; }
+  });
+  m.guthaben = r2(uebrig);
+  m.strafen  = r2(m.posten.reduce((su, o) => su + (postenRuht(o) ? 0 : o._eff), 0));
+}
+
 function offenNachMann(){
   const map = {};
   kasseD().offene.forEach(o => {
@@ -7910,8 +7980,11 @@ function offenNachMann(){
        sie hier drin, während echteForderungen() sie herauslässt: "Offen
        gesamt" war zu hoch, die Zahlungsmaske schlug einen zu hohen Betrag vor,
        und die Differenz wurde beim Abhaken als Spende gebucht – für Geld, das
-       nie geflossen ist. */
-    if (rest > 0 && !postenRuht(o)) map[o.name].summe += rest;
+       nie geflossen ist.
+       Seit 1.59 wird die Summe nicht mehr hier aufaddiert, sondern unten in
+       verrechneGuthaben() gebildet – erst dort stehen alle Posten eines
+       Kegelbruders zusammen, und nur zusammen laesst sich ein Guthaben gegen
+       die uebrigen rechnen. */
     map[o.name].posten.push(o);
   });
   /* NEU 1.38: Die Monatsbeiträge gehören dazu. "Offen" soll alles sein, was
@@ -7935,9 +8008,10 @@ function offenNachMann(){
     const m = map[k];
     m.beitrag = Math.round((m.beitrag || 0) * 100) / 100;
     m.beitragMonate = m.beitragMonate || 0;
-    m.strafen = Math.round(m.summe * 100) / 100;
-    m.summe = Math.round((m.summe + m.beitrag) * 100) / 100;
+    // Erst sortieren, dann verrechnen: das Guthaben tilgt von alt nach neu.
     m.posten.sort((a, b) => a.datum < b.datum ? -1 : 1);
+    verrechneGuthaben(m);
+    m.summe = Math.round((m.strafen + m.beitrag) * 100) / 100;
     return m;
   // Sortiert nach Namen (Wunsch vom 31.08.2026): Der Kassenwart sucht einen
   // bestimmten Kegelbruder, nicht den größten Betrag.
@@ -7973,8 +8047,14 @@ function kassePostenMaske(p){
         : marke === 'ohne Frist'
           ? 'Die Frist ist aufgehoben: kein Zahlungsziel, kein Zuschlag nach §34. Bezahlt werden kann trotzdem.'
           : 'Fällig ' + (p.faellig ? dat(p.faellig) : '–')
-            + (p.zuschlag > 0 ? ' · darin ' + eur(p.zuschlag) + ' Zuschlag nach §34' : '')
-            + (p.teilzahlung > 0 ? ' · ' + eur(p.teilzahlung) + ' bereits angezahlt' : '') }
+            + (zuOffen(p) > 0 ? ' · darin ' + eur(zuOffen(p)) + ' Zuschlag nach §34' : '')
+            + (p.teilzahlung > 0 ? ' · ' + eur(p.teilzahlung) + ' bereits angezahlt' : '')
+            /* Hier steht bewusst der Wert aus dem Blatt, nicht der verrechnete:
+               Wer einen EINZELNEN Posten bucht, zahlt auf ihn – das Guthaben
+               liegt auf einem anderen. Ueber "Zahlung buchen" auf der Karte
+               wird es mitgerechnet. */
+            + (p._gutAb > 0 ? ' · ' + eur(p._gutAb) + ' davon durch Guthaben gedeckt (wird über '
+                            + '„Zahlung buchen“ auf der Karte verrechnet)' : '') }
   ];
 
   if (!ruht){
@@ -9044,28 +9124,40 @@ const KASSE_SICHTEN = {
     const karte = g => {
       const ruhend = g.posten.filter(postenRuht).length;
       const offeneP = echteForderungen(g);
+      /* Was an bezahltSetzen geht: die Guthabenzeilen gehoeren dazu (1.59). */
+      const buchbar = zuBuchen(g);
+      // Sichtbar ist alles ausser den restlos verrechneten Guthabenzeilen.
+      const sicht = g.posten.filter(x => !x._gutWeg);
       const naechste = offeneP.map(x => x.faellig).filter(Boolean).sort()[0] || '';
       /* Echt kleiner: Am Fälligkeitstag selbst darf noch gezahlt werden, der
          §34-Zuschlag beginnt am Tag danach. So rechnet es die Formel im Blatt
          ("IF(TODAY()<=E;0;…)") und so führt es auch das Backend. Bis 1.28 stand
          hier <=, und die App meldete einen Tag zu früh "überfällig". */
-      const ueber = offeneP.some(x => x.zuschlag > 0 || (x.faellig && x.faellig < D.heute));
+      const ueber = offeneP.some(x => zuOffen(x) > 0 || (x.faellig && x.faellig < D.heute));
 
-      const zeilen = g.posten.map(x => {
+      const zeilen = sicht.map(x => {
         const nr = kassePosten.push(x) - 1;
         const marke = postenMarke(x);
+        const rest = postenRest(x);
+        /* Ein Guthaben, das nirgends zu verrechnen war – der Kegelbruder hat
+           unter dem Strich nichts offen. Es steht als eigene Zeile da, weil
+           sonst niemand sähe, woher das Guthaben kommt. */
         const unten = marke === 'ausgesetzt'
           ? 'Durchschnittstrafe ausgesetzt · ' + eur(x.betrag) + ' bleiben stehen'
           : marke === 'ohne Frist'
             ? 'Frist aufgehoben – kein Zahlungsziel, kein Zuschlag'
-            : 'fällig ' + (x.faellig ? dat(x.faellig) : '–')
-              + (x.zuschlag > 0 ? ' · Zuschlag ' + eur(x.zuschlag) : '')
-              + (x.teilzahlung > 0 ? ' · angezahlt ' + eur(x.teilzahlung) : '');
-        const gelb = !marke && (x.zuschlag > 0 || (x.faellig && x.faellig < D.heute));
+            : rest < 0
+              ? 'Guthaben aus Überzahlung – nichts offen, was es mindern könnte'
+              : 'fällig ' + (x.faellig ? dat(x.faellig) : '–')
+                + (zuOffen(x) > 0 ? ' · Zuschlag ' + eur(zuOffen(x)) : '')
+                + (x.teilzahlung > 0 ? ' · angezahlt ' + eur(x.teilzahlung) : '')
+                + (x._gutAb > 0 ? ' · Guthaben ' + eur(x._gutAb) + ' verrechnet' : '');
+        const gelb = !marke && rest > 0 && (zuOffen(x) > 0 || (x.faellig && x.faellig < D.heute));
         return `<div class="row kasserow" data-posten="${nr}">
           <div><div class="n">${dat(x.datum)}${x.quelle ? ' · ' + esc(x.quelle) : ''}</div>
             <div class="m${gelb ? ' frist' : ''}">${esc(unten)}</div></div>
-          <div class="v${postenRuht(x) ? ' blass' : ''}">${eur(x.offen)}<span class="go">›</span></div>
+          <div class="v${postenRuht(x) || rest <= 0 ? ' blass' : ''}">${
+            rest < 0 ? 'Guthaben ' + eur(-rest) : eur(rest)}<span class="go">›</span></div>
         </div>`;
       }).join('');
 
@@ -9085,8 +9177,8 @@ const KASSE_SICHTEN = {
       const ruhendText = 'Aussetzung zurücknehmen'
         + (ruhendeListe.length > 1 ? ' · ' + dat(ersterRuhende.datum) : '') + ' …';
 
-      const knoepfe = (offeneP.length || nrRuhend >= 0) ? `<div class="hblock"><div class="kassetun">
-          ${offeneP.length ? `<button class="btn ghost" data-zahlung="${esc(g.name)}">Zahlung buchen …</button>
+      const knoepfe = (buchbar.length || nrRuhend >= 0) ? `<div class="hblock"><div class="kassetun">
+          ${buchbar.length ? `<button class="btn ghost" data-zahlung="${esc(g.name)}">Zahlung buchen …</button>
           <button class="btn ghost" data-alle="${esc(g.name)}">Alles bezahlt</button>` : ''}
           ${nrRuhend >= 0 && darfVermerk()
             ? `<button class="btn ghost" data-posten="${nrRuhend}">${esc(ruhendText)}</button>`
@@ -9105,7 +9197,7 @@ const KASSE_SICHTEN = {
         </div>` : '';
 
       const teaser = [
-        g.posten.length ? plural(g.posten.length, 'Posten', 'Posten') : '',
+        sicht.length ? plural(sicht.length, 'Posten', 'Posten') : '',
         g.beitrag > 0 ? plural(g.beitragMonate, 'Monat Beitrag', 'Monate Beitrag') : '',
         ruhend ? ruhend + ' ausgesetzt' : '',
         naechste ? 'fällig ' + dat(naechste) : '',
@@ -9114,10 +9206,11 @@ const KASSE_SICHTEN = {
 
       return `<details class="jahrkarte"><summary>
           <div class="group-head"><span>${esc(g.name)}</span>
-            <span class="pill ${g.summe > 0 ? 'open' : 'grau'}">${eur(g.summe)}</span></div>
+            <span class="pill ${g.summe > 0 ? 'open' : 'grau'}">${
+              g.summe < 0 ? 'Guthaben ' + eur(-g.summe) : eur(g.summe)}</span></div>
           <div class="teaser"><div class="kein">${teaser || 'nichts offen'}</div></div>
         </summary>
-        ${g.posten.length ? `<div class="hblock"><div class="group-head"><span>Offene Posten</span>${
+        ${sicht.length ? `<div class="hblock"><div class="group-head"><span>Offene Posten</span>${
           ueber ? '<span class="pill open">§34 läuft</span>' : ''}</div>${zeilen}</div>` : ''}
         ${beitragBlock}
         ${knoepfe}
@@ -9448,7 +9541,11 @@ $('kasseBody').addEventListener('click', async e => {
        Strafposten abgehakt. Der Monatsbeitrag wird im eigenen Reiter gebucht –
        stünde er im Vorschlag, würde die Differenz beim Abhaken als Spende
        verbucht, für Geld, das nie auf eine Strafe gezahlt wurde. */
-    if (mann) kasseZahlungMaske(mann.name, echteForderungen(mann), mann.strafen);
+    /* Seit 1.59 gehen auch die Guthabenzeilen mit: Sie fordern nichts, werden
+       aber mit derselben Buchung abgehakt – sonst stuende das Guthaben danach
+       noch da und wuerde ein zweites Mal angerechnet. mann.strafen ist der
+       verrechnete Betrag, also genau das, was zu ueberweisen ist. */
+    if (mann) kasseZahlungMaske(mann.name, zuBuchen(mann), mann.strafen);
     return;
   }
 
@@ -9458,7 +9555,7 @@ $('kasseBody').addEventListener('click', async e => {
     const mann = offenNachMann().filter(g => g.name === alle.dataset.alle)[0];
     if (!mann) return;
     const r = await kasseSenden('bezahltSetzen', {
-      posten: echteForderungen(mann).map(p => ({ datum: p.datum, name: p.name, quelle: p.quelle })),
+      posten: zuBuchen(mann).map(p => ({ datum: p.datum, name: p.name, quelle: p.quelle })),
       bezahlt: true
     }, alle, 'Alles bezahlt');
     // hinweisleiste schreibt über textContent – ein zweites esc() machte aus
