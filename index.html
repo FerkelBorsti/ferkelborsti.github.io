@@ -12,6 +12,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="KC Knüppeldick">
+<!-- 1.57: Die installierte App auf dem iPhone bekommt oben mehr Luft (siehe
+     --oben im Stil). Das Kennzeichen muss VOR dem ersten Zeichnen stehen,
+     sonst springt die Kopfzeile nach dem Laden einmal nach unten. -->
+<script>try{if(window.navigator.standalone===true)document.documentElement.classList.add('ios-app');}catch(e){}</script>
 <link rel="manifest" href="manifest.webmanifest">
 <script src="./kc-push-konfig.js"></script>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -37,7 +41,7 @@
   --accent:#DB1E72; --accent-soft:#ECA8C1; --accent-weich:rgba(219,30,114,.16);
   --ok:#3FBF8F; --warn:#E8B14A;
   --accent-tint:rgba(219,30,114,.17); --ok-tint:rgba(63,191,143,.15);
-  --nav-bg:rgba(14,12,16,.94); --veil:rgba(6,5,7,.93);
+  --nav-bg:#0E0C10; --veil:rgba(6,5,7,.93);
 }
 :root[data-app-theme="light"]{
   --ink:#F7F3F6; --surface:#FFFFFF; --surface-2:#F0E9EE; --line:#E3D8E0;
@@ -45,7 +49,7 @@
   --accent:#C2185B; --accent-soft:#93103F; --accent-weich:rgba(194,24,91,.10);
   --ok:#1B7D59; --warn:#8A5D0C;
   --accent-tint:rgba(194,24,91,.10); --ok-tint:rgba(27,125,89,.12);
-  --nav-bg:rgba(247,243,246,.95); --veil:rgba(247,243,246,.96);
+  --nav-bg:#F7F3F6; --veil:rgba(247,243,246,.96);
 }
 @media (prefers-color-scheme: light){
   :root[data-app-theme="auto"]{
@@ -54,10 +58,32 @@
     --accent:#C2185B; --accent-soft:#93103F; --accent-weich:rgba(194,24,91,.10);
     --ok:#1B7D59; --warn:#8A5D0C;
     --accent-tint:rgba(194,24,91,.10); --ok-tint:rgba(27,125,89,.12);
-    --nav-bg:rgba(247,243,246,.95); --veil:rgba(247,243,246,.96);
+    --nav-bg:#F7F3F6; --veil:rgba(247,243,246,.96);
   }
 }
 :root{ --radius:14px; --shell:460px; font-family:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif; }
+/* RÄNDER OBEN UND UNTEN (1.57).
+   Gemeldet am 17.09.2026 nach dem Update auf iOS 27: Der obere Bildschirmrand
+   verschwimmt und ragt in den Schriftzug, die Menüleiste steht etwas zu hoch.
+
+   --oben ist der Streifen, den die Statusleiste belegt. Auf dem iPhone legt
+   das System seit den neuen iOS-Fassungen unter der Statusleiste zusätzlich
+   eine Unschärfe über den Seiteninhalt, die gut 15 Punkte weiter nach unten
+   reicht als der Sicherheitsabstand. Die installierte App (Klasse ios-app,
+   gesetzt im Kopf der Seite) bekommt deshalb 16 px dazu. Ein deckender
+   Streifen (.statusdeckel) liegt über genau dieser Höhe, und die Kopfzeile
+   klebt beim Scrollen DARUNTER statt bei 0 – bis 1.56 rutschte sie bei
+   sichtbarer Hinweisleiste mit dem Schriftzug unter die Statusleiste.
+
+   --nav-unten ist der Abstand der Menüleiste zum unteren Rand. Bis 1.56 kamen
+   auf die volle Höhe der Home-Anzeige noch 8 px obendrauf, die Beschriftung
+   stand damit rund 14 Punkte höher als in den Apps des Systems. Jetzt endet
+   sie auf Höhe der Home-Anzeige-Zone. Ohne Home-Anzeige (Android, Browser)
+   bleibt es bei 8 px wie bisher. */
+:root{ --oben:max(env(safe-area-inset-top), 6px);
+       --nav-unten:max(8px, calc(env(safe-area-inset-bottom) - 6px)); }
+html.ios-app{ --oben:calc(env(safe-area-inset-top) + 16px); }
+.statusdeckel{position:fixed;top:0;left:0;right:0;height:var(--oben);background:var(--ink);z-index:7;pointer-events:none}
 
 /* Kalender- und Uhr-Symbol in den Datums-/Uhrzeitfeldern sind native Bedienelemente
    des Browsers. Ohne color-scheme malt der sie immer für hellen Grund – im dunklen
@@ -70,7 +96,7 @@
 }
 
 /* Meldung in der App (wenn eine Benachrichtigung kommt, während die App offen ist) */
-.meldung{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));
+.meldung{position:fixed;left:12px;right:12px;bottom:calc(76px + var(--nav-unten));
   max-width:calc(var(--shell) - 24px);margin:0 auto;z-index:15;
   background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
   padding:14px 15px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
@@ -160,12 +186,13 @@ input[type="date"], input[type="time"]{
 html{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%}
 button,a,summary,input,.row,.calcrow{touch-action:manipulation}
 body{margin:0;background:var(--ink);color:var(--text);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
-.shell{max-width:var(--shell);margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--ink);padding-top:env(safe-area-inset-top)}
-/* Der Kopf reserviert oben Platz fuer Statusleiste/Selfie-Kamera (Safe Area).
-   Das negative margin-top hebt die Safe-Area-Polsterung der .shell wieder auf,
-   damit der Streifen nicht doppelt gezaehlt wird. */
-header.app{display:flex;align-items:center;gap:12px;padding:calc(14px + max(env(safe-area-inset-top),6px)) 18px 12px;margin-top:calc(-1 * env(safe-area-inset-top));border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--ink);z-index:5}
-.topbar:not(.hidden) ~ #app header.app{margin-top:0;padding-top:14px}
+.shell{max-width:var(--shell);margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--ink);padding-top:var(--oben)}
+/* Den Platz fuer Statusleiste/Selfie-Kamera haelt seit 1.57 die .shell
+   (padding-top:var(--oben)), der .statusdeckel deckt ihn ab. Die Kopfzeile
+   klebt beim Scrollen unter dem Deckel, nicht mehr bei 0 – bis 1.56 hatte sie
+   den Streifen selbst in ihrer Polsterung und hob ihn mit einem negativen
+   margin-top wieder auf. Das ging bei sichtbarer Hinweisleiste schief. */
+header.app{display:flex;align-items:center;gap:12px;padding:14px 18px 12px;border-bottom:1px solid var(--line);position:sticky;top:var(--oben);background:var(--ink);z-index:5}
 .badge{width:56px;height:56px;flex:none;background-color:transparent;background-size:contain;background-repeat:no-repeat;background-position:center;border:none;padding:0;cursor:pointer}
 .badge:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
 .wordmark{flex:1;min-width:0;line-height:1.1}
@@ -177,7 +204,7 @@ header.app{display:flex;align-items:center;gap:12px;padding:calc(14px + max(env(
 .iconbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* Die Navigationsleiste ist fest und wächst auf dem iPhone um den Bereich der
    Home-Anzeige. Ohne diesen Zuschlag klebt die letzte Kachel darunter fest. */
-main{flex:1;padding:20px 18px calc(112px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:20px}
+main{flex:1;padding:20px 18px calc(104px + var(--nav-unten));display:flex;flex-direction:column;gap:20px}
 .hidden{display:none!important}
 
 .login{max-width:340px;margin:6vh auto 0;display:flex;flex-direction:column;gap:22px;text-align:center;align-items:center}
@@ -298,7 +325,7 @@ svg.dm{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;
 .stepper button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .stepper b{min-width:18px;text-align:center;font-family:'Archivo Black',system-ui,sans-serif;font-variant-numeric:tabular-nums;font-size:15px}
 .stepper b.on{color:var(--accent)}
-.calcbar{position:fixed;bottom:calc(66px + env(safe-area-inset-bottom));left:0;right:0;max-width:var(--shell);margin:0 auto;background:var(--accent);color:#fff;padding:13px 18px;display:flex;justify-content:space-between;align-items:center;font-family:'Archivo Black',system-ui,sans-serif;font-size:17px;font-variant-numeric:tabular-nums;z-index:4}
+.calcbar{position:fixed;bottom:calc(58px + var(--nav-unten));left:0;right:0;max-width:var(--shell);margin:0 auto;background:var(--accent);color:#fff;padding:13px 18px;display:flex;justify-content:space-between;align-items:center;font-family:'Archivo Black',system-ui,sans-serif;font-size:17px;font-variant-numeric:tabular-nums;z-index:4}
 .calcbar button{background:rgba(0,0,0,.22);border:none;color:#fff;font-family:inherit;font-size:12px;padding:7px 12px;border-radius:8px;cursor:pointer}
 
 details.amt{background:var(--surface);border-bottom:1px solid var(--line)}
@@ -462,7 +489,7 @@ details.jahrkarte[open] .teaser{display:none}
 .sheet{position:fixed;inset:0;background:var(--ink);z-index:20;overflow-y:auto;
   -webkit-overflow-scrolling:touch;overscroll-behavior:contain;display:flex;justify-content:center}
 body.gesperrt{position:fixed;left:0;right:0;width:100%;overflow:hidden}
-.sheet-in{width:100%;max-width:var(--shell);padding:calc(22px + env(safe-area-inset-top)) 18px 60px;display:flex;flex-direction:column;gap:22px}
+.sheet-in{width:100%;max-width:var(--shell);padding:calc(16px + var(--oben)) 18px 60px;display:flex;flex-direction:column;gap:22px}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .sheet-head h2{font-family:'Archivo Black',system-ui,sans-serif;font-size:20px;margin:0}
 .setrow{background:var(--surface);border-bottom:1px solid var(--line);padding:14px 15px;display:flex;justify-content:space-between;align-items:center;gap:14px}
@@ -537,15 +564,15 @@ button.row.erfmann:focus-visible{outline:2px solid var(--accent);outline-offset:
 .version{text-align:center;color:var(--muted);font-size:11.5px}
 
 /* Logo-Lightbox */
-.lightbox{position:fixed;inset:0;background:var(--veil);z-index:30;display:grid;place-items:center;padding:calc(28px + env(safe-area-inset-top)) 28px 28px;cursor:zoom-out;border:none;width:100%}
+.lightbox{position:fixed;inset:0;background:var(--veil);z-index:30;display:grid;place-items:center;padding:calc(22px + var(--oben)) 28px 28px;cursor:zoom-out;border:none;width:100%}
 .lightbox img{max-width:100%;max-height:70vh;width:auto;height:auto}
 .lightbox p{color:var(--muted);font-size:12.5px;margin-top:18px;text-align:center}
 
 /* Kein backdrop-filter mehr (bis 1.30: blur(12px)). Ein Weichzeichner über
    bewegtem Inhalt zwingt das Gerät in JEDEM Scroll-Bild zu einem eigenen
    Zeichendurchgang – auf dem iPhone der einzige Grund, warum die Liste beim
-   Scrollen haken konnte. Der Farbwert von --nav-bg ist ohnehin fast deckend;
-   der Unterschied ist mit bloßem Auge nicht zu sehen, die Kosten sind null. */
+   Scrollen haken konnte. --nav-bg ist seit 1.57 ganz deckend: Unter iOS 27
+   schimmerte der Text der Terminkarte durch die Leiste. */
 /* MENÜLEISTE, Stand 1.41.
 
    Die Geschichte in drei Sätzen, damit sie niemand ein viertes Mal aufrollt:
@@ -570,7 +597,7 @@ button.row.erfmann:focus-visible{outline:2px solid var(--accent);outline-offset:
    das jetzt daran, ob ein Eingabefeld den Fokus hat, nicht mehr an einer
    Pixel-Schwelle, die auf jedem Gerät anders ausfällt. Dazu weiterhin
    interactive-widget=resizes-content im Kopf der Seite. */
-nav.tabs{position:fixed;bottom:0;left:0;right:0;max-width:var(--shell);margin:0 auto;background:var(--nav-bg);border-top:1px solid var(--line);display:grid;grid-auto-flow:column;grid-auto-columns:1fr;padding:8px 4px calc(8px + env(safe-area-inset-bottom));z-index:6}
+nav.tabs{position:fixed;bottom:0;left:0;right:0;max-width:var(--shell);margin:0 auto;background:var(--nav-bg);border-top:1px solid var(--line);display:grid;grid-auto-flow:column;grid-auto-columns:1fr;padding:8px 4px var(--nav-unten);z-index:6}
 nav.tabs.tastatur{transform:translateY(130%);pointer-events:none}
 nav.tabs button{background:none;border:none;color:var(--muted);font-family:inherit;font-size:11px;font-weight:600;letter-spacing:.03em;padding:6px 2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;border-radius:10px}
 nav.tabs button svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
@@ -663,13 +690,14 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
   color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
   overflow:hidden;height:0;background:var(--ink)}
 .ziehen span{padding-bottom:8px}
-.topbar{padding:calc(9px + env(safe-area-inset-top)) 16px 9px;margin-top:calc(-1 * env(safe-area-inset-top));text-align:center;font-size:12.5px;font-weight:600;background:var(--surface-2);color:var(--muted);border-bottom:1px solid var(--line);cursor:default}
+.topbar{padding:9px 16px;text-align:center;font-size:12.5px;font-weight:600;background:var(--surface-2);color:var(--muted);border-bottom:1px solid var(--line);cursor:default}
 .topbar.warn{background:var(--warn);color:#1B141E}
 .topbar.neu{background:var(--accent);color:#fff;cursor:pointer}
 </style>
 </head>
 <body>
 <div class="shell">
+  <div class="statusdeckel" aria-hidden="true"></div>
   <div class="ziehen" id="ziehen" aria-hidden="true"><span id="ziehenText"></span></div>
   <div class="topbar hidden" id="topbar"></div>
 
@@ -1273,6 +1301,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
 
       <button class="btn ghost" id="logoutBtn">Abmelden</button>
       <div class="version" id="versionText"></div>
+      <div class="version" id="messText" style="margin-top:-14px;opacity:.7"></div>
     </div>
   </div>
 
@@ -1323,7 +1352,16 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
    als rote Minus-Pille. "davon bezahlt" zählt die Anzahlungen mit – das Geld
    ist ja eingegangen. Braucht Backend 1.54 (Feld "anz"); mit einem älteren
    Backend fehlt nur die Zeile, falsch wird nichts. */
-const APP_VERSION = '1.56';
+/* 1.57 (17.09.2026): Fehlermeldungen, Runterziehen, Ränder unter iOS 27.
+   - Beim Zurückholen der App wird eine Sekunde gewartet, bevor Daten geholt
+     werden; ein Fehlschlag, während die App im Hintergrund lag, zählt nicht.
+   - "Versuch 1 von 2 …" wird nicht mehr angezeigt.
+   - Automatische Abrufe melden einen Fehlschlag nur, wenn der Stand älter als
+     15 Minuten ist. Runterziehen und "Daten neu laden" melden immer.
+   - Runterziehen und "Daten neu laden" rufen dieselbe Funktion datenNeuLaden().
+   - Statusleiste, Kopfzeile und Menüleiste: siehe --oben / --nav-unten.
+   - Messzeile unter der Versionsnummer in den Einstellungen. */
+const APP_VERSION = '1.57';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -1836,13 +1874,36 @@ function kennungNeu(){
   return 'k' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 }
 
+/* APP IM HINTERGRUND (1.57).
+   Gemeldet am 17.09.2026 mit einem Bildschirmfoto: "Daten nicht geladen:
+   Netzwerkfehler – keine Verbindung", eine Minute nach dem letzten gelungenen
+   Abruf, bei vollem WLAN. Schiebt man die App weg, während eine Anfrage läuft,
+   bricht iOS sie mit genau diesem Fehler ab – und ein zweiter Anlauf im
+   Hintergrund scheitert gleich mit. Beides ist kein Verbindungsproblem.
+   Deshalb: Jeder Wechsel in den Hintergrund wird gezählt. Scheitert ein Anlauf,
+   während die App weg war, wartet der nächste, bis sie wieder vorn ist, und er
+   verbraucht keinen der regulären Versuche. */
+let versteckZaehler = 0;
+document.addEventListener('visibilitychange', () => { if (document.hidden) versteckZaehler++; });
+function sichtbarAbwarten(maxMs){
+  if (!document.hidden) return Promise.resolve();
+  return new Promise(fertig => {
+    const uhr = setTimeout(los, maxMs);
+    function los(){ clearTimeout(uhr); document.removeEventListener('visibilitychange', pruefen); fertig(); }
+    function pruefen(){ if (!document.hidden) los(); }
+    document.addEventListener('visibilitychange', pruefen);
+  });
+}
+
 async function api(aktion, extra, versuche){
   const einmalig = API_EINMALIG.indexOf(aktion) >= 0;
   const lesen = API_LESEN.indexOf(aktion) >= 0;
-  const max = Math.max(1, versuche || 1);
+  let max = Math.max(1, versuche || 1);
+  let nachgelegt = false;
   const kennung = lesen ? '' : kennungNeu();
   let letzterFehler;
   for (let i = 1; i <= max; i++){
+    const versteckAmStart = versteckZaehler;
     const abbruch = new AbortController();
     const uhr = setTimeout(() => abbruch.abort(),
       (lesen && i < max) ? API_ZEITLIMIT_ERSTER : API_ZEITLIMIT);
@@ -1888,11 +1949,23 @@ async function api(aktion, extra, versuche){
          dieser Stelle sofort aufgegeben. */
       const frueh = vorDemSkript(e);
       if (einmalig && !(e instanceof TypeError) && !frueh) break;
+      /* War die App während dieses Anlaufs im Hintergrund, zählt er nicht –
+         einmal je Anfrage wird ein Versuch dazugelegt (1.57). */
+      if ((document.hidden || versteckZaehler !== versteckAmStart) && !nachgelegt){
+        nachgelegt = true;
+        max++;
+      }
       if (i < max){
-        hinweisleiste('Versuch ' + i + ' von ' + max + ' fehlgeschlagen (' + fehlerGrund(e) + ') – nächster läuft …');
+        /* Bis 1.56 stand hier eine sichtbare Meldung "Versuch 1 von 2
+           fehlgeschlagen … nächster läuft". Sie hat mehr beunruhigt als
+           geholfen: In aller Regel klappte der zweite Anlauf. Gemeldet wird
+           seit 1.57 nur noch, wenn alle Anläufe gescheitert sind. */
+        await sichtbarAbwarten(10 * 60000);
         /* Nach einem 404 laenger warten: Die Bereitstellung braucht ein paar
-           Sekunden, 1,5 davon reichen meist nicht. */
-        await warte(frueh ? 4000 : 1500);
+           Sekunden, 1,5 davon reichen meist nicht. Nach einem Netzwerkfehler
+           ebenfalls: Nach dem Aufwachen braucht das iPhone oft zwei, drei
+           Sekunden, bis die Verbindung wieder steht. */
+        await warte(frueh ? 4000 : (e instanceof TypeError ? 3000 : 1500));
       }
     } finally {
       clearTimeout(uhr);
@@ -2241,6 +2314,41 @@ function aktualisieren(frisch){
 let letzteEigeneSchreibung = 0;
 function eigeneSchreibung(){ letzteEigeneSchreibung = Date.now(); }
 
+/* WANN EIN FEHLSCHLAG GEMELDET WIRD (1.57).
+   Hat jemand selbst geladen – Runterziehen oder "Daten neu laden" –, bekommt
+   er immer eine Antwort, auch eine schlechte. Holt die App im Hintergrund von
+   sich aus nach, bleibt ein Fehlschlag still, solange die angezeigten Daten
+   jünger sind als STILL_BIS. Wer eine Viertelstunde alte Zahlen sieht, soll es
+   erfahren; wer vor drei Minuten geladen hat, braucht keinen gelben Balken.
+   Still heißt nicht verschluckt: Der Grund steht in den Einstellungen unter
+   "Daten neu laden" als "zuletzt: …". */
+const STILL_BIS = 15 * 60000;
+let manuellWartet = 0;
+const LADE_TEXT = 'Wird geladen …';
+function standAlterMs(){
+  const s = speicher.lies('kc-stand');
+  const t = s ? new Date(s).getTime() : 0;
+  return t ? Date.now() - t : Infinity;
+}
+
+/* Runterziehen und der Knopf in den Einstellungen tun seit 1.57 exakt
+   dasselbe. Vorher riefen beide zwar aktualisieren(true), aber die Anzeige lief
+   auseinander: Der Knopf zeigte "Wird geladen …" für vier Sekunden, das
+   Runterziehen in einem Streifen, der auf dem iPhone unter der Statusleiste
+   lag und deshalb kaum zu sehen war. Die Meldung bleibt jetzt stehen, bis
+   die Antwort da ist. */
+async function datenNeuLaden(){
+  manuellWartet++;
+  hinweisleiste(LADE_TEXT, 'laeuft');
+  try {
+    await aktualisieren(true);
+  } finally {
+    manuellWartet--;
+    const b = $('topbar');
+    if (b && !b.classList.contains('hidden') && b.textContent === LADE_TEXT) hinweisleiste('');
+  }
+}
+
 async function abrufen(frisch, tiefe){
   const begonnen = Date.now();
   try {
@@ -2262,8 +2370,14 @@ async function abrufen(frisch, tiefe){
   } catch (e) {
     online = false;
     letzterApiFehler = fehlerGrund(e);
-    if (D) hinweisleiste('Daten nicht geladen: ' + letzterApiFehler + ' · ' + standText(), 'warn');
-    else { zeigeAnsicht('view-laden'); $('ladenText').textContent = 'Daten nicht geladen: ' + letzterApiFehler; }
+    if (!D){ zeigeAnsicht('view-laden'); $('ladenText').textContent = 'Daten nicht geladen: ' + letzterApiFehler; return; }
+    /* Liegt die App beim Scheitern im Hintergrund, bleibt es still – api()
+       wartet ohnehin, bis sie wieder vorn ist, und scheitert erst danach. */
+    if (manuellWartet > 0 || (!document.hidden && standAlterMs() > STILL_BIS)){
+      hinweisleiste('Daten nicht geladen: ' + letzterApiFehler + ' · ' + standText(), 'warn');
+    } else {
+      $('standText').textContent = standText() + ' · zuletzt: ' + letzterApiFehler;
+    }
   }
 }
 
@@ -4553,9 +4667,39 @@ function ebene(id, zeigen){
   hintergrundPruefen();
 }
 
-$('openSettings').addEventListener('click', () => { $('standText').textContent = standText(); ebene('settings', true); });
+$('openSettings').addEventListener('click', () => { $('standText').textContent = standText(); messzeile(); ebene('settings', true); });
 $('closeSettings').addEventListener('click', () => ebene('settings', false));
-$('reloadBtn').addEventListener('click', () => { ebene('settings', false); hinweisleiste('Wird geladen …'); aktualisieren(true); });
+$('reloadBtn').addEventListener('click', () => { ebene('settings', false); datenNeuLaden(); });
+
+/* MESSZEILE (1.57). Die Ränder unter iOS 27 ließen sich nur am Browser
+   nachstellen, nicht am iPhone selbst. Steht die Menüleiste nach dem Update
+   noch falsch, reicht ein Bildschirmfoto dieser Zeile, um gezielt
+   nachzubessern: oben/unten = Sicherheitsabstände des Systems in Punkten,
+   Fenster = Höhe der Seite, Bildschirm = Höhe des Geräts, Leiste = Abstand
+   zwischen Menüleiste und unterem Fensterrand (soll 0 sein). */
+function messzeile(){
+  const ziel = $('messText');
+  if (!ziel) return;
+  try {
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;'
+      + 'padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';
+    document.body.appendChild(probe);
+    const cs = getComputedStyle(probe);
+    const oben = Math.round(parseFloat(cs.paddingTop) || 0);
+    const unten = Math.round(parseFloat(cs.paddingBottom) || 0);
+    probe.remove();
+    const nav = $('tabs');
+    const leiste = nav ? Math.round(window.innerHeight - nav.getBoundingClientRect().bottom) : 0;
+    const vv = window.visualViewport ? Math.round(window.visualViewport.height) : 0;
+    ziel.textContent = 'Anzeige: oben ' + oben + ' · unten ' + unten
+      + ' · Fenster ' + window.innerHeight + (vv && vv !== window.innerHeight ? '/' + vv : '')
+      + ' · Bildschirm ' + screen.height + ' · Leiste ' + leiste
+      + (window.navigator.standalone === true ? ' · iOS-App' : (alsAppGestartet() ? ' · App' : ' · Browser'));
+  } catch (e) {
+    ziel.textContent = '';
+  }
+}
 $('badge-small').addEventListener('click', () => ebene('lightbox', true));
 $('showLogo').addEventListener('click', () => { ebene('settings', false); ebene('lightbox', true); });
 $('lightbox').addEventListener('click', () => ebene('lightbox', false));
@@ -7507,7 +7651,20 @@ function standIstAlt(){
   const t = new Date(s).getTime();
   return !t || (Date.now() - t) > FRISCH_AB;
 }
+/* EINE SEKUNDE PAUSE (1.57). Direkt nach dem Zurückholen steht die Verbindung
+   auf dem iPhone oft noch nicht; die erste Anfrage scheiterte dann sofort mit
+   "Netzwerkfehler". visibilitychange, focus und pageshow feuern dabei meist
+   alle drei – die Uhr fasst sie zu einem Anstoß zusammen. */
+const RUECKKEHR_PAUSE = 1000;
+let rueckkehrUhr = null;
 function beiRueckkehrNachsehen(){
+  if (document.hidden) return;
+  if (!token || !D) return;
+  if (rueckkehrUhr) return;
+  rueckkehrUhr = setTimeout(rueckkehrNachsehenJetzt, RUECKKEHR_PAUSE);
+}
+function rueckkehrNachsehenJetzt(){
+  rueckkehrUhr = null;
   if (document.hidden) return;
   if (!token || !D) return;
   /* Zuerst das, was liegengeblieben ist. Ein eingefrorener Sendevorgang wird
@@ -7618,11 +7775,16 @@ function chipsHerstellen(){
   let startY = null, startX = null, aktiv = false, laeuft = false;
   const feld = $('ziehen'), txt = $('ziehenText');
 
+  /* Seit 1.57 wächst der Streifen UNTER der Statusleiste heraus (--oben).
+     Bis 1.56 begann er bei 0, und die ersten gut 50 Punkte lagen hinter
+     Uhrzeit und Akku – "Wird geladen …" war dort gar nicht zu sehen. */
+  let hoehe = 0;
   const zeige = h => {
-    feld.style.height = Math.round(h) + 'px';
+    hoehe = Math.round(h);
+    feld.style.height = 'calc(var(--oben) + ' + hoehe + 'px)';
     txt.textContent = h >= AUSLOESER ? 'Loslassen zum Aktualisieren' : 'Zum Aktualisieren ziehen';
   };
-  const zurueck = () => { feld.style.height = '0px'; aktiv = false; startY = null; };
+  const zurueck = () => { hoehe = 0; feld.style.height = '0px'; aktiv = false; startY = null; };
 
   document.addEventListener('touchstart', e => {
     if (laeuft || e.touches.length !== 1) return;
@@ -7643,15 +7805,17 @@ function chipsHerstellen(){
 
   document.addEventListener('touchend', async () => {
     if (startY === null) return;
-    const hoehe = parseInt(feld.style.height || '0', 10);
     if (aktiv && hoehe >= AUSLOESER){
       laeuft = true;
-      txt.textContent = 'Wird geladen …';
-      feld.style.height = '34px';
-      try { await aktualisieren(true); } finally { laeuft = false; zurueck(); }
+      zurueck();
+      /* Dieselbe Funktion wie "Daten neu laden" in den Einstellungen. */
+      try { await datenNeuLaden(); } finally { laeuft = false; }
     } else zurueck();
     startY = null; aktiv = false;
   });
+  /* Übernimmt iOS die Geste (etwa beim Gummiband), kommt statt touchend ein
+     touchcancel. Ohne das blieb der Streifen halb ausgezogen stehen. */
+  document.addEventListener('touchcancel', () => { if (!laeuft) zurueck(); });
 })();
 
 
@@ -9957,6 +10121,11 @@ const TOUR_NEU      = 'kc-tour-neu';      // App-Fassung, deren Neuerungen schon
    geht jetzt zum ersten Mal an die Kegelbrüder. Der erste Eintrag zählt
    deshalb nicht auf, was sich GEÄNDERT hat, sondern was die App KANN. */
 const NEUERUNGEN = [
+  { fassung: '1.57', punkte: [
+      'Weniger Fehlermeldungen: Kommt die App aus dem Hintergrund zurück, lässt sie dem Handy einen Moment fürs Netz, und ein zweiter Anlauf läuft still im Hintergrund.',
+      'Runterziehen lädt die Daten genau wie „Daten neu laden“ in den Einstellungen – oben steht „Wird geladen …“, bis alles da ist.',
+      'Kopfzeile und Menüleiste sind an die Statusleiste und die Home-Anzeige des iPhones angepasst.'
+    ] },
   { fassung: '1.55', punkte: [
       'Geht eine Antwort des Servers auf dem Rückweg verloren – im Keller keine Seltenheit –, versucht die App es von allein noch einmal, statt gleich einen Fehler zu zeigen.',
       'Sie gibt dabei früher auf und probiert es neu, statt anderthalb Minuten auf eine Antwort zu warten, die nicht mehr kommt.'
