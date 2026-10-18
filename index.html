@@ -413,6 +413,39 @@ svg.orden.big{width:19px;height:19px}
    danebenpasst (Auftrag 44). */
 .tkbtn{display:grid;gap:8px;margin-top:12px;grid-template-columns:1fr}
 .tkbtn.zwei{grid-template-columns:1fr 1fr}
+/* --- Termine unter Verein (1.60) ---
+   Die Hinweiszeile unten in der Terminkarte: nur da, wenn eine Veranstaltung
+   in den naechsten sechs Wochen noch keine Antwort von dir hat. Getoent wie
+   die Karte am Termintag – sie ist das einzige Neue auf der Startseite. */
+.tkhinweis{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  background:var(--accent-weich);border:none;border-top:1px solid var(--line);
+  color:var(--text);font-family:inherit;padding:13px 16px;min-height:44px;cursor:pointer}
+.tkhinweis .tx{flex:1;min-width:0}
+.tkhinweis b{display:block;font-size:14px;font-weight:700}
+.tkhinweis span.sub{display:block;margin-top:1px}
+.tkhinweis svg{width:18px;height:18px;flex:none;stroke:var(--accent);fill:none;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+.tkhinweis:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.tkliste-kopf{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:20px;flex-wrap:wrap}
+.tkliste-kopf h2.sec{margin:0}
+/* Die Terminzeile: der Text ist ein Knopf (oeffnet die Antwort), rechts der
+   eigene Stand als Marke. Die Knoepfe "Erfassen" und "Aendern" bleiben daneben
+   – sie sind keine Kinder des Textknopfs, sonst waeren es Knoepfe in Knoepfen. */
+button.terminText{background:none;border:none;padding:0;margin:0;font:inherit;color:inherit;
+  text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px;min-height:44px}
+button.terminText .tt{flex:1;min-width:0}
+button.terminText:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.tag.offen{color:var(--accent);border-color:var(--accent)}
+/* Mehrere beantworten: Haken je Termin, unten die beiden Knoepfe. */
+.rmwahl{display:flex;align-items:center;gap:12px;background:var(--surface);padding:12px 15px;
+  min-height:48px;cursor:pointer}
+.rmwahl input{width:22px;height:22px;accent-color:var(--accent);margin:0;flex:none}
+.rmwahl .n{font-weight:600;font-size:14.5px}
+.rmwahl .m{color:var(--muted);font-size:12px;margin-top:2px}
+.rmwahl.aus{opacity:.5;cursor:default}
+.rmwahl.aus .m{color:var(--warn);font-weight:600}
+.rmsammelfuss{position:sticky;bottom:0;background:var(--ink);padding:12px 0 calc(8px + env(safe-area-inset-bottom));
+  border-top:1px solid var(--line);margin-top:4px}
 /* Der Beteiligungsbalken. Bewusst derselbe schmale Balken wie in der Kachel
    "Anwesenheit Verein" seit 1.41 – dieselbe Sache soll in der App auch gleich
    aussehen. */
@@ -784,7 +817,19 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
         <div id="modeTermine" class="hidden">
           <button class="btn ghost small hidden" id="freiNeu" style="margin-top:16px">Freie Strafe</button>
           <button class="btn ghost small hidden" id="terminNeu" style="margin-top:16px">Termin anlegen</button>
-          <div class="list" id="terminList" style="margin-top:16px"></div>
+          <!-- 1.60: Zu- und Absagen fuer JEDEN kommenden Termin, nicht nur fuer den
+               naechsten. Eine Zeile antippen oeffnet die Antwort; "Mehrere
+               beantworten" sagt mehreren Terminen auf einmal zu oder ab. -->
+          <div class="tkliste-kopf" id="terminKopf">
+            <h2 class="sec">Kommende Termine</h2>
+            <button class="btn ghost small hidden" id="rmMehrereKnopf">Mehrere beantworten</button>
+          </div>
+          <div class="list" id="terminList" style="margin-top:12px"></div>
+          <p class="note" id="terminListeHinweis" style="margin-top:10px">Antippen öffnet die Antwort für
+            diesen Termin. Zu Kegelabenden bist du ohne Abmeldung automatisch dabei, zu Veranstaltungen
+            meldest du dich selbst an.</p>
+          <h2 class="sec hidden" id="terminAltKopf" style="margin-top:24px">Vergangen</h2>
+          <div class="list hidden" id="terminListAlt" style="margin-top:12px"></div>
           <p class="note hidden" id="terminHinweis" style="margin-top:10px">Termine legt der Kegelvater an – das Erfassen der Strafen bleibt Sache des Schriftführers.</p>
         </div>
         <div id="modeRunden" class="hidden">
@@ -1112,6 +1157,34 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
     </div>
   </div>
 
+  <!-- EIN TERMIN: Zu- und Absage fuer einen beliebigen kommenden Termin (1.60).
+       Steht im Dokument VOR "Wer kommt?" und "Ich komme spaeter": Beide werden
+       aus diesem Fenster heraus geoeffnet und muessen darueber liegen. -->
+  <div class="sheet hidden" id="rmTerminSheet" role="dialog" aria-label="Termin">
+    <div class="sheet-in">
+      <div class="sheet-head">
+        <h2 id="rmTerminTitel">Termin</h2>
+        <button class="iconbtn" id="rmTerminSchliessen" aria-label="Schließen">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div id="rmTerminBody"></div>
+    </div>
+  </div>
+
+  <!-- MEHRERE BEANTWORTEN: Sammel-Zu- oder -Absage (1.60) -->
+  <div class="sheet hidden" id="rmMehrere" role="dialog" aria-label="Mehrere Termine beantworten">
+    <div class="sheet-in">
+      <div class="sheet-head">
+        <h2>Termine auswählen</h2>
+        <button class="iconbtn" id="rmMehrereSchliessen" aria-label="Schließen">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div id="rmMehrereBody"></div>
+    </div>
+  </div>
+
   <!-- WER KOMMT? Die Namensliste zu einem Termin (1.44) -->
   <div class="sheet hidden" id="rmListe" role="dialog" aria-label="Wer kommt">
     <div class="sheet-in">
@@ -1370,6 +1443,17 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
      Johannes und Daniel die nächsten zwei echten Runden nicht.
    - Die Einführung ist auf den Stand 1.57 gebracht (neu: An- und Abmelden)
      und TOUR_FASSUNG steht auf 3 – jeder bekommt sie beim nächsten Öffnen. */
+/* 1.60 (18.10.2026): Termine unter Verein zu- und absagen.
+   - Verein › Termine: Jede kommende Zeile zeigt den eigenen Stand und öffnet
+     ein Terminfenster mit derselben Karte wie die Startseite (rmKoerper).
+   - "Mehrere beantworten": Sammel-Zu- oder -Absage, Backend-Aktion
+     rueckmeldungViele (ab Backend 1.56, sonst einzeln nacheinander).
+   - Hinweiszeile unten in der Terminkarte für Veranstaltungen ohne Antwort
+     in den nächsten sechs Wochen (Johannes, 18.10.2026).
+   - Push-Ziel "termin:<Datum>" öffnet das Terminfenster direkt.
+   - Fehler behoben: Eine zweite Funktion tageBis() überschrieb die erste, der
+     Chip "in N Tagen" an "Nächster Termin" erschien deshalb nie.
+   - Veranstaltungen nennen beim Absagen nach dem Schluss den Betrag nach §13. */
 /* 1.59 (17.09.2026, Auftrag 50): Guthaben in der Kasse.
    - Die Kopfleiste je Kegelbruder zeigt den TATSÄCHLICHEN Betrag: ein Guthaben
      mindert die Summe, statt aus ihr zu fallen (André 35,11 € statt 35,79 €).
@@ -1385,7 +1469,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
      Teil (Spalte H minus dem, was davon in Spalte O schon bezahlt ist).
    Braucht Backend 1.55. Für die Kegelbrüder selbst ändert sich nichts –
    „Was ist neu" bleibt deshalb bewusst leer. */
-const APP_VERSION = '1.59';
+const APP_VERSION = '1.60';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -3875,24 +3959,299 @@ function zeichneTermine(){
      der Schriftführer hier erfasst. Der Kassenwart erreicht die Korrektur
      zusätzlich über die offenen Beträge. */
   $('freiNeu').classList.toggle('hidden', !(darfErfassen() || darfKorrektur()));
-  $('terminList').innerHTML = D.termine.map(t => {
-    const vorbei = t.datum < heute;
-    const naechster = !vorbei && t.datum === (D.naechsterTermin||{}).datum;
-    /* "Wer kommt?" steht bei JEDEM kommenden Termin, nicht nur beim nächsten –
-       und für jeden Kegelbruder, nicht nur für Ämter. Das ist der Sinn der
-       Liste: Wer überlegt, ob er zur Kegelfahrt mitfährt, entscheidet auch
-       danach, wer sonst mitfährt. */
-    const hatRm = !vorbei && !!rmStand(t.datum);
-    const rechts = (naechster ? '<span class="pill open">als Nächstes</span>' : '')
-      + (hatRm ? `<button class="btn ghost small" data-rm-liste="${esc(t.datum)}">Wer kommt?</button>` : '')
-      + (darfErfassen() ? `<button class="btn ghost small" data-erf="${esc(t.datum)}" data-art="${esc(t.art)}">Erfassen</button>` : '')
-      + (darf && !vorbei ? `<button class="btn ghost small" data-termin="${esc(t.datum)}" data-art="${esc(t.art)}">Ändern</button>` : '');
-    return `<div class="row terminzeile" style="${vorbei ? 'opacity:.55' : ''}">
+
+  /* SEIT 1.60 ZWEI LISTEN (Wunsch Johannes, 18.10.2026): oben die kommenden
+     Termine, jeder mit deinem Stand und antippbar – darüber wird zu- und
+     abgesagt, nicht mehr nur beim nächsten Termin auf der Startseite. Unten,
+     blass, was vorbei ist. Sortiert wird hier, nicht dem Blatt vertraut: Ein
+     nachträglich angelegter Termin hängt dort unten. */
+  const sortiert = (D.termine || []).slice()
+    .sort((a, b) => String(a.datum).localeCompare(String(b.datum)));
+  const kommend = sortiert.filter(t => t.datum >= heute);
+  const vorbei  = sortiert.filter(t => t.datum < heute);
+
+  const knoepfe = t => {
+    const vergangen = t.datum < heute;
+    return (darfErfassen() ? `<button class="btn ghost small" data-erf="${esc(t.datum)}" data-art="${esc(t.art)}">Erfassen</button>` : '')
+      + (darf && !vergangen ? `<button class="btn ghost small" data-termin="${esc(t.datum)}" data-art="${esc(t.art)}">Ändern</button>` : '');
+  };
+
+  const zeileKommend = t => {
+    const s = rmStand(t.datum);
+    const naechster = t.datum === (D.naechsterTermin || {}).datum;
+    const marke = s ? rmStandMarke(s) : null;
+    const frist = rmFristZeile(t, s);
+    const text = `<span class="tt">
+        <span class="n" style="display:block">${esc(t.bezeichnung || t.art)}${naechster
+          ? ' <span class="chip" style="margin-left:6px;vertical-align:2px">als Nächstes</span>' : ''}</span>
+        <span class="m" style="display:block">${esc(wochentag(t.datum))}, ${dat(t.datum)}${
+          t.beginn ? ' · ' + esc(t.beginn) : ''}${t.ort ? ' · ' + esc(t.ort) : ''}</span>
+        ${frist ? `<span class="m frist" style="display:block">${esc(frist)}</span>` : ''}
+      </span>
+      ${marke ? `<span class="tag ${marke.klasse}">${esc(marke.wort)}</span>` : ''}`;
+    const k = knoepfe(t);
+    /* Ohne Stand (Termin ohne Rückmeldung oder ein Backend älter als 1.44)
+       gibt es nichts zu beantworten – dann ist die Zeile reiner Text. */
+    return `<div class="row terminzeile">
+      ${s ? `<button class="terminText" data-rm-termin="${esc(t.datum)}"
+               aria-label="${esc((t.bezeichnung || t.art) + ' am ' + dat(t.datum) + ' – antworten')}">${text}</button>`
+          : `<div class="terminText" style="display:flex;gap:10px;align-items:center">${text}</div>`}
+      ${k ? '<div class="terminKnoepfe">' + k + '</div>' : ''}
+    </div>`;
+  };
+
+  const zeileVorbei = t => {
+    const k = knoepfe(t);
+    return `<div class="row terminzeile" style="opacity:.55">
       <div class="terminText"><div class="n">${esc(t.bezeichnung || t.art)}</div>
         <div class="m">${esc(wochentag(t.datum))}, ${dat(t.datum)}${t.beginn ? ' · ' + esc(t.beginn) : ''}${t.ort ? ' · ' + esc(t.ort) : ''}</div></div>
-      ${rechts ? '<div class="terminKnoepfe">' + rechts + '</div>' : ''}
+      ${k ? '<div class="terminKnoepfe">' + k + '</div>' : ''}
     </div>`;
-  }).join('');
+  };
+
+  $('terminList').innerHTML = kommend.length
+    ? kommend.map(zeileKommend).join('')
+    : '<div class="row"><div class="m">Keine kommenden Termine im Kalender.</div></div>';
+  $('terminListeHinweis').classList.toggle('hidden', !kommend.some(t => rmStand(t.datum)));
+
+  $('terminListAlt').innerHTML = vorbei.map(zeileVorbei).join('');
+  $('terminListAlt').classList.toggle('hidden', !vorbei.length);
+  $('terminAltKopf').classList.toggle('hidden', !vorbei.length);
+
+  /* "Mehrere beantworten" lohnt sich erst ab zwei Terminen, die man noch
+     beantworten kann. */
+  $('rmMehrereKnopf').classList.toggle('hidden',
+    rmSammelTermine().filter(x => x.geht).length < 2);
+}
+
+/** Der eigene Stand als kurzes Wort und Farbe – für die Terminliste. */
+function rmStandMarke(s){
+  const ich = (s && s.ich) || {};
+  const st = ich.stand;
+  if (st === 'zu')        return { wort: s.kegelabend ? 'dabei' : 'angemeldet', klasse: 'ja' };
+  if (st === 'beantragt') return { wort: 'beantragt', klasse: 'wartet' };
+  if (st === 'abgelehnt') return { wort: 'abgelehnt', klasse: '' };
+  if (st === 'offen')     return { wort: 'offen', klasse: 'offen' };
+  if (st === 'ab'){
+    /* "still" heißt: nie geantwortet. Bei einer Veranstaltung nach dem
+       Anmeldeschluss ist man dann schlicht nicht dabei – abgesagt hat man
+       nicht. */
+    if (s.kegelabend) return { wort: 'abgemeldet', klasse: '' };
+    return { wort: ich.still ? 'nicht dabei' : 'abgesagt', klasse: '' };
+  }
+  return null;
+}
+
+/* Die Frist als Zusatzzeile in der Terminliste – nur dort, wo sie etwas
+   bedeutet: bei einer Veranstaltung, auf die du noch nicht geantwortet hast,
+   solange die Anmeldung läuft. Gelb, weil sie JETZT abläuft; deshalb nicht bei
+   jedem Termin. */
+function rmFristZeile(t, s){
+  if (!s || s.kegelabend || s.fristVorbei || !s.frist) return '';
+  if (((s.ich || {}).stand) !== 'offen') return '';
+  return 'Anmeldung bis ' + rmFristText(s.frist);
+}
+
+/* ======================================== Ein Termin im eigenen Fenster (1.60)
+
+   Gemeldet am 15.10.2026: Zwischen dem Kegelabend am 09.10. und dem
+   Frühschoppen am 12.10. lagen drei Tage. Beantworten ließ sich bis dahin nur
+   der NÄCHSTE Termin auf der Startseite – den Frühschoppen erreichte man erst,
+   als der Kegelabend vorbei war, und da lief die Anmeldung schon ab.
+
+   Jetzt öffnet jede Zeile unter Verein › Termine dasselbe, was die Startseite
+   für den nächsten Termin zeigt: Kopf, Stand, Knöpfe, Alkohol, Zähler,
+   Balken, Frist. Gebaut aus denselben Teilen (rmKoerper) – zwei Fassungen
+   derselben Karte würden früher oder später auseinanderlaufen. */
+let rmTerminDatum = '';
+
+function rmTerminOeffnen(datum){
+  if (!rmStand(datum)) return;
+  rmTerminDatum = datum;
+  rmTerminZeichnen();
+  ebene('rmTerminSheet', true);
+  $('rmTerminSheet').scrollTop = 0;
+}
+
+function rmTerminZeichnen(){
+  const t = (D.termine || []).filter(x => x.datum === rmTerminDatum)[0];
+  const s = rmStand(rmTerminDatum);
+  if (!t || !s){ ebene('rmTerminSheet', false); return; }
+  $('rmTerminTitel').textContent = t.bezeichnung || t.art;
+  const heute = t.datum === D.heute;
+  $('rmTerminBody').innerHTML = `<div class="tkarte${heute ? ' heute' : ''}">
+      <div class="tkopf">
+        <div class="tdatum">${esc(wochentag(t.datum))}, ${dat(t.datum)}</div>
+        <div class="tmeta">${terminMetaZeile(t)}</div>
+      </div>
+      <div class="tkoerper">${rmKoerper(t, true)}</div>
+    </div>`;
+}
+
+function rmTerminOffen(){
+  return !$('rmTerminSheet').classList.contains('hidden');
+}
+
+$('rmTerminSchliessen').addEventListener('click', () => ebene('rmTerminSheet', false));
+
+/* =================================== Mehrere Termine beantworten (1.60)
+
+   Für den Fall "zwei Wochen Urlaub": anhaken, einmal "Bei allen absagen".
+   Dieselbe Regel wie bei der Einzelantwort – das Backend ruft je Termin
+   dieselbe Funktion. Was nach Fristablauf läge, steht ausgegraut da und
+   geht nur einzeln: Dort hängt eine Strafe nach §13 oder die Freigabe durch
+   den Kegelvater dran, und das soll niemand im Vorbeigehen per Sammelknopf
+   auslösen. Verspätung und Alkohol gehen ebenfalls nur einzeln. */
+let rmWahl = {};
+
+/** Alle kommenden Termine mit Rückmeldung, jeweils mit "geht" (sammelbar). */
+function rmSammelTermine(){
+  const heute = D.heute;
+  return (D.termine || []).slice()
+    .filter(t => t.datum >= heute)
+    .sort((a, b) => String(a.datum).localeCompare(String(b.datum)))
+    .map(t => ({ t: t, s: rmStand(t.datum) }))
+    .filter(x => x.s && x.s.modus !== 'keine' && !x.s.eingefroren)
+    .map(x => {
+      /* Die Frist hat das Backend beim Abruf gerechnet. Am Termintag selbst
+         rechnet die Geräteuhr mit – sonst bliebe ein Kegelabend nach 17:00
+         sammelbar, nur weil die Daten von heute Mittag sind. */
+      const fristWeg = x.s.fristVorbei
+        || (x.s.kegelabend && x.t.datum === D.heute && fristVorbei(x.t.beginn));
+      return { t: x.t, s: x.s, geht: !fristWeg };
+    });
+}
+
+function rmMehrereOeffnen(){
+  rmWahl = {};
+  rmMehrereZeichnen();
+  ebene('rmMehrere', true);
+  $('rmMehrere').scrollTop = 0;
+}
+
+function rmMehrereZeichnen(fehler){
+  const liste = rmSammelTermine();
+  const fehlerJe = {};
+  (fehler || []).forEach(f => { fehlerJe[f.datum] = f.fehler; });
+  const zeile = x => {
+    const marke = rmStandMarke(x.s);
+    const jetzt = marke ? 'jetzt: ' + marke.wort : '';
+    const unten = !x.geht
+      ? (x.s.kegelabend ? 'Abmeldefrist verstrichen' : 'Anmeldeschluss verstrichen')
+        + ' – nur einzeln'
+      : [esc(wochentag(x.t.datum)) + ', ' + dat(x.t.datum), jetzt].filter(Boolean).join(' · ');
+    const fehlt = fehlerJe[x.t.datum];
+    return `<label class="rmwahl${x.geht ? '' : ' aus'}">
+        <input type="checkbox" data-rm-wahl="${esc(x.t.datum)}"${x.geht ? '' : ' disabled'}${
+          rmWahl[x.t.datum] && x.geht ? ' checked' : ''}>
+        <span style="flex:1;min-width:0">
+          <span class="n" style="display:block">${esc(x.t.bezeichnung || x.t.art)}${
+            x.geht ? '' : ' · ' + dat(x.t.datum)}</span>
+          <span class="m" style="display:block">${unten}</span>
+          ${fehlt ? `<span class="m" style="display:block;color:var(--warn);font-weight:600">${esc(fehlt)}</span>` : ''}
+        </span>
+      </label>`;
+  };
+  $('rmMehrereBody').innerHTML = `
+    <p class="note" style="margin:0">Hake die Termine an, für die du dieselbe Antwort geben willst –
+      etwa wenn du im Urlaub bist.</p>
+    <div class="list" style="margin-top:14px">${liste.length
+      ? liste.map(zeile).join('')
+      : '<div class="row"><div class="m">Keine Termine, die sich gerade beantworten lassen.</div></div>'}</div>
+    <p class="note" style="margin-top:10px">Bei einer Zusage zum Kegelabend gilt „Ich trinke Alkohol“ aus
+      deiner Voreinstellung. Verspätung und Alkohol für einen einzelnen Abend meldest du über den Termin selbst.</p>
+    <div class="rmsammelfuss" id="rmSammelFuss">${rmSammelFuss()}</div>`;
+}
+
+function rmSammelFuss(){
+  const n = Object.keys(rmWahl).filter(d => rmWahl[d]).length;
+  return `<div class="note" style="margin:0 0 10px"><b style="color:var(--text)">${
+      plural(n, 'Termin', 'Termine')}</b> ausgewählt</div>
+    <div class="rmzwei">
+      <button class="btn" data-rm-sammel="zu"${n ? '' : ' disabled'}>Allen zusagen</button>
+      <button class="btn ghost" data-rm-sammel="ab"${n ? '' : ' disabled'}>Bei allen absagen</button>
+    </div>`;
+}
+
+$('rmMehrereKnopf').addEventListener('click', rmMehrereOeffnen);
+$('rmMehrereSchliessen').addEventListener('click', () => ebene('rmMehrere', false));
+$('rmMehrereBody').addEventListener('change', e => {
+  const c = e.target.closest('input[data-rm-wahl]'); if (!c) return;
+  rmWahl[c.dataset.rmWahl] = c.checked;
+  $('rmSammelFuss').innerHTML = rmSammelFuss();
+});
+$('rmMehrereBody').addEventListener('click', e => {
+  const b = e.target.closest('button[data-rm-sammel]'); if (!b) return;
+  rmSammelSenden(b.dataset.rmSammel, b);
+});
+
+/* Gesendet wird in EINER Anfrage. Kennt das Backend die Aktion noch nicht
+   (älter als 1.56), geht es einzeln nacheinander über den bekannten Weg –
+   so bleibt die App auch dann bedienbar, wenn index.html vor dem Backend
+   hochgeladen wurde. */
+async function rmSammelSenden(antwortWert, knopf){
+  const daten = Object.keys(rmWahl).filter(d => rmWahl[d]);
+  if (!daten.length) return;
+  const knoepfe = $('rmMehrereBody').querySelectorAll('button[data-rm-sammel]');
+  knoepfe.forEach(k => { k.disabled = true; });
+  const alt = knopf.textContent;
+  knopf.textContent = 'Moment …';
+  try {
+    const eintraege = daten.map(d => ({ datum: d, antwort: antwortWert }));
+    let r = await api('rueckmeldungViele', { token: token, eintraege: eintraege }, API_VERSUCHE);
+    if (r && r.fehler === 'Unbekannte Aktion.') r = await rmSammelEinzeln(eintraege);
+    if (r.fehler){ hinweisleiste(r.fehler); return; }
+
+    eigeneSchreibung();
+    if (r.rueckmeldungen) D.rueckmeldungen = r.rueckmeldungen;
+    standSichern();
+    alleReiterNeu();
+
+    const erg  = r.ergebnisse || [];
+    const ok   = erg.filter(x => x.ok);
+    const bean = ok.filter(x => x.beantragt);
+    const fehl = erg.filter(x => !x.ok);
+    rmWahl = {};
+    fehl.forEach(f => { rmWahl[f.datum] = true; });
+
+    let text = antwortWert === 'zu'
+      ? plural(ok.length - bean.length, 'Termin', 'Termine') + ' zugesagt'
+      : plural(ok.length, 'Termin', 'Termine') + ' abgesagt';
+    if (bean.length) text += ', ' + plural(bean.length, 'Zusage liegt', 'Zusagen liegen') + ' beim Kegelvater';
+    if (fehl.length) text += ' – ' + plural(fehl.length, 'Termin hat', 'Termine haben') + ' nicht geklappt';
+    hinweisleiste(text + '.', fehl.length ? 'warn' : undefined);
+
+    if (fehl.length) rmMehrereZeichnen(fehl);
+    else ebene('rmMehrere', false);
+  } catch (e){
+    hinweisleiste(schreibFehlerText(e, 'die Rückmeldungen'));
+  } finally {
+    knoepfe.forEach(k => { k.disabled = false; });
+    knopf.textContent = alt;
+    if ($('rmSammelFuss') && !$('rmMehrere').classList.contains('hidden')){
+      $('rmSammelFuss').innerHTML = rmSammelFuss();
+    }
+  }
+}
+
+/* Der Rückfall für ein Backend älter als 1.56: dieselben Antworten einzeln.
+   Jede Einzelanfrage trägt ihre eigene Sendekennung; ein zweiter Anlauf
+   derselben Einzelantwort ändert ohnehin nichts. */
+async function rmSammelEinzeln(eintraege){
+  const ergebnisse = [];
+  let zuletzt = null;
+  for (const e of eintraege){
+    try {
+      const r = await api('rueckmeldung', { token: token, eintrag: e }, API_VERSUCHE);
+      if (r && r.rueckmeldungen) zuletzt = r.rueckmeldungen;
+      ergebnisse.push({ datum: e.datum, ok: !!(r && r.ok), beantragt: !!(r && r.beantragt),
+                        fehler: (r && r.fehler) || '' });
+    } catch (err){
+      ergebnisse.push({ datum: e.datum, ok: false, beantragt: false,
+                        fehler: schreibFehlerText(err, 'die Rückmeldung') });
+    }
+  }
+  return { ok: true, ergebnisse: ergebnisse, rueckmeldungen: zuletzt };
 }
 
 /* ============================================ §37 Runden (1.38) */
@@ -3924,7 +4283,7 @@ function zeichneRunden(){
     const nr = rundenListe.indexOf(x);
     /* Wie lange ist er schon dran? Die Zahl ist der eigentliche Witz der
        Liste – ohne sie stünde da nur ein Datum. */
-    const tage = x.seit ? tageBis(x.seit) : null;
+    const tage = x.seit ? tageSeit(x.seit) : null;
     const unten = (x.seit ? dat(x.seit) : 'ohne Datum')
       + (x.ausgegeben ? (x.am ? ' · ausgegeben ' + dat(x.am) : ' · ausgegeben') : '')
       + (!x.ausgegeben && tage !== null && tage > 0 ? ' · seit ' + tage + ' Tagen' : '');
@@ -3954,13 +4313,14 @@ function zeichneRunden(){
                  + 'Kegelvater, Schriftführer und Kassenwart.</p>'));
 }
 
-/** Wie viele Tage liegt ein Datum zurück? Negativ, wenn es in der Zukunft liegt. */
-function tageBis(iso){
-  const d = new Date(iso + 'T12:00:00');
-  if (isNaN(d.getTime())) return null;
-  const heute = new Date(D.heute + 'T12:00:00');
-  return Math.round((heute - d) / 86400000);
-}
+/* BIS 1.59 STAND HIER EINE ZWEITE FUNKTION tageBis – "Tage SEIT einem Datum",
+   also mit umgekehrtem Vorzeichen zur gleichnamigen weiter oben ("Tage BIS zu
+   einem Termin"). Von zwei gleichnamigen Funktionen gilt in JavaScript die
+   zuletzt geschriebene, also diese. Folge: Der Chip an "Naechster Termin"
+   ("in 14 Tagen", "morgen") erschien nie – terminChip() bekam fuer jeden
+   kuenftigen Termin eine negative Zahl und gab auf; sichtbar war er nur am
+   Termintag selbst. Die Runden-Liste rechnet seit 1.60 mit tageSeit() aus der
+   Kasse, die genau das tut. */
 
 async function rundenSenden(aktion, nutzlast, knopf, beschriftung){
   const alt = knopf ? knopf.textContent : '';
@@ -4239,12 +4599,15 @@ $('terminArt').addEventListener('click', e => {
   const b = e.target.closest('button[data-art]'); if (!b) return;
   terminArtSetzen(b.dataset.art);
 });
-$('terminList').addEventListener('click', e => {
+/* Beide Listen – kommend und vergangen – teilen sich denselben Empfänger. */
+['terminList', 'terminListAlt'].forEach(id => $(id).addEventListener('click', e => {
   const erf = e.target.closest('button[data-erf]');
   if (erf){ erfassungOeffnen(erf.dataset.erf, erf.dataset.art); return; }
+  const rm = e.target.closest('button[data-rm-termin]');
+  if (rm){ rmTerminOeffnen(rm.dataset.rmTermin); return; }
   const b = e.target.closest('button[data-termin]'); if (!b) return;
   terminSheetOeffnen({ datum: b.dataset.termin, art: b.dataset.art });
-});
+}));
 
 $('terminSpeichern').addEventListener('click', async () => {
   const daten = {
@@ -4684,7 +5047,7 @@ $('tabs').addEventListener('click', e => {
    bleibt hängen und man landet nach dem Schließen an einer anderen Stelle. */
 let gemerkteHoehe = 0;
 function ebenenOffen(){
-  return ['settings', 'verwaltung', 'stamm', 'stammForm', 'stammFrage', 'terminSheet', 'rmListe', 'spaetSheet', 'erfassung', 'freistrafe', 'abschluss', 'absForm', 'lightbox', 'tour']
+  return ['settings', 'verwaltung', 'stamm', 'stammForm', 'stammFrage', 'terminSheet', 'rmTerminSheet', 'rmMehrere', 'rmListe', 'spaetSheet', 'erfassung', 'freistrafe', 'abschluss', 'absForm', 'lightbox', 'tour']
     .some(id => $(id) && !$(id).classList.contains('hidden'));
 }
 function hintergrundPruefen(){
@@ -4767,7 +5130,12 @@ document.addEventListener('keydown', e => {
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  ebene('rmListe', false); ebene('spaetSheet', false);
+  /* Von oben nach unten: Wer im Terminfenster "Wer kommt?" offen hat, landet
+     mit einem Escape zuerst wieder im Terminfenster. */
+  if (!$('spaetSheet').classList.contains('hidden') || !$('rmListe').classList.contains('hidden')){
+    ebene('rmListe', false); ebene('spaetSheet', false); return;
+  }
+  ebene('rmTerminSheet', false); ebene('rmMehrere', false);
   ebene('lightbox', false); ebene('stammFrage', false); ebene('stammForm', false);
   ebene('stamm', false); ebene('verwaltung', false); ebene('settings', false);
   ebene('freistrafe', false); ebene('absForm', false); ebene('abschluss', false);
@@ -4912,11 +5280,7 @@ function terminKarte(t){
   const heute   = t.datum === D.heute;
   const chip    = terminChip(t);
   const koerper = rmKoerper(t);
-  const zeile   = [
-    esc(t.art) + (t.bezeichnung ? ' · ' + esc(t.bezeichnung) : ''),
-    t.ort ? esc(t.ort) : '',
-    t.beginn ? esc(t.beginn) + ' Uhr' : ''
-  ].filter(x => x).join(' · ') || 'Zeit folgt';
+  const hinweis = rmOffenHinweis(t);
 
   return `<h2 class="sec mitchip" style="margin-top:24px">
       <span>Nächster Termin</span>
@@ -4924,10 +5288,64 @@ function terminKarte(t){
     <div class="tkarte${heute ? ' heute' : ''}" style="margin-top:14px">
       <div class="tkopf">
         <div class="tdatum">${esc(wochentag(t.datum))}, ${dat(t.datum)}</div>
-        <div class="tmeta">${zeile}</div>
+        <div class="tmeta">${terminMetaZeile(t)}</div>
       </div>
       ${koerper ? `<div class="tkoerper">${koerper}</div>` : ''}
+      ${hinweis}
     </div>`;
+}
+
+/** Art, Ort und Uhrzeit in einer Zeile – Startseite und Terminfenster (1.60). */
+function terminMetaZeile(t){
+  return [
+    esc(t.art) + (t.bezeichnung ? ' · ' + esc(t.bezeichnung) : ''),
+    t.ort ? esc(t.ort) : '',
+    t.beginn ? esc(t.beginn) + ' Uhr' : ''
+  ].filter(x => x).join(' · ') || 'Zeit folgt';
+}
+
+/* DIE HINWEISZEILE (1.60, Johannes 18.10.2026).
+
+   Unten in der Terminkarte, und nur wenn es etwas zu tun gibt: Es gibt eine
+   VERANSTALTUNG in den nächsten sechs Wochen, auf die du noch nicht
+   geantwortet hast und deren Anmeldung noch läuft. Der Termin, der ohnehin
+   groß in der Karte steht, zählt nicht mit. Kegelabende lösen die Zeile nie
+   aus – zu denen ist man ohne Abmeldung dabei.
+
+   Die sechs Wochen sind Absicht: Ohne Grenze stünde die Zeile bei einer früh
+   eingetragenen Kegelfahrt monatelang da, und eine Zeile, die immer da ist,
+   liest niemand mehr. Unter Verein › Termine stehen trotzdem alle.
+
+   Ein Tipp öffnet bei genau einem Termin gleich dessen Antwort, bei mehreren
+   die Liste. */
+const RM_HINWEIS_TAGE = 42;
+
+function rmOffeneVeranstaltungen(ohneDatum){
+  const r = rmDaten();
+  if (!r || !r.termine) return [];
+  return r.termine.filter(s => {
+    if (!s || s.datum === ohneDatum || s.kegelabend) return false;
+    if (s.modus === 'keine' || s.fristVorbei || s.eingefroren) return false;
+    if (((s.ich || {}).stand) !== 'offen') return false;
+    const n = tageBis(s.datum);
+    return n !== null && n >= 0 && n <= RM_HINWEIS_TAGE;
+  }).sort((a, b) => String(a.datum).localeCompare(String(b.datum)));
+}
+
+function rmOffenHinweis(t){
+  const offen = rmOffeneVeranstaltungen(t && t.datum);
+  if (!offen.length) return '';
+  const erster = offen[0];
+  const titel = offen.length === 1
+    ? '1 weiterer Termin ohne Antwort'
+    : offen.length + ' weitere Termine ohne Antwort';
+  const unten = (erster.bezeichnung || erster.art) + ' · ' + wochentag(erster.datum) + ', '
+    + dat(erster.datum).slice(0, 6)
+    + (offen.length > 1 ? ' und ' + (offen.length - 1) + ' weitere' : '');
+  return `<button class="tkhinweis" data-rm-hinweis="${offen.length === 1 ? esc(erster.datum) : ''}">
+      <span class="tx"><b>${esc(titel)}</b><span class="sub">${esc(unten)}</span></span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </button>`;
 }
 
 /* Der Chip an der Ueberschrift "Naechster Termin".
@@ -5012,11 +5430,13 @@ function fristRestMinuten(beginn){
   return f - (jetzt.getHours() * 60 + jetzt.getMinutes());
 }
 
-/** Der Koerper der Terminkarte: Stand, Knoepfe, Zaehler, Balken, Fusszeile. */
-function rmKoerper(t){
+/** Der Koerper der Terminkarte: Stand, Knoepfe, Zaehler, Balken, Fusszeile.
+    imFenster (1.60): derselbe Koerper im Terminfenster unter Verein › Termine –
+    dort ohne "Strafen erfassen" (das steht in der Liste daneben). */
+function rmKoerper(t, imFenster){
   /* "Strafen erfassen" bekommt der Berechtigte am Termintag – der Knopf gehoert
      in die Karte des Abends, um den es geht. Erfasst wird vom Schriftfuehrer. */
-  const erfassen = (darfErfassen() && t.datum === D.heute)
+  const erfassen = (!imFenster && darfErfassen() && t.datum === D.heute)
     ? '<button class="btn" id="startErfassen" style="margin-top:14px">Strafen erfassen</button>'
     : '';
 
@@ -5089,11 +5509,17 @@ function rmKoerper(t){
        Hauptknopf da, weil alles ausser "zu" in denselben Zweig fiel; das sah
        aus wie eine Empfehlung, abzusagen. */
     const nein = ich.stand === 'ab' || abgelehnt;
+    /* 1.60: Wer zugesagt hat und nach dem Anmeldeschluss absagt, zahlt
+       dasselbe wie beim Kegelabend (Johannes, 18.10.2026). Der Knopf sagt es,
+       bevor jemand tippt – wie "Ich kann nicht – 10,00 € nach §13". Absagen
+       geht trotzdem, bis der Termin beginnt (ohne Uhrzeit: bis Tagesende). */
+    const preisAb = (zu && s.fristVorbei) ? betragText(STATUT.ABMELDUNG) : '';
     h += '<div class="tkbtn zwei">'
        + '<button class="btn' + (zu ? '' : ' ghost') + '" data-rm-antwort="zu" data-rm-datum="'
        + esc(t.datum) + '">Bin dabei</button>'
        + '<button class="btn' + (nein ? '' : ' ghost') + '" data-rm-antwort="ab" data-rm-datum="'
-       + esc(t.datum) + '">Bin nicht dabei</button></div>';
+       + esc(t.datum) + '">' + (preisAb ? 'Absagen – ' + esc(preisAb) + ' nach §13' : 'Bin nicht dabei')
+       + '</button></div>';
     if (s.fristVorbei && !zu){
       h += '<p class="note" style="margin:10px 0 0">Die Anmeldefrist ist verstrichen. '
          + 'Eine Zusage muss der Kegelvater bestätigen.</p>';
@@ -5169,10 +5595,18 @@ function rmZaehlZeile(s, datum){
 function rmSchlussFuss(s){
   if (!s.frist) return '';
   const vorbei = s.fristVorbei;
+  /* 1.60: Bei Veranstaltungen gelten dieselben Strafen wie beim Kegeln
+     (Johannes, 18.10.2026) – zugesagt und zu spät abgesagt oder nicht
+     erschienen kostet den Betrag nach §13. Das steht jetzt dabei. */
+  const strafe = betragText(STATUT.ABMELDUNG);
+  const zu = ((s.ich || {}).stand) === 'zu';
   return '<div class="deadline kartenfuss' + (vorbei ? ' frist' : '') + '">'
        + (vorbei
           ? 'Der Anmeldeschluss ist verstrichen.'
-          : 'Anmeldung bis <b>' + esc(rmFristText(s.frist)) + '</b>.')
+            + (zu && strafe ? ' Eine Absage kostet jetzt ' + esc(strafe) + ' nach §13.' : '')
+          : 'Anmeldung und Absage bis <b>' + esc(rmFristText(s.frist)) + '</b>'
+            + (strafe ? ' – wer danach absagt oder nicht kommt, zahlt ' + esc(strafe) + ' nach §13' : '')
+            + '.')
        + '</div>';
 }
 
@@ -5450,6 +5884,9 @@ async function rmSenden(datum, felder, knopf){
     if (r.rueckmeldungen) D.rueckmeldungen = r.rueckmeldungen;
     standSichern();
     alleReiterNeu();
+    /* 1.60: Kam die Antwort aus dem Terminfenster, zeigt es sofort den neuen
+       Stand – die Reiter dahinter zeichnen erst beim Schließen. */
+    if (rmTerminOffen()) rmTerminZeichnen();
     if (r.hinweis) hinweisleiste(r.hinweis);
     return true;
   } catch (e){
@@ -5501,6 +5938,12 @@ document.addEventListener('click', e => {
   }
   const liste = e.target.closest('[data-rm-liste]');
   if (liste){ rmListeOeffnen(liste.dataset.rmListe); return; }
+  const hw = e.target.closest('[data-rm-hinweis]');
+  if (hw){
+    /* Ein Termin: gleich seine Antwort. Mehrere: die Liste unter Verein. */
+    zeigeZiel(hw.dataset.rmHinweis ? 'termin:' + hw.dataset.rmHinweis : 'termine');
+    return;
+  }
   const spt = e.target.closest('[data-rm-spaet]');
   if (spt){ spaetOeffnen(spt.dataset.rmSpaet); return; }
   const ja = e.target.closest('[data-rm-ja]');
@@ -10251,7 +10694,15 @@ const TOUR_NEU      = 'kc-tour-neu';      // App-Fassung, deren Neuerungen schon
    Für die NÄCHSTE Fassung kommt hier wieder ein Eintrag hinein:
      { fassung: '1.59', punkte: [ 'Erster Punkt, ein Satz.', 'Zweiter Punkt.' ] }
    Solange die Liste leer ist, fehlt der Punkt "Was ist neu" in den Einstellungen. */
-const NEUERUNGEN = [];
+const NEUERUNGEN = [
+  { fassung: '1.60', punkte: [
+    'Unter Verein › Termine steht bei jedem kommenden Termin, ob du dabei bist. Antippen, und du sagst zu oder ab – nicht mehr nur beim nächsten Termin.',
+    '„Mehrere beantworten“ sagt mehreren Terminen auf einmal zu oder ab, etwa wenn du im Urlaub bist.',
+    'Hast du auf eine Veranstaltung in den nächsten sechs Wochen noch nicht geantwortet, steht unten in der Terminkarte ein Hinweis.',
+    'Wird ein Termin kurzfristig eingetragen, fragt die Nachricht gleich, ob du dabei bist – antippen öffnet die Antwort.',
+    'Bei Veranstaltungen ohne Uhrzeit kannst du bis zum Ende des Tages absagen. Wer zugesagt hat und nach dem Anmeldeschluss absagt oder nicht kommt, zahlt wie beim Kegelabend nach §13.'
+  ] }
+];
 
 
 const TOUR_SYM = {
@@ -10316,7 +10767,7 @@ function tourGrundKarten(){
       + 'Stunde vor Beginn. Danach kostet die Abmeldung nach §13. Zu Veranstaltungen meldest du dich '
       + 'selbst an: „Bin dabei“ oder „Bin nicht dabei“.',
       k:'Auf derselben Karte steht, ob du an dem Abend Alkohol trinkst – das zählt für §22. '
-      + 'Die Liste, wer dabei ist, öffnest du ebenfalls dort.' },
+      + 'Alle weiteren Termine beantwortest du unter Verein › Termine, auch mehrere auf einmal.' },
 
     { sym:'liste', t:'Strafen – wie es dazu kam',
       x:'Der zweite Reiter zeigt jede einzelne Strafe nach Terminen und was davon bezahlt oder schon '
@@ -10664,6 +11115,19 @@ function zeigeZiel(ziel){
      von fünf. */
   if (ziel === 'abschluss'){ abschlussOeffnen(); offenesZiel = ''; return; }
   if (ziel === 'historie'){ zeigeHistorie(); offenesZiel = ''; return; }
+
+  /* "termin:2026-10-12" (1.60): die Meldung über einen kurzfristigen Termin
+     springt direkt in dessen Antwort. Darunter liegt die Terminliste, damit
+     "Schließen" an einer sinnvollen Stelle landet. Gibt es den Termin nicht
+     mehr (abgesagt, schon vorbei), bleibt es bei der Liste. */
+  const tm = String(ziel).match(/^termin:(\d{4}-\d{2}-\d{2})$/);
+  if (tm){
+    zeigeZiel('termine');
+    if (rmStand(tm[1])) rmTerminOeffnen(tm[1]);
+    else hinweisleiste('Diesen Termin gibt es nicht mehr – hier stehen alle kommenden.');
+    offenesZiel = '';
+    return;
+  }
 
   const reiter = { termine: 'verein', warte: 'verein', kasse: 'kasse', amt: 'amt',
                    aenderungen: 'start', start: 'start' }[ziel] || 'start';
