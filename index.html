@@ -1469,7 +1469,21 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
      Teil (Spalte H minus dem, was davon in Spalte O schon bezahlt ist).
    Braucht Backend 1.55. Für die Kegelbrüder selbst ändert sich nichts –
    „Was ist neu" bleibt deshalb bewusst leer. */
-const APP_VERSION = '1.60';
+/* 1.61 (23.10.2026): Anwesenheit bei „5 in die Vollen“.
+   - Die Rangliste zeigte „58 % anwesend“ über ALLE Termine, der Hinweis
+     „nicht königsfähig“ kommt aber nach §26 aus den Kegelabenden allein.
+     Maurice F. und Johannes L. standen beide bei 58 %, nur einer bekam den
+     Hinweis. Jetzt steht dort „Kegelabende 7/12 · 58 %“ – genau die Zahl,
+     an der die Hürde hängt.
+   - Diese Quote wird ABGERUNDET: 59,6 % als „60 %“ neben „unter 60 %“ wäre
+     derselbe Widerspruch in klein.
+   - Die örtliche Ersatzprüfung (falls das Backend koenigsfaehig nicht
+     mitliefert) rechnet ebenfalls mit den Kegelabenden.
+   - Die Texte in „5 in die Vollen“ und auf der Übersicht sagen jetzt
+     „… der Kegelabende anwesend war“.
+   Backend unverändert. Die Auswertung sieht nur das Amt – „Was ist neu“
+   bleibt deshalb unverändert. */
+const APP_VERSION = '1.61';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -4672,10 +4686,20 @@ const koenigsfaehig = r => {
   const h = huerdeAnteil();
   // Ohne hinterlegte Hürde wird niemand ausgeschlossen – lieber alle in der
   // Liste als ein Titel, der auf einer erfundenen Zahl beruht.
-  if (h === null || !r.termine) return true;
-  return r.da / r.termine >= h;
+  const t = r.kegelTermine !== undefined ? r.kegelTermine : r.termine;
+  const d = r.kegelTermine !== undefined ? r.daKegeln : r.da;
+  if (h === null || !t) return true;
+  return d / t >= h;
 };
 const quote = r => r.termine ? Math.round(r.da / r.termine * 100) : 0;
+/* 1.61: Die Quote, an der die Königs-Hürde hängt – nur Kegelabende (§26).
+   Abgerundet, damit nie „60 %“ neben „unter 60 %“ steht. Liefert das Backend
+   die Kegelabende nicht mit, bleibt es bei der alten Anzeige über alle Termine. */
+const kegelQuoteText = r => {
+  if (r.kegelTermine === undefined) return quote(r) + ' % anwesend';
+  const q = r.kegelTermine ? Math.floor(r.daKegeln / r.kegelTermine * 100) : 0;
+  return 'Kegelabende ' + r.daKegeln + '/' + r.kegelTermine + ' · ' + q + ' %';
+};
 
 /* Alle, die denselben Wert haben wie der Erste bzw. Letzte. Verglichen wird mit
    einer kleinen Toleranz: Betraege und Durchschnitte sind Kommazahlen, und
@@ -4793,8 +4817,8 @@ const SICHTEN = {
     return `<div class="list" style="margin-top:16px">
       ${bwBlock('5 in die Vollen (Ø je Termin)', vollenSchnitt, true,
         r=>vollenSchnitt(r).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+' Holz',
-        'Nach §26 zählt der Durchschnitt, nicht die Summe. Kegelkönig wird nur, wer mindestens '
-        + (huerdeText() || '60 %') + ' anwesend war.')}
+        'Nach §26 zählt der Durchschnitt, nicht die Summe. Kegelkönig wird nur, wer bei mindestens '
+        + (huerdeText() || '60 %') + ' der Kegelabende anwesend war.')}
       ${bwBlock('Pumpen', gesamtPumpen, false, r=>gesamtPumpen(r).toLocaleString('de-DE'),
         'Weniger ist besser. Pumpenkönig wird trotzdem, wer die meisten hat – das ist der Schlechteste hier.')}
       ${bwBlock('Anwesenheit', r=>r.da, true, r=>r.da+' / '+r.termine)}
@@ -4820,12 +4844,12 @@ const SICHTEN = {
     const hT = huerdeText();
     return `<p class="note" style="margin-top:16px">Gewertet wird nach §26 der <strong style="color:var(--text)">Durchschnitt
         je Termin</strong>, nicht die Summe. Nicht nachgeholte Würfe zählen als 0 Holz.
-        ${hT ? 'Kegelkönig kann nur werden, wer mindestens ' + esc(hT) + ' anwesend war.' : ''}</p>
+        ${hT ? 'Kegelkönig kann nur werden, wer bei mindestens ' + esc(hT) + ' der Kegelabende anwesend war.' : ''}</p>
       ${koenig ? `<p class="note" style="margin-top:8px">Aktuell vorn und königsfähig:
         <strong style="color:var(--accent)">${esc(koenig.n)}</strong> mit ${holz(koenig)}.</p>` : ''}`
       + rangliste(l, vollenSchnitt, holz,
           r => (r.vollen || 0) + ' Holz aus ' + plural(r.vollenTermine || 0, 'Wurf', 'Würfen')
-             + ' · ' + quote(r) + ' % anwesend'
+             + ' · ' + kegelQuoteText(r)
              + (koenigsfaehig(r) ? '' : ' · unter ' + huerdeText() + ', nicht königsfähig'));
   },
   alle9(){
