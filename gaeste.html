@@ -178,7 +178,8 @@ function zeichnen(){
   const offene = gaeste.filter(g => !g.bezahlt);
   if (gewaehlt && !offene.some(g => g.n === gewaehlt)) gewaehlt = '';
 
-  const sortiert = gaeste.slice().sort((a, b) => (a.bezahlt - b.bezahlt) || (b.summe - a.summe) || a.n.localeCompare(b.n, 'de'));
+  // Alphabetisch nach Namen (Wunsch Johannes, 01.11.2026) – bezahlt oder nicht.
+  const sortiert = gaeste.slice().sort((a, b) => a.n.localeCompare(b.n, 'de', { sensitivity: 'base' }));
   const karte = g => `
     <div class="gast${g.bezahlt ? ' bezahlt' : ''}">
       <button type="button" aria-expanded="false">
