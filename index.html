@@ -1483,7 +1483,23 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
      „… der Kegelabende anwesend war“.
    Backend unverändert. Die Auswertung sieht nur das Amt – „Was ist neu“
    bleibt deshalb unverändert. */
-const APP_VERSION = '1.61';
+/* 1.62 (01.11.2026): Kegeln mit Gästen.
+   - Gastplätze nach Bedarf: Unbenutzte Gastplätze sind ausgeblendet, unter
+     Anwesenheit › Gäste legt „+ Gast hinzufügen“ einen weiteren an (erst die
+     freien aus dem Blatt, dann „Gast 3“, „Gast 4“ … – die Spalte legt das
+     Backend an, sobald der Name ankommt). Ein Gast mit Namen ist anwesend.
+   - Gäste-Link: In der Erfassung eines Termins mit Gästen erzeugt der Block
+     „Gäste-Link“ eine Seite ohne Anmeldung (gaeste.html) – teilen, kopieren,
+     zurückziehen. Sie gilt, bis alle Gäste bezahlt haben, plus 14 Tage.
+   - Strafen-Auswertung (Schriftführer und Kasse): Gäste fließen in keinen
+     Blickwinkel mehr ein, sie stehen gesammelt je Termin mit Datum darunter.
+     Kasse › Strafen: Gäste nicht mehr in der Rangliste.
+   - Kassenbericht: Zeile „Davon Gäste“ unter „Eingegangen“.
+   - sw.js lässt gaeste.html in Ruhe – sonst sähe, wer die App installiert
+     hat, beim Antippen des Links die App statt der Gäste-Seite.
+   Braucht Backend 1.57. Betrifft nur Schriftführer und Kasse – „Was ist neu“
+   bleibt unverändert. */
+const APP_VERSION = '1.62';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -4921,12 +4937,13 @@ const SICHTEN = {
       return '<p class="note" style="margin-top:16px">Die Zählung ließ sich nicht holen: '
            + esc(z.fehler) + '</p>';
     }
-    const t = swTrennen(swAusZaehlung());
+    const alle = swAusZaehlung();
+    const t = swTrennen(alle.filter(z => !z.g));
     const o = { id: 'amt', zeilen: t.echt, geld: false };
     return '<p class="note" style="margin-top:16px">Was in dieser Saison erfasst wurde und '
          + 'wie oft. Ohne Beträge – die stehen beim Kassenwart. Zum Aufklappen antippen.'
          + (z.stand ? ' Stand ' + esc(z.stand) + ' Uhr.' : '') + '</p>'
-         + swBlock(o) + swAnhang(o, t);
+         + swBlock(o) + swAnhang(o, t) + swGaesteBlock(o, alle.filter(z => z.g));
   },
 
   /* "strafen" und "spenden" standen bis 1.37 hier. Sie sind mit 1.38 in den
@@ -6480,17 +6497,123 @@ function erfSichtbar(z){
   return !(z.art === 'formel' && !z.euro);
 }
 
+/* ------------------------------------------------- Gäste (1.62)
+   Auftrag vom 01.11.2026: Kegeln mit Gästen. Die Vorlage hat zwei Spalten
+   "Gast 1" und "Gast 2" – an den meisten Abenden ist niemand da, an einem
+   Abend im Jahr sechs oder mehr. Deshalb:
+   - Ein Gastplatz ohne Namen, ohne Kreuz und ohne Strafe wird nicht gezeigt.
+     Es kann also genau EIN Gast da sein, ohne dass ein leerer "Gast 2"
+     danebensteht.
+   - "Gast hinzufügen" nimmt erst einen freien Platz aus dem Blatt und legt
+     danach "Gast 3", "Gast 4" … an. Die Spalte entsteht im Blatt, sobald der
+     Name ankommt (Backend 1.57) – über die Warteschlange, also auch ohne Netz.
+   - Wer einen Namen bekommt, ist anwesend. Ein Gast, der nicht da war, hat
+     an diesem Abend nichts verloren. */
+const gastPlatzNr = m => {
+  const x = String(m == null ? '' : m).trim().match(/^gast\s*(\d+)$/i);
+  return x ? Number(x[1]) : 0;
+};
+/* "mitOffen": auch ein eben hinzugefügter, noch namenloser Platz zählt –
+   das gilt nur in der Anwesenheit, wo der Name eingetragen wird. In den
+   Listen steht ein Gast erst, wenn er einen Namen, ein Kreuz oder eine
+   Strafe hat. */
+function erfGastSichtbar(m, mitOffen){
+  if (!gastPlatzNr(m)) return true;
+  return !!((ERF.gaeste || {})[m] || ERF.anwesend.indexOf(m) >= 0 || erfAnzahl(m)
+            || (mitOffen && ERF.gastOffen && ERF.gastOffen[m]));
+}
+/* Wer in den Listen der Erfassung auftaucht: alle Kegelbrüder, dazu die
+   Gäste, die es an diesem Abend wirklich gibt. */
+function erfLeute(){ return ERF.mitglieder.filter(erfGastSichtbar); }
+function erfAnzeigeName(m){
+  return gastPlatzNr(m) && (ERF.gaeste || {})[m] ? ERF.gaeste[m] + ' (Gast)' : m;
+}
+function erfGastNeu(){
+  if (!ERF.gastOffen) ERF.gastOffen = {};
+  const plaetze = ERF.mitglieder.filter(m => gastPlatzNr(m))
+                    .sort((a, b) => gastPlatzNr(a) - gastPlatzNr(b));
+  let frei = plaetze.filter(m => !erfGastSichtbar(m, true))[0];
+  if (!frei){
+    const hoechste = plaetze.reduce((x, m) => Math.max(x, gastPlatzNr(m)), 0);
+    frei = 'Gast ' + (hoechste + 1);
+    ERF.mitglieder.push(frei);
+    if (!ERF.werte[frei]) ERF.werte[frei] = {};
+  }
+  ERF.gastOffen[frei] = true;
+  return frei;
+}
+
+/* Der Gäste-Link (1.62): eine Seite ohne Anmeldung für die Gäste dieses
+   Termins. Erzeugen und zurückziehen dürfen Schriftführer und Kassenwart. */
+let erfLinkZurueckFragen = false;
+function erfGaesteLinkBlock(){
+  const gaeste = ERF.mitglieder.filter(m => gastPlatzNr(m) && (ERF.gaeste || {})[m]);
+  const l = ERF.gaesteLink;
+  if (!gaeste.length && !l) return '';
+  let h = `<h2 class="sec" style="margin-top:24px">Gäste-Link</h2>`;
+  if (!l){
+    return h + `<p class="note">Eine Seite ohne Anmeldung, auf der eure Gäste ihre Strafen
+      sehen und wie sie bezahlen – kein Kegelbruder, keine Vereinszahl. Sie zeigt, was
+      übertragen ist: erst „Strafen übertragen“, dann den Link in die Gruppe.</p>
+      <button class="btn" id="erfLinkNeu" style="margin-top:12px">Gäste-Link erzeugen</button>`;
+  }
+  const gilt = l.bisTag
+    ? 'Alle Gäste haben bezahlt – der Link gilt noch bis ' + dat(l.bisTag) + '.'
+    : 'Gilt, bis alle Gäste bezahlt haben, und danach noch 14 Tage.';
+  return h + `<div class="list" style="margin-top:12px">
+      <div class="row"><div style="min-width:0"><div class="n">Link für die Gäste</div>
+        <div class="m" style="word-break:break-all">${esc(l.url)}</div></div></div></div>
+    <p class="note" style="margin-top:8px">${esc(gilt)}${l.von ? ' Erzeugt von ' + esc(l.von) + '.' : ''}</p>
+    <div class="erfkopf" style="margin-top:10px">
+      <button class="btn small" id="erfLinkTeilen">Teilen</button>
+      <button class="btn ghost small" id="erfLinkKopie">Kopieren</button>
+      <button class="btn ghost small" id="erfLinkWeg">${erfLinkZurueckFragen ? 'Wirklich zurückziehen?' : 'Zurückziehen'}</button>
+    </div>`;
+}
+function erfGaesteLinkBinden(){
+  const d = ERF.datum, a = ERF.art;
+  const rufen = async (was, knopf) => {
+    knopf.disabled = true; knopf.textContent = 'Moment …';
+    try {
+      const r = await api('gaesteLink', { token: token, datum: d, art: a, was: was }, API_VERSUCHE);
+      if (!ERF || ERF.datum !== d || ERF.art !== a) return;
+      if (r.fehler){ hinweisleiste(r.fehler, 'warn'); }
+      else { ERF.gaesteLink = r.link || null; if (was === 'zurueck') hinweisleiste('Gäste-Link zurückgezogen.'); }
+    } catch (e){ hinweisleiste('Keine Verbindung – ' + fehlerGrund(e), 'warn'); }
+    erfLinkZurueckFragen = false;
+    erfZeichnen();
+  };
+  if ($('erfLinkNeu')) $('erfLinkNeu').addEventListener('click', ev => rufen('erzeugen', ev.target));
+  if ($('erfLinkWeg')) $('erfLinkWeg').addEventListener('click', ev => {
+    if (!erfLinkZurueckFragen){ erfLinkZurueckFragen = true; ev.target.textContent = 'Wirklich zurückziehen?'; return; }
+    rufen('zurueck', ev.target);
+  });
+  const text = () => 'Strafen unserer Gäste vom ' + (ERF.art || 'Kegelabend') + ' ' + dat(ERF.datum)
+                   + ':\n' + ERF.gaesteLink.url;
+  if ($('erfLinkKopie')) $('erfLinkKopie').addEventListener('click', async ev => {
+    try { await navigator.clipboard.writeText(ERF.gaesteLink.url); ev.target.textContent = 'Kopiert'; }
+    catch (e){ hinweisleiste('Kopieren ging nicht – bitte den Link oben von Hand markieren.', 'warn'); }
+  });
+  if ($('erfLinkTeilen')) $('erfLinkTeilen').addEventListener('click', async () => {
+    try {
+      if (navigator.share) await navigator.share({ title: 'KC Knüppeldick – Gäste', text: text() });
+      else { await navigator.clipboard.writeText(text()); hinweisleiste('Kein Teilen-Menü – Text kopiert.'); }
+    } catch (e){ /* abgebrochen ist kein Fehler */ }
+  });
+}
+
 function erfListeZeichnen(){
   const kegeln   = ERF.art !== 'Veranstaltung';
-  const anwesend = ERF.mitglieder.filter(m => ERF.anwesend.indexOf(m) >= 0);
-  const rest     = ERF.mitglieder.filter(m => ERF.anwesend.indexOf(m) < 0);
+  if (!ERF.gaeste) ERF.gaeste = {};
+  const leute    = erfLeute();
+  const anwesend = leute.filter(m => ERF.anwesend.indexOf(m) >= 0);
+  const rest     = leute.filter(m => ERF.anwesend.indexOf(m) < 0);
   const gesamt   = ERF.mitglieder.reduce((s, m) => s + erfSumme(m), 0);
 
   const zeile = m => {
     const n = erfAnzahl(m);
     const summe = erfSumme(m);
-    const gast = /^gast/i.test(m);
-    const name = gast && ERF.gaeste[m] ? ERF.gaeste[m] + ' (' + m + ')' : m;
+    const name = erfAnzeigeName(m);
     // Wer selbst nichts erfasst hat, kann trotzdem einen Betrag haben: den
     // Anteil an den Sonderwürfen der anderen. "noch nichts" neben 7,50 € wäre
     // schlicht falsch.
@@ -6559,6 +6682,8 @@ function erfListeZeichnen(){
 
   h += erfSyncBlock();
 
+  h += erfGaesteLinkBlock();
+
   const w = abgelehnte();
   if (w.length){
     h += `<div class="list" style="margin-top:16px">
@@ -6590,6 +6715,7 @@ function erfListeZeichnen(){
     () => erfVorschlagVerwerfen(b.dataset.vsNein)));
   if ($('erfFehlerWeg')) $('erfFehlerWeg').addEventListener('click', () => { abgelehnteSchreib([]); erfZeichnen(); });
   if ($('erfSync')) $('erfSync').addEventListener('click', erfSyncStarten);
+  erfGaesteLinkBinden();
   $('erfBody').querySelectorAll('button[data-mann]').forEach(b =>
     b.addEventListener('click', () => { erfMann = b.dataset.mann; erfSicht = 'mann'; erfZeichnen(); }));
 }
@@ -6773,8 +6899,7 @@ function erfZaehlZeile(name, z){
 
 function erfMannZeichnen(){
   const name = erfMann;
-  const gast = /^gast/i.test(name);
-  const titel = gast && ERF.gaeste[name] ? ERF.gaeste[name] + ' (' + name + ')' : name;
+  const titel = erfAnzeigeName(name);
   const suche = (erfSuchtext || '').toLowerCase();
   const passt = z => !suche || anzeigeLabel(z.label).toLowerCase().indexOf(suche) >= 0;
   const geldZeile = ERF.zeilen.filter(z => z.art === 'geld')[0];
@@ -6903,8 +7028,9 @@ function erfGeldspiel(name){
   });
 }
 
-function erfAnwesenheitZeichnen(){
+function erfAnwesenheitZeichnen(focusGast){
   const kegeln = ERF.art !== 'Veranstaltung';
+  if (!ERF.gaeste) ERF.gaeste = {};
   /* VORBELEGUNG (1.44). Wer zugesagt hat, steht grau vorgeschlagen da – aber
      erst ein Tipp auf "Alle Zugesagten übernehmen" macht daraus Anwesenheit.
      Stillschweigend übernehmen waere der teuerste Fehler der ganzen Funktion:
@@ -6913,24 +7039,39 @@ function erfAnwesenheitZeichnen(){
   const vorschlag = erfZugesagte();
   const zeile = m => {
     const da = ERF.anwesend.indexOf(m) >= 0;
-    const gast = /^gast/i.test(m);
     const vorbelegt = !da && vorschlag.indexOf(m) >= 0;
     return `<div class="setrow${vorbelegt ? ' vorbelegt' : ''}">
       <div style="flex:1"><div class="lbl">${esc(m)}${
-        vorbelegt ? ' <span class="tag">hat zugesagt</span>' : ''}</div>
-        ${gast ? `<input enterkeyhint="done" class="search" style="margin-top:8px;padding:9px 12px;font-size:14px"
-            data-gast="${esc(m)}" placeholder="Name des Gastes" value="${esc(ERF.gaeste[m] || '')}"
-            aria-label="Name für ${esc(m)}">` : ''}</div>
+        vorbelegt ? ' <span class="tag">hat zugesagt</span>' : ''}</div></div>
       <button class="switch" role="switch" aria-checked="${da}" data-anw="${esc(m)}" aria-label="${esc(m)}"></button>
     </div>`;
   };
+  /* Gäste (1.62): nur die Plätze, die an diesem Abend belegt sind. Der Name
+     ist das Eigentliche – mit ihm ist der Gast auch anwesend. */
+  const gastZeile = m => {
+    const da = ERF.anwesend.indexOf(m) >= 0;
+    return `<div class="setrow">
+      <div style="flex:1"><input enterkeyhint="done" class="search" style="padding:9px 12px;font-size:14px"
+            data-gast="${esc(m)}" placeholder="Name des Gastes" value="${esc(ERF.gaeste[m] || '')}"
+            aria-label="Name für ${esc(m)}"></div>
+      <button class="switch" role="switch" aria-checked="${da}" data-anw="${esc(m)}" aria-label="${esc(m)} anwesend"></button>
+    </div>`;
+  };
+  const brueder = ERF.mitglieder.filter(m => !gastPlatzNr(m));
+  const gaeste  = ERF.mitglieder.filter(m => gastPlatzNr(m) && erfGastSichtbar(m, true))
+                    .sort((a, b) => gastPlatzNr(a) - gastPlatzNr(b));
   erfBody(`<button class="btn ghost small" id="erfZurueck">← Alle Kegelbrüder</button>
     <h2 class="sec" style="margin-top:16px">Anwesenheit</h2>
     <p class="note">Hält fest, wer da war.${kegeln
       ? ' Daraus entsteht der Abenddurchschnitt nach §15 – und damit das, was die Abwesenden zahlen.'
       : ' Bei einer Veranstaltung gibt es keinen Durchschnitt; der Eintrag hält nur fest, wer dabei war.'}</p>
     ${erfVorbelegBlock(vorschlag)}
-    <div class="list" style="margin-top:16px">${ERF.mitglieder.map(zeile).join('')}</div>`);
+    <div class="list" style="margin-top:16px">${brueder.map(zeile).join('')}</div>
+    <h2 class="sec" style="margin-top:24px">Gäste</h2>
+    <p class="note">Ihre Strafen zählen weder im Durchschnitt noch in einer Wertung –
+      bezahlt landen sie in der Kasse.</p>
+    ${gaeste.length ? `<div class="list" style="margin-top:12px">${gaeste.map(gastZeile).join('')}</div>` : ''}
+    <button class="btn ghost small" id="erfGastNeu" style="margin-top:12px">+ Gast hinzufügen</button>`);
   $('erfZurueck').addEventListener('click', () => { erfSicht = 'liste'; erfZeichnen(); });
   if ($('erfVorbelegen')) $('erfVorbelegen').addEventListener('click', () => {
     vorschlag.filter(m => ERF.anwesend.indexOf(m) < 0)
@@ -6942,9 +7083,21 @@ function erfAnwesenheitZeichnen(){
     erfAnwesenheit(b.dataset.anw, b.getAttribute('aria-checked') !== 'true')));
   $('erfBody').querySelectorAll('input[data-gast]').forEach(inp => inp.addEventListener('change', () => {
     const m = inp.dataset.gast;
-    ERF.gaeste[m] = inp.value.trim();
-    erfSchalter('gast', m, inp.value.trim(), 'Gastname ' + m);
+    const name = inp.value.trim();
+    if (name === (ERF.gaeste[m] || '')) return;
+    ERF.gaeste[m] = name;
+    // Zuerst der Name – er legt im Blatt die Spalte an –, danach das Kreuz.
+    erfSchalter('gast', m, name, 'Gast ' + (name || m));
+    if (name && ERF.anwesend.indexOf(m) < 0) erfAnwesenheit(m, true);
   }));
+  $('erfGastNeu').addEventListener('click', () => {
+    const m = erfGastNeu();
+    erfAnwesenheitZeichnen(m);
+  });
+  if (focusGast){
+    const inp = $('erfBody').querySelector('input[data-gast="' + focusGast.replace(/"/g, '') + '"]');
+    if (inp){ inp.focus(); try { inp.scrollIntoView({ block: 'center' }); } catch (e){} }
+  }
 }
 
 /** Wer fuer diesen Abend zugesagt hat – Grundlage der Vorbelegung. */
@@ -7272,11 +7425,11 @@ function erfSammelZeichnen(){
     <p class="note">Jeder Tipp zählt einen Schritt hoch. Zweimal tippen heißt zweimal
       kassiert.${z.art === 'euro' ? ' Ein Schritt sind ' + eur(z.betrag) + '.' : ''}</p>
     <div class="list" style="margin-top:16px">
-      ${ERF.mitglieder.map(m => {
+      ${erfLeute().map(m => {
         const v = erfWert(m, z.label);
         const da = ERF.anwesend.indexOf(m) >= 0;
         return `<button class="row erfmann" data-sam="${esc(m)}" style="${da ? '' : 'opacity:.6'}">
-          <div><div class="n">${esc(m)}</div>
+          <div><div class="n">${esc(erfAnzeigeName(m))}</div>
             <div class="m">${da ? 'anwesend' : 'nicht anwesend'}</div></div>
           <div class="v">${v ? (z.art === 'euro' ? eur(v) : v + '×') : '+'}</div></button>`;
       }).join('')}
@@ -8923,6 +9076,8 @@ function kasseStrafenRang(nurUmlage){
   const map = {};
   kasseD().offene.forEach(o => {
     if (istUmlage(o.quelle) !== !!nurUmlage) return;
+    // 1.62: Gäste stehen gesammelt unter der Auswertung, nicht in der Rangliste.
+    if (String(o.typ || '').toLowerCase() === 'gast') return;
     if (!map[o.name]) map[o.name] = { n: o.name, gesamt: 0, offen: 0, posten: 0 };
     map[o.name].gesamt += o.betrag || 0;
     map[o.name].offen  += o.bezahlt ? 0 : (o.offen || 0);
@@ -8985,9 +9140,10 @@ function kasseStrafenSicht(nurUmlage){
      "nach Bezeichnung" und wäre bei einer einzigen Umlage im Jahr leer. */
   if (nurUmlage) return kopf + neuKnopf + karten;
 
-  const t = swTrennen(swAusBuchungen());
+  const alle = swAusBuchungen();
+  const t = swTrennen(alle.filter(z => !z.g));
   const o = { id: 'kasse', zeilen: t.echt, geld: true, karten: karten };
-  return kopf + neuKnopf + swBlock(o) + swAnhang(o, t);
+  return kopf + neuKnopf + swBlock(o) + swAnhang(o, t) + swGaesteBlock(o, alle.filter(z => z.g));
 }
 
 /* Die Karten je Kegelbruder – seit 1.46 der Kern dieser Ansicht und seit 1.51
@@ -9186,7 +9342,28 @@ function swAusZaehlung(){
 function swAusBuchungen(){
   const b = alleBuchungen() || [];
   return b.filter(x => !istUmlage(x.q))
-          .map(x => ({ d: x.d, q: x.q, t: x.t, n: x.n, v: x.b, e: false, g: false }));
+          .map(x => ({ d: x.d, q: x.q, t: x.t, n: x.n, v: x.b, e: false, g: !!x.g }));
+}
+
+/* GÄSTE (1.62, Auftrag vom 01.11.2026). Die einzelnen Strafen der Gäste
+   fließen in keinen Blickwinkel der Auswertung ein – sie stünden sonst in der
+   Rangliste "nach Kegelbruder" zwischen den Kegelbrüdern und verschöben jede
+   Häufigkeit. Was sie gebracht haben, steht gesammelt darunter: je Termin mit
+   Datum, wie viele Gäste und was zusammenkam. */
+function swGaesteBlock(o, zeilen){
+  if (!zeilen || !zeilen.length) return '';
+  const g = swGruppieren(zeilen, z => z.d + '|' + z.q)
+    .sort((a, b) => a.k < b.k ? 1 : a.k > b.k ? -1 : 0);
+  return `<h2 class="sec" style="margin-top:24px">Gäste</h2>
+    <p class="note">Strafen unserer Gäste – sie zählen in keiner Wertung. ${o.geld
+      ? 'Bezahlt sind sie Einnahmen der Kasse.' : 'Beträge stehen beim Kassenwart.'}</p>
+    <div class="list" style="margin-top:12px">${g.map(x => {
+      const leute = Object.keys(x.zeilen.reduce((m, z) => { m[z.n] = 1; return m; }, {})).length;
+      return `<div class="row"><div><div class="n">${esc(x.zeilen[0].q + ' ' + dat(x.zeilen[0].d))}</div>
+        <div class="m">${esc(plural(leute, 'Gast', 'Gäste') + ' · '
+          + plural(x.zeilen.length, o.geld ? 'Buchung' : 'Eintragung', o.geld ? 'Buchungen' : 'Eintragungen'))}</div></div>
+        <div class="v">${esc(swPille(o, x.zeilen))}</div></div>`;
+    }).join('')}</div>`;
 }
 
 /* Ausgleich und Korrekturen gehoeren nicht in die Haeufigkeitsliste – dieselbe
@@ -9319,6 +9496,10 @@ const KASSE_SICHTEN = {
         ${zeile('Eingegangen', 'bezahlte Strafen dieser Saison', eur(b.bezahlt))}
         ${b.teilzahlungen > 0
             ? zeile('Davon Anzahlungen', 'auf Posten, die noch offen sind', eur(b.teilzahlungen)) : ''}
+        ${(b.gaesteBezahlt > 0 || b.gaesteOffen > 0)
+            ? zeile('Davon Gäste', 'Strafen unserer Gäste'
+                + (b.gaesteOffen > 0 ? ' · ' + eur(b.gaesteOffen) + ' noch offen' : ''),
+                eur(b.gaesteBezahlt || 0)) : ''}
         ${zeile('Zahlungsquote', 'von ' + eur(b.gefordert) + ' geforderten Strafen', b.quote + ' %')}
         ${zeile('Spenden', 'auf Strafen aufgerundet', eur(b.spenden))}
         ${spitzenZeilen(zeile)}

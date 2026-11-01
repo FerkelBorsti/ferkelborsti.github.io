@@ -25,7 +25,7 @@
               lädt jedes Gerät bei jeder Fassung 300 KB Bilder neu, die sich
               nie ändern. Ändert sich ein Logo doch einmal, bekommt die Datei
               einen neuen Namen – dann holt der Browser sie von selbst. */
-const VERSION = 'kc-v1.61';
+const VERSION = 'kc-v1.62';
 const BILDER  = 'kc-bilder';
 
 /* Was beim Installieren geholt wird. Bewusst knapp:
@@ -170,6 +170,12 @@ self.addEventListener('fetch', e => {
   if (url.hostname.indexOf('script.google') === 0 ||
       url.hostname.indexOf('script.googleusercontent') === 0) return;
   if (e.request.method !== 'GET') return;
+
+  /* Die Seite für die Gäste (1.62) gehört nicht zur App. Ohne diese Zeile
+     bildete istHuelle() ihren Aufruf als Navigation auf index.html ab – wer
+     die App installiert hat und den Gäste-Link in der Gruppe antippt, sähe
+     sonst die App statt der Gäste-Seite. Sie geht immer frisch übers Netz. */
+  if (/\/gaeste\.html$/.test(url.pathname)) return;
 
   /* Die Logos: Zwischenspeicher zuerst, und wenn sie da sind, wird nicht
      einmal nachgefragt. Sie ändern sich nie – ändert sich doch eines, trägt

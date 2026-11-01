@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>KC Knüppeldick – Strafen unserer Gäste</title>
+<meta name="theme-color" content="#0E0C10">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" media="print" onload="this.media='all'"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Black&display=swap">
+<!--
+  Gäste-Seite des KC Knüppeldick (App 1.62 / Backend 1.57, 01.11.2026)
+
+  Eine Seite OHNE Anmeldung für die Gäste eines einzigen Termins. Der Code
+  steht hinter dem # in der Adresse und geht damit nie an den Webserver,
+  nur an das Backend. Das Backend gibt ausschließlich heraus, was hier
+  steht: die Namen der Gäste, ihre Strafen, ob sie bezahlt haben, Empfänger
+  und IBAN. Kein Kegelbruder, keine Vereinszahl.
+
+  Der Link gilt, bis alle Gäste bezahlt haben, und danach noch 14 Tage.
+  Der Service Worker der App lässt diese Datei bewusst in Ruhe (sw.js).
+-->
+<style>
+:root{
+  --ink:#0E0C10; --surface:#17141B; --surface-2:#211C28; --line:#2E2736;
+  --text:#F6F2F5; --muted:#A79FAE;
+  --accent:#DB1E72; --accent-soft:#ECA8C1; --accent-tint:rgba(219,30,114,.17);
+  --ok:#3FBF8F; --ok-tint:rgba(63,191,143,.15); --warn:#E8B14A; --warn-tint:rgba(232,177,74,.15);
+  --radius:14px; color-scheme:dark;
+  font-family:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme: light){
+  :root{
+    --ink:#F7F3F6; --surface:#FFFFFF; --surface-2:#F0E9EE; --line:#E3D8E0;
+    --text:#1B141E; --muted:#6B5F71;
+    --accent:#C2185B; --accent-soft:#93103F; --accent-tint:rgba(194,24,91,.10);
+    --ok:#1B7D59; --ok-tint:rgba(27,125,89,.12); --warn:#8A5D0C; --warn-tint:rgba(138,93,12,.12);
+    color-scheme:light;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ink);color:var(--text);-webkit-font-smoothing:antialiased}
+.shell{max-width:460px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 18px) 18px calc(env(safe-area-inset-bottom) + 40px)}
+header{display:flex;align-items:center;gap:12px;margin:4px 0 22px}
+header img{width:44px;height:44px;border-radius:12px;object-fit:contain}
+.brand b{display:block;font-family:'Archivo Black',sans-serif;font-size:18px;letter-spacing:.01em}
+.brand span{color:var(--muted);font-size:13px}
+.eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent-soft)}
+h1{font-family:'Archivo Black',sans-serif;font-size:26px;line-height:1.15;margin:6px 0 4px}
+.sub{color:var(--muted);font-size:13.5px;line-height:1.45}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+.summe{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.gross{font-family:'Archivo Black',sans-serif;font-size:30px;line-height:1}
+.balken{height:8px;border-radius:6px;background:var(--surface-2);margin-top:14px;overflow:hidden}
+.balken i{display:block;height:100%;background:var(--ok);border-radius:6px}
+.mini{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--muted);margin-top:8px}
+h2{font-family:'Archivo Black',sans-serif;font-size:15px;letter-spacing:.02em;margin:28px 0 4px}
+.note{color:var(--muted);font-size:13px;line-height:1.45;margin:4px 0 0}
+.gast{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);margin-top:10px;overflow:hidden}
+.gast > button{all:unset;box-sizing:border-box;display:flex;width:100%;align-items:center;gap:12px;padding:14px 16px;cursor:pointer}
+.av{width:36px;height:36px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;font-weight:700;font-size:14px;color:var(--accent-soft);flex:none}
+.gast .n{flex:1;min-width:0}
+.gast .n b{display:block;font-size:15.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gast .n span{color:var(--muted);font-size:12.5px}
+.betrag{font-family:'Archivo Black',sans-serif;font-size:16px;text-align:right;font-variant-numeric:tabular-nums}
+.pille{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;margin-top:4px}
+.pille.offen{background:var(--warn-tint);color:var(--warn)}
+.pille.bez{background:var(--ok-tint);color:var(--ok)}
+.gast.bezahlt .betrag{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1.5px}
+.pfeil{color:var(--muted);transition:transform .2s;font-size:16px}
+.gast.auf .pfeil{transform:rotate(90deg)}
+.details{display:none;border-top:1px solid var(--line);padding:6px 16px 14px}
+.gast.auf .details{display:block}
+.z{display:flex;justify-content:space-between;gap:12px;padding:8px 0;font-size:14px;border-bottom:1px dashed var(--line)}
+.z:last-of-type{border-bottom:0}
+.z small{color:var(--muted);margin-left:6px;white-space:nowrap}
+.z span:last-child{font-variant-numeric:tabular-nums;white-space:nowrap}
+.btn{all:unset;box-sizing:border-box;display:block;text-align:center;width:100%;margin-top:10px;padding:11px;border-radius:11px;
+  border:1px solid var(--line);color:var(--text);font-weight:700;font-size:14px;cursor:pointer}
+.wahl{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.chip{all:unset;cursor:pointer;font-size:13px;font-weight:600;padding:7px 12px;border-radius:20px;border:1px solid var(--line);color:var(--muted)}
+.chip.an{background:var(--accent-tint);border-color:var(--accent);color:var(--text)}
+.chip[disabled]{opacity:.4;cursor:default}
+.zahl{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;width:100%;padding:13px 16px;cursor:pointer;
+  background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-top:8px}
+.zahl[disabled]{opacity:.55;cursor:default}
+.zahl .tx{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0}
+.zahl .tx b{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.zahl .tx span{font-size:15px;overflow-wrap:anywhere}
+.mono{font-family:'Archivo Black',monospace;font-size:14px!important;letter-spacing:.05em;word-spacing:.15em}
+.cp{font-size:12px;font-weight:700;color:var(--accent-soft)}
+.zahl.ok .cp{color:var(--ok)}
+.fuss{margin-top:26px;font-size:12px;color:var(--muted);line-height:1.5;text-align:center}
+.fuss b{color:var(--text);font-weight:600}
+.leer{margin-top:28px;text-align:center}
+.leer p{color:var(--muted);font-size:14px;line-height:1.5}
+.lade{color:var(--muted);font-size:14px;margin-top:40px;text-align:center}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <img id="logo" src="logo/standard-dunkel-marke.png" alt="">
+    <div class="brand"><b>KC Knüppeldick</b><span>Strafen unserer Gäste</span></div>
+  </header>
+  <main id="inhalt"><p class="lade">Einen Moment, die Liste wird geholt …</p></main>
+</div>
+
+<script>
+/* Dieselbe Adresse wie in der App (index.html, const API). */
+const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnll82WWPgRx8qYYwjeukBkg8FjgrWEjjJElcPs7Z6a/exec';
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const eur = n => (Number(n) || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+const dat = iso => { const t = String(iso || '').split('-'); return t.length === 3 ? t[2] + '.' + t[1] + '.' + t[0] : String(iso || ''); };
+const WOCHENTAG = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+const tagText = iso => {
+  const t = String(iso || '').split('-').map(Number);
+  if (t.length !== 3) return dat(iso);
+  return WOCHENTAG[new Date(t[0], t[1] - 1, t[2]).getDay()] + ', ' + dat(iso);
+};
+const uhr = s => { const m = String(s || '').match(/(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})/); return m ? dat(m[1]) + ', ' + m[2] + ' Uhr' : ''; };
+
+try {
+  if (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) $('logo').src = 'logo/standard-hell-marke.png';
+} catch (e) {}
+
+let DATEN = null;
+let gewaehlt = '';
+
+function code(){ return String(location.hash || '').replace(/^#/, '').replace(/[^a-f0-9]/gi, ''); }
+
+async function laden(){
+  const c = code();
+  if (c.length < 20) return hinweis('Dieser Link ist unvollständig.', 'Bitte den Link aus der Gruppe noch einmal ganz öffnen.');
+  try {
+    const r = await fetch(API + '?gaeste=' + encodeURIComponent(c), { cache: 'no-store' });
+    const d = await r.json();
+    if (d.fehler === 'unbekannt') return hinweis('Diesen Link gibt es nicht mehr.', 'Er wurde zurückgezogen oder war nie gültig.');
+    if (d.fehler) return hinweis('Die Liste ließ sich gerade nicht holen.', d.fehler + ' Bitte später noch einmal öffnen.');
+    if (d.abgelaufen) return hinweis('Alles erledigt – danke!', 'Alle Gäste vom ' + (d.art || 'Termin') + ' am ' + dat(d.datum) + ' haben bezahlt. Der Link ist inzwischen abgelaufen.');
+    DATEN = d;
+    zeichnen();
+  } catch (e) {
+    hinweis('Keine Verbindung.', 'Die Liste ließ sich nicht holen. Bitte bei besserem Empfang noch einmal öffnen.');
+  }
+}
+
+function hinweis(titel, text){
+  $('inhalt').innerHTML = `<div class="leer"><h1>${esc(titel)}</h1><p>${esc(text)}</p>
+    <button class="btn" type="button" id="nochmal">Noch einmal versuchen</button></div>`;
+  $('nochmal').addEventListener('click', () => { $('inhalt').innerHTML = '<p class="lade">Einen Moment …</p>'; laden(); });
+}
+
+function zeichnen(){
+  const d = DATEN;
+  const gaeste = d.gaeste || [];
+  const kopf = `<div class="eyebrow">${esc(d.art === 'Kegelabend' ? 'Kegelabend mit Gästen' : (d.art || 'Termin') + ' mit Gästen')}</div>
+    <h1>${esc(tagText(d.datum))}</h1>
+    <div class="sub">Schön, dass ihr dabei wart! Hier steht, was an dem Abend zusammengekommen ist.</div>`;
+
+  if (!gaeste.length){
+    $('inhalt').innerHTML = kopf + `<div class="card" style="margin-top:18px"><p class="note" style="margin:0">
+      Die Strafen werden gerade zusammengestellt. Schau in einer Weile noch einmal vorbei –
+      der Link bleibt derselbe.</p></div>`;
+    return;
+  }
+
+  const ges = gaeste.reduce((a, g) => a + g.summe, 0);
+  const off = gaeste.reduce((a, g) => a + (g.bezahlt ? 0 : g.offen), 0);
+  const nBez = gaeste.filter(g => g.bezahlt).length;
+  const anteil = ges > 0 ? Math.max(0, Math.min(100, (ges - off) / ges * 100)) : 0;
+  const offene = gaeste.filter(g => !g.bezahlt);
+  if (gewaehlt && !offene.some(g => g.n === gewaehlt)) gewaehlt = '';
+
+  const sortiert = gaeste.slice().sort((a, b) => (a.bezahlt - b.bezahlt) || (b.summe - a.summe) || a.n.localeCompare(b.n, 'de'));
+  const karte = g => `
+    <div class="gast${g.bezahlt ? ' bezahlt' : ''}">
+      <button type="button" aria-expanded="false">
+        <div class="av">${esc((g.n || '?').charAt(0).toUpperCase())}</div>
+        <div class="n"><b>${esc(g.n)}</b><span>${g.s.length === 1 ? '1 Posten' : g.s.length + ' Posten'}</span></div>
+        <div style="text-align:right">
+          <div class="betrag">${eur(g.summe)}</div>
+          <span class="pille ${g.bezahlt ? 'bez' : 'offen'}">${g.bezahlt ? 'bezahlt' : 'offen'}</span>
+        </div>
+        <span class="pfeil" aria-hidden="true">›</span>
+      </button>
+      <div class="details">
+        ${g.s.map(x => `<div class="z"><span>${esc(x.t)}${x.n ? `<small>${x.n} × ${eur(x.p)}</small>` : ''}</span><span>${eur(x.b)}</span></div>`).join('')}
+        ${!g.bezahlt && Math.abs(g.offen - g.summe) > 0.004
+          ? `<div class="z"><span>Davon noch offen</span><span>${eur(g.offen)}</span></div>` : ''}
+        ${g.bezahlt ? '' : `<button class="btn" type="button" data-zahl="${esc(g.n)}">So bezahlst du ↓</button>`}
+      </div>
+    </div>`;
+
+  $('inhalt').innerHTML = kopf + `
+    <div class="card" style="margin-top:18px">
+      <div class="summe">
+        <div><div class="eyebrow" style="color:var(--muted)">Zusammen</div><div class="gross">${eur(ges)}</div></div>
+        <div style="text-align:right"><div class="eyebrow" style="color:var(--muted)">Noch offen</div>
+          <div style="font-family:'Archivo Black',sans-serif;font-size:18px;color:${off > 0 ? 'var(--warn)' : 'var(--ok)'}">${eur(off)}</div></div>
+      </div>
+      <div class="balken"><i style="width:${anteil}%"></i></div>
+      <div class="mini"><span>${nBez} von ${gaeste.length} ${gaeste.length === 1 ? 'hat' : 'haben'} bezahlt</span><span>Stand ${esc(uhr(d.stand))}</span></div>
+    </div>
+
+    <h2>Die Gäste</h2>
+    <p class="note">Tippe einen Namen an, dann siehst du die einzelnen Strafen.</p>
+    <div id="liste">${sortiert.map(karte).join('')}</div>
+
+    ${offene.length ? `<h2>So zahlst du</h2>
+    <p class="note">Überweise an die Kegelkasse. Wähle deinen Namen, dann stehen Betrag und
+      Verwendungszweck schon richtig da. Tippe ein Feld an, dann liegt der Wert in der Zwischenablage.</p>
+    <div class="wahl" id="wahl"></div>
+    <div id="zahlfelder" style="margin-top:6px"></div>` : `<div class="card" style="margin-top:24px"><p class="note" style="margin:0">
+      Alle haben bezahlt – vielen Dank!</p></div>`}
+
+    <div class="fuss">
+      Die Liste aktualisiert sich bei jedem Öffnen.<br>
+      Als bezahlt gilt eine Strafe, sobald sie beim Kassenwart angekommen und abgehakt ist.<br>
+      ${d.gueltigBis
+        ? 'Dieser Link gilt noch bis <b>' + esc(dat(d.gueltigBis)) + '</b>.'
+        : 'Dieser Link gilt, bis alle bezahlt haben, und danach noch ' + esc(d.nachlaufTage || 14) + ' Tage.'}
+    </div>`;
+
+  $('liste').querySelectorAll('.gast > button').forEach(b => b.addEventListener('click', () => {
+    const k = b.parentElement; k.classList.toggle('auf');
+    b.setAttribute('aria-expanded', k.classList.contains('auf'));
+  }));
+  $('liste').querySelectorAll('[data-zahl]').forEach(b => b.addEventListener('click', () => {
+    gewaehlt = b.dataset.zahl; zahlZeichnen();
+    $('wahl').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }));
+  if (offene.length) zahlZeichnen();
+}
+
+function zahlZeichnen(){
+  const d = DATEN;
+  const gaeste = (d.gaeste || []).slice().sort((a, b) => a.n.localeCompare(b.n, 'de'));
+  $('wahl').innerHTML = gaeste.map(g => `<button class="chip${g.n === gewaehlt ? ' an' : ''}" type="button"
+      data-w="${esc(g.n)}"${g.bezahlt ? ' disabled' : ''}>${esc(g.n)}${g.bezahlt ? ' ✓' : ''}</button>`).join('');
+  $('wahl').querySelectorAll('[data-w]').forEach(b => b.addEventListener('click', () => {
+    gewaehlt = gewaehlt === b.dataset.w ? '' : b.dataset.w; zahlZeichnen();
+  }));
+
+  const g = gaeste.filter(x => x.n === gewaehlt && !x.bezahlt)[0];
+  const iban = String(d.kasse && d.kasse.iban || '').replace(/\s/g, '');
+  const empf = (d.kasse && d.kasse.inhaber) || 'KC Knüppeldick';
+  const betrag = g ? g.offen : 0;
+  const zweck = g ? 'Gaststrafen ' + dat(d.datum) + ' ' + g.n : '';
+  const felder = [
+    { k: 'Empfänger', v: empf },
+    { k: 'IBAN', v: iban ? iban.replace(/(.{4})/g, '$1 ').trim() : 'nicht hinterlegt – bitte beim Kassenwart fragen',
+      kopie: iban, mono: !!iban, aus: !iban },
+    { k: 'Betrag', v: g ? eur(betrag) : 'erst oben deinen Namen wählen',
+      kopie: betrag.toFixed(2).replace('.', ','), mono: !!g, aus: !g },
+    { k: 'Verwendungszweck', v: zweck || '—', aus: !g }
+  ];
+  $('zahlfelder').innerHTML = felder.map(f => `
+    <button class="zahl" type="button" data-kopie="${esc(f.kopie != null ? f.kopie : f.v)}"${f.aus ? ' disabled' : ''}>
+      <div class="tx"><b>${esc(f.k)}</b><span class="${f.mono ? 'mono' : ''}">${esc(f.v)}</span></div>
+      ${f.aus ? '' : '<span class="cp">Kopieren</span>'}
+    </button>`).join('')
+    + (g && iban ? `<button class="zahl" type="button" data-kopie="${esc([empf, iban, betrag.toFixed(2).replace('.', ',') + ' EUR', zweck].join('\n'))}">
+      <div class="tx"><b>Alles zusammen</b><span>Empfänger, IBAN, Betrag und Zweck als Block</span></div>
+      <span class="cp">Kopieren</span></button>` : '');
+  $('zahlfelder').querySelectorAll('.zahl:not([disabled])').forEach(b => b.addEventListener('click', () => kopiere(b)));
+}
+
+async function kopiere(b){
+  const text = b.dataset.kopie;
+  let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; }
+  catch (e) {
+    try {
+      const t = document.createElement('textarea'); t.value = text; t.setAttribute('readonly', '');
+      t.style.position = 'fixed'; t.style.opacity = '0'; document.body.appendChild(t); t.select();
+      ok = document.execCommand('copy'); document.body.removeChild(t);
+    } catch (e2) {}
+  }
+  const s = b.querySelector('.cp'); if (!s) return;
+  b.classList.toggle('ok', ok); s.textContent = ok ? 'Kopiert' : 'Ging nicht';
+  setTimeout(() => { b.classList.remove('ok'); s.textContent = 'Kopieren'; }, 1600);
+}
+
+window.addEventListener('hashchange', () => { gewaehlt = ''; laden(); });
+laden();
+</script>
+</body>
+</html>
