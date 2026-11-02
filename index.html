@@ -271,6 +271,11 @@ h2.sec{font-family:'Archivo Black',system-ui,sans-serif;font-size:15px;margin:4p
 .bar{height:4px;border-radius:99px;background:var(--line);margin-top:6px;overflow:hidden}
 .bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
 .note{font-size:12.5px;color:var(--muted);line-height:1.6}
+/* Vereinsschnitt (1.63): ein kleiner Kasten oben in jeder Auswertung. */
+.vs{margin-top:16px;padding:10px 13px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:var(--radius);background:var(--surface)}
+.vs-l{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.vs-w{font-family:'Archivo Black',system-ui,sans-serif;font-size:15px;color:var(--text);font-variant-numeric:tabular-nums}
+.vs-s{font-size:12px;color:var(--muted);line-height:1.45}
 .iban{font-family:'Archivo Black',monospace;font-size:14px;letter-spacing:.05em;word-spacing:.15em;margin-top:6px}
 .kassenstand{font-family:'Archivo Black',system-ui,sans-serif;font-size:26px;line-height:1.1;margin-top:6px;font-variant-numeric:tabular-nums}
 .zahl{display:flex;align-items:center;gap:12px;background:var(--surface);border-bottom:1px solid var(--line);padding:12px 15px;width:100%;border:none;border-bottom:1px solid var(--line);text-align:left;font-family:inherit;color:inherit;cursor:pointer}
@@ -1499,7 +1504,17 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
      hat, beim Antippen des Links die App statt der Gäste-Seite.
    Braucht Backend 1.57. Betrifft nur Schriftführer und Kasse – „Was ist neu“
    bleibt unverändert. */
-const APP_VERSION = '1.62';
+/* 1.63 (02.11.2026): Vereinsschnitt in den Auswertungen.
+   - Oben in jeder Auswertung des Schriftführers (5 in die Vollen, alle 9,
+     Pumpen, Anwesenheit, Sonderwürfe, Strafen) steht ein Kasten
+     „Vereinsschnitt“; auf der Übersicht je Kachel eine Zeile „Verein Ø“.
+   - Gerechnet über alle Kegelbrüder der Liste, bei 5 in die Vollen wie die
+     Rangliste nach §26 (nicht nachgeholte Würfe = 0 Holz).
+   - Kasse › Strafen: Ø Strafgeld je Kegelbruder. Die übrigen Kassen-Reiter
+     bekommen keinen Schnitt – dort ergibt er keinen Sinn.
+   Backend unverändert. Betrifft nur Schriftführer und Kasse – „Was ist neu“
+   bleibt unverändert. */
+const APP_VERSION = '1.63';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -4708,6 +4723,30 @@ const koenigsfaehig = r => {
   return d / t >= h;
 };
 const quote = r => r.termine ? Math.round(r.da / r.termine * 100) : 0;
+
+/* VEREINSSCHNITT (1.63, Wunsch Johannes vom 02.11.2026).
+   Oben in jeder Auswertung steht der Durchschnitt des ganzen Vereins, damit
+   jeder sieht, wo er im Vergleich liegt. Gerechnet wird über GENAU die
+   Kegelbrüder, die in der Liste darunter stehen – auch über die, die kaum
+   da waren. Bei "5 in die Vollen" also wie die Rangliste nach §26: ein nicht
+   nachgeholter Wurf zählt als 0 Holz. */
+const zahl1 = v => (Number(v) || 0).toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+function schnittVon(liste, key){
+  return liste.length ? liste.reduce((s, r) => s + (Number(key(r)) || 0), 0) / liste.length : 0;
+}
+function vereinsschnittKasten(wert, unter){
+  return `<div class="vs"><div class="vs-l">Vereinsschnitt</div>
+    <div class="vs-w">${esc(wert)}</div>${unter ? `<div class="vs-s">${esc(unter)}</div>` : ''}</div>`;
+}
+function anwesenheitSchnitt(A){
+  const da = A.reduce((a, r) => a + (r.da || 0), 0);
+  const moeglich = A.reduce((a, r) => a + (r.termine || 0), 0);
+  const prozent = moeglich ? Math.round(da / moeglich * 100) : 0;
+  const t0 = A[0] ? (A[0].termine || 0) : 0;
+  const gleich = A.every(r => (r.termine || 0) === t0);
+  return 'Ø ' + zahl1(schnittVon(A, r => r.da))
+       + (gleich ? ' von ' + plural(t0, 'Termin', 'Terminen') : ' Termine') + ' · ' + prozent + ' %';
+}
 /* 1.61: Die Quote, an der die Königs-Hürde hängt – nur Kegelabende (§26).
    Abgerundet, damit nie „60 %“ neben „unter 60 %“ steht. Liefert das Backend
    die Kegelabende nicht mit, bleibt es bei der alten Anzeige über alle Termine. */
@@ -4734,9 +4773,12 @@ function bwNamen(gruppe){
    Jetzt werden alle genannt, die denselben Wert haben; ab vier nur noch ihre
    Anzahl. Sind ALLE gleichauf, gibt es keinen Besten und keinen Schlechtesten -
    dann steht dort eine einzige Zeile statt zweier, die dasselbe behaupten. */
-function bwBlock(titel, key, mehrIstBesser, fmt, fuss){
+function bwBlock(titel, key, mehrIstBesser, fmt, fuss, schnitt){
   const A = D.auswertung || [];
   if (!A.length) return '';
+  /* 1.63: Der Vereinsschnitt als dritte Zeile, grau wie "Alle gleich". */
+  const schnittZeile = schnitt ? `<div class="pr"><span class="tag even">Verein Ø</span>`
+    + `<span class="nm">alle Kegelbrüder</span><span class="vl">${esc(schnitt)}</span></div>` : '';
   const s = A.slice().sort((a,b) => key(b) - key(a));
   const hoch = s[0], tief = s[s.length-1];
   const best     = mehrIstBesser ? hoch : tief;
@@ -4755,7 +4797,7 @@ function bwBlock(titel, key, mehrIstBesser, fmt, fuss){
     return kopf + `<div class="pr"><span class="tag ${einer ? 'best' : 'even'}">`
       + `${einer ? 'Bester' : 'Alle gleich'}</span>`
       + `<span class="nm">${einer ? esc(A[0].n) : 'alle Kegelbrüder'}</span>`
-      + `<span class="vl">${fmt(best)}</span></div>` + fuss1;
+      + `<span class="vl">${fmt(best)}</span></div>` + schnittZeile + fuss1;
   }
 
   return kopf
@@ -4763,7 +4805,7 @@ function bwBlock(titel, key, mehrIstBesser, fmt, fuss){
     + `<span class="nm">${bwNamen(gBest)}</span><span class="vl">${fmt(best)}</span></div>`
     + `<div class="pr"><span class="tag worst">${gSchlecht.length > 1 ? 'Schlechteste' : 'Schlechtester'}</span>`
     + `<span class="nm">${bwNamen(gSchlecht)}</span><span class="vl">${fmt(schlecht)}</span></div>`
-    + fuss1;
+    + schnittZeile + fuss1;
 }
 
 /* Die Anwesenheit des ganzen Vereins als eine Kachel: Anteil gross, die
@@ -4834,15 +4876,18 @@ const SICHTEN = {
       ${bwBlock('5 in die Vollen (Ø je Termin)', vollenSchnitt, true,
         r=>vollenSchnitt(r).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+' Holz',
         'Nach §26 zählt der Durchschnitt, nicht die Summe. Kegelkönig wird nur, wer bei mindestens '
-        + (huerdeText() || '60 %') + ' der Kegelabende anwesend war.')}
+        + (huerdeText() || '60 %') + ' der Kegelabende anwesend war.',
+        zahl1(schnittVon(A, vollenSchnitt)) + ' Holz')}
       ${bwBlock('Pumpen', gesamtPumpen, false, r=>gesamtPumpen(r).toLocaleString('de-DE'),
-        'Weniger ist besser. Pumpenkönig wird trotzdem, wer die meisten hat – das ist der Schlechteste hier.')}
-      ${bwBlock('Anwesenheit', r=>r.da, true, r=>r.da+' / '+r.termine)}
+        'Weniger ist besser. Pumpenkönig wird trotzdem, wer die meisten hat – das ist der Schlechteste hier.',
+        zahl1(schnittVon(A, gesamtPumpen)))}
+      ${bwBlock('Anwesenheit', r=>r.da, true, r=>r.da+' / '+r.termine, '',
+        zahl1(schnittVon(A, r=>r.da)) + (A.every(r=>r.termine===A[0].termine) ? ' / ' + A[0].termine : ''))}
       <!-- "Strafen (Betrag)", "Strafen (Anzahl)" und "Spenden" standen bis 1.37
            hier. Sie sind Geld und gehören damit zum Kassenwart – Entscheidung
            Johannes vom 07.09.2026, ausdrücklich einschließlich dieser Zeilen. -->
-      ${bwBlock('alle 9', r=>r.alle9, true, r=>r.alle9+'×')}
-      ${bwBlock('Sonderwürfe', gesamtSonder, true, r=>gesamtSonder(r)+'×')}
+      ${bwBlock('alle 9', r=>r.alle9, true, r=>r.alle9+'×', '', zahl1(schnittVon(A, r=>r.alle9))+'×')}
+      ${bwBlock('Sonderwürfe', gesamtSonder, true, r=>gesamtSonder(r)+'×', '', zahl1(schnittVon(A, gesamtSonder))+'×')}
     </div>
     <!-- Die Kachel "Strafen gesamt" stand bis 1.39 daneben. Sie ist Geld und
          gehoert zum Kassenwart – Entscheidung Johannes vom 08.09.2026. Damit
@@ -4858,7 +4903,9 @@ const SICHTEN = {
     const koenig = l.filter(koenigsfaehig)[0];
     const holz = r => vollenSchnitt(r).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1}) + ' Holz';
     const hT = huerdeText();
-    return `<p class="note" style="margin-top:16px">Gewertet wird nach §26 der <strong style="color:var(--text)">Durchschnitt
+    return vereinsschnittKasten('Ø ' + zahl1(schnittVon(l, vollenSchnitt)) + ' Holz je Kegelabend',
+        'über alle ' + l.length + ' Kegelbrüder · nicht nachgeholte Würfe zählen als 0 Holz')
+      + `<p class="note" style="margin-top:12px">Gewertet wird nach §26 der <strong style="color:var(--text)">Durchschnitt
         je Termin</strong>, nicht die Summe. Nicht nachgeholte Würfe zählen als 0 Holz.
         ${hT ? 'Kegelkönig kann nur werden, wer bei mindestens ' + esc(hT) + ' der Kegelabende anwesend war.' : ''}</p>
       ${koenig ? `<p class="note" style="margin-top:8px">Aktuell vorn und königsfähig:
@@ -4874,7 +4921,9 @@ const SICHTEN = {
     // §12 "alle 9 (alle anderen zahlen)" – Satz UND Rechnung holen den Betrag
     // von dort. Ohne hinterlegten Betrag wird nur gezählt, nicht gerechnet.
     const satz = strafBetrag(STATUT.STRAFEN, 'alle 9 (alle anderen zahlen)');
-    return `<p class="note" style="margin-top:16px">Wer die meisten alle 9 geworfen hat.
+    return vereinsschnittKasten('Ø ' + zahl1(schnittVon(l, r=>r.alle9)) + ' alle 9 je Kegelbruder',
+        'zusammen ' + plural(l.reduce((s, r) => s + (r.alle9 || 0), 0), 'Wurf', 'Würfe'))
+      + `<p class="note" style="margin-top:12px">Wer die meisten alle 9 geworfen hat.
       ${satz === null ? 'Jeder Wurf kostet alle anderen etwas – der Werfer selbst zahlt nichts.'
                       : 'Jeder Wurf kostet alle anderen ' + esc(eur(satz)) + ' – der Werfer selbst zahlt nichts.'}</p>`
       + rangliste(l, r=>r.alle9, r=>r.alle9+'×',
@@ -4885,7 +4934,9 @@ const SICHTEN = {
   pumpen(){
     const l = (D.auswertung||[]).slice().sort((a,b)=>gesamtPumpen(b)-gesamtPumpen(a));
     if (!l.length) return `<p class="note" style="margin-top:16px">Noch keine Daten.</p>`;
-    return `<p class="note" style="margin-top:16px">Pumpenkönig ist, wer die meisten hat – hier ganz oben.
+    return vereinsschnittKasten('Ø ' + zahl1(schnittVon(l, gesamtPumpen)) + ' Pumpen je Kegelbruder',
+        'selbst geworfen und zugeschrieben zusammen')
+      + `<p class="note" style="margin-top:12px">Pumpenkönig ist, wer die meisten hat – hier ganz oben.
       Abwesende bekommen den Abendschnitt zugeschrieben.</p>`
       + rangliste(l, gesamtPumpen, r=>gesamtPumpen(r).toLocaleString('de-DE')+'×',
           r=>r.pumpenS + ' selbst · ' + r.pumpenZ.toLocaleString('de-DE') + ' zugeschrieben');
@@ -4895,7 +4946,9 @@ const SICHTEN = {
     /* Zwei Zahlen, die nicht dasselbe messen – deshalb steht es hier
        ausdrücklich: Die Rangliste zählt nach §39 alles mit, die Königs-Hürde
        nach §26 seit 1.38 nur die Kegelabende. */
-    return `<p class="note" style="margin-top:16px">Kegelabende und Veranstaltungen zusammen –
+    if (!l.length) return `<p class="note" style="margin-top:16px">Noch keine Daten.</p>`;
+    return vereinsschnittKasten(anwesenheitSchnitt(l), 'Kegelabende und Veranstaltungen zusammen')
+      + `<p class="note" style="margin-top:12px">Kegelabende und Veranstaltungen zusammen –
       so zählt §39. Für die Königs-Hürde nach §26 zählen dagegen nur die Kegelabende –
       die stehen als zweite Zahl darunter.</p>
       <div class="list">${l.map((r,i)=>`<div class="rank ${i===0?'first':''}">
@@ -4908,7 +4961,10 @@ const SICHTEN = {
   },
   sonder(){
     const l = (D.auswertung||[]).slice().sort((a,b)=>gesamtSonder(b)-gesamtSonder(a));
-    return `<p class="note" style="margin-top:16px">Kranz, König aus den Vollen, 8 ums Vordereck und alle 9.</p>
+    if (!l.length) return `<p class="note" style="margin-top:16px">Noch keine Daten.</p>`;
+    return vereinsschnittKasten('Ø ' + zahl1(schnittVon(l, gesamtSonder)) + ' Sonderwürfe je Kegelbruder',
+        'Kranz, König aus den Vollen, 8 ums Vordereck und alle 9')
+      + `<p class="note" style="margin-top:12px">Kranz, König aus den Vollen, 8 ums Vordereck und alle 9.</p>
       <div class="list">${l.map((r,i)=>`<div class="row"><div><div class="n">${i+1}. ${esc(r.n)}</div>
         <div class="m">${r.kranz}× Kranz · ${r.koenig}× König · ${r.acht}× 8 ums Vordereck · ${r.alle9}× alle 9</div></div>
         <div class="v">${gesamtSonder(r)}×</div></div>`).join('')}</div>`;
@@ -4940,7 +4996,19 @@ const SICHTEN = {
     const alle = swAusZaehlung();
     const t = swTrennen(alle.filter(z => !z.g));
     const o = { id: 'amt', zeilen: t.echt, geld: false };
-    return '<p class="note" style="margin-top:16px">Was in dieser Saison erfasst wurde und '
+    /* Vereinsschnitt (1.63): gezählte Strafen je Kegelbruder. Geteilt wird
+       durch alle Kegelbrüder der Auswertung – wer keine einzige Strafe hat,
+       zählt mit 0 mit. Gäste, Ausgleich, Korrekturen und die Zeilen mit
+       Euro-Beträgen (Verspätung, Geldspiele) bleiben draußen, genau wie in
+       der Liste darunter. */
+    const namen = {};
+    (D.auswertung || []).forEach(r => namen[r.n] = 1);
+    t.echt.forEach(z => namen[z.n] = 1);
+    const anzahlMaenner = Object.keys(namen).length;
+    const kasten = anzahlMaenner ? vereinsschnittKasten(
+        'Ø ' + zahl1(swSumme(o, t.echt) / anzahlMaenner) + ' Strafen je Kegelbruder',
+        'nur die Anzahl, ohne Beträge · Gäste nicht mitgezählt') : '';
+    return kasten + '<p class="note" style="margin-top:' + (kasten ? '12' : '16') + 'px">Was in dieser Saison erfasst wurde und '
          + 'wie oft. Ohne Beträge – die stehen beim Kassenwart. Zum Aufklappen antippen.'
          + (z.stand ? ' Stand ' + esc(z.stand) + ' Uhr.' : '') + '</p>'
          + swBlock(o) + swAnhang(o, t) + swGaesteBlock(o, alle.filter(z => z.g));
@@ -9140,10 +9208,17 @@ function kasseStrafenSicht(nurUmlage){
      "nach Bezeichnung" und wäre bei einer einzigen Umlage im Jahr leer. */
   if (nurUmlage) return kopf + neuKnopf + karten;
 
+  /* Vereinsschnitt (1.63): Strafgeld je Kegelbruder, bezahlt und offen
+     zusammen – dieselbe Summe wie "Strafen gesamt" darüber, geteilt durch
+     die Kegelbrüder dieser Liste. Gäste und Umlagen sind nicht dabei. */
+  const schnittKasse = vereinsschnittKasten('Ø ' + eur(gesamt / l.length) + ' je Kegelbruder',
+      'bezahlt und offen zusammen · Ausgleich für Abwesenheit eingerechnet · ohne Gäste');
+
   const alle = swAusBuchungen();
   const t = swTrennen(alle.filter(z => !z.g));
   const o = { id: 'kasse', zeilen: t.echt, geld: true, karten: karten };
-  return kopf + neuKnopf + swBlock(o) + swAnhang(o, t) + swGaesteBlock(o, alle.filter(z => z.g));
+  return schnittKasse + kopf.replace('margin-top:16px', 'margin-top:12px')
+       + neuKnopf + swBlock(o) + swAnhang(o, t) + swGaesteBlock(o, alle.filter(z => z.g));
 }
 
 /* Die Karten je Kegelbruder – seit 1.46 der Kern dieser Ansicht und seit 1.51
