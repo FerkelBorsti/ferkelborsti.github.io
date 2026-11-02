@@ -24,6 +24,9 @@
   Der Link gilt, bis alle Gäste bezahlt haben, und danach noch 14 Tage.
   Der Service Worker der App lässt diese Datei bewusst in Ruhe (sw.js).
 
+  02.11.2026 (2): schneller – der letzte Stand liegt im Handy und steht sofort
+  da, Platzhalter beim ersten Öffnen, Aktualisieren beim Zurückkehren, der
+  eigene Name bleibt gewählt.
   02.11.2026: näher an die App gerückt – kein Zoomen, Kopf mit Logo und
   Schriftzug wie in der App, Logo antippen zeigt es groß, Weihnachtslogo vom
   1. Advent bis 6. Januar, Runterziehen zum Aktualisieren.
@@ -128,6 +131,15 @@ h2{font-family:'Archivo Black',sans-serif;font-size:15px;letter-spacing:.02em;ma
 .leer{margin-top:28px;text-align:center}
 .leer p{color:var(--muted);font-size:14px;line-height:1.5}
 .lade{color:var(--muted);font-size:14px;margin-top:40px;text-align:center}
+/* Platzhalter beim allerersten Öffnen (02.11.2026) */
+.sk{background:var(--surface-2);border-radius:8px;position:relative;overflow:hidden}
+.sk::after{content:'';position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent);animation:sk 1.3s infinite}
+@media (prefers-color-scheme: light){ .sk::after{background:linear-gradient(90deg,transparent,rgba(0,0,0,.05),transparent)} }
+@keyframes sk{100%{transform:translateX(100%)}}
+@media (prefers-reduced-motion: reduce){ .sk::after{animation:none} }
+.status{font-size:12px;color:var(--muted);margin-top:10px;min-height:16px}
+.status.warn{color:var(--warn)}
 </style>
 </head>
 <body>
@@ -137,7 +149,16 @@ h2{font-family:'Archivo Black',sans-serif;font-size:15px;letter-spacing:.02em;ma
     <button class="badge" id="badge" type="button" aria-label="Logo groß anzeigen"></button>
     <div class="wordmark"><img id="wortmarke" alt="KC Knüppeldick"><span>Strafen unserer Gäste</span></div>
   </header>
-  <main id="inhalt"><p class="lade">Einen Moment, die Liste wird geholt …</p></main>
+  <main id="inhalt" aria-busy="true">
+    <div class="sk" style="width:46%;height:12px"></div>
+    <div class="sk" style="width:78%;height:28px;margin-top:12px"></div>
+    <div class="sk" style="width:92%;height:14px;margin-top:12px"></div>
+    <div class="sk" style="height:118px;margin-top:22px;border-radius:14px"></div>
+    <div class="sk" style="width:34%;height:16px;margin-top:30px"></div>
+    <div class="sk" style="height:66px;margin-top:14px;border-radius:14px"></div>
+    <div class="sk" style="height:66px;margin-top:10px;border-radius:14px"></div>
+    <div class="sk" style="height:66px;margin-top:10px;border-radius:14px"></div>
+  </main>
 </div>
 <button class="lightbox" id="lightbox" type="button" aria-label="Schließen" hidden>
   <div>
@@ -204,22 +225,64 @@ document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preven
 
 let DATEN = null;
 let gewaehlt = '';
+let geholtUm = 0;              // wann zuletzt frisch geholt (ms)
+let laeuftGerade = false;
+let statusText = '', statusWarn = false;
+const aufgeklappt = new Set(); // Karten, die offen bleiben, auch wenn neu gezeichnet wird
 
 function code(){ return String(location.hash || '').replace(/^#/, '').replace(/[^a-f0-9]/gi, ''); }
+
+/* Der letzte Stand im Handy (02.11.2026). Nur für die Anzeige: Er steht sofort
+   da, während die frischen Zahlen im Hintergrund kommen, und ersetzt sie nie.
+   Gespeichert wird nur, was das Backend ohnehin an diese Seite gibt. Kann der
+   Browser nichts speichern (privater Modus), läuft alles wie vorher. */
+const merkSchluessel = () => 'kc-gaeste:' + code();
+const ichSchluessel  = () => 'kc-gaeste-ich:' + code();
+function merkLesen(k){ try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+function merkSchreiben(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+function merkLoeschen(k){ try { localStorage.removeItem(k); } catch (e) {} }
+
+function status(text, warn){
+  statusText = text || ''; statusWarn = !!warn;
+  const el = $('status');
+  if (el){ el.textContent = statusText; el.className = 'status' + (statusWarn ? ' warn' : ''); }
+}
 
 async function laden(){
   const c = code();
   if (c.length < 20) return hinweis('Dieser Link ist unvollständig.', 'Bitte den Link aus der Gruppe noch einmal ganz öffnen.');
+  if (laeuftGerade) return;
+  laeuftGerade = true;
+
+  // Beim ersten Aufruf: den gemerkten Stand sofort zeigen.
+  if (!DATEN){
+    const alt = merkLesen(merkSchluessel());
+    const ich = merkLesen(ichSchluessel());
+    if (ich && typeof ich === 'string'){ gewaehlt = ich; aufgeklappt.add(ich); }
+    if (alt && alt.gaeste){ DATEN = alt; statusText = 'Wird aktualisiert …'; statusWarn = false; zeichnen(); }
+  } else status('Wird aktualisiert …');
+
   try {
     const r = await fetch(API + '?gaeste=' + encodeURIComponent(c), { cache: 'no-store' });
     const d = await r.json();
-    if (d.fehler === 'unbekannt') return hinweis('Diesen Link gibt es nicht mehr.', 'Er wurde zurückgezogen oder war nie gültig.');
-    if (d.fehler) return hinweis('Die Liste ließ sich gerade nicht holen.', d.fehler + ' Bitte später noch einmal öffnen.');
-    if (d.abgelaufen) return hinweis('Alles erledigt – danke!', 'Alle Gäste vom ' + (d.art || 'Termin') + ' am ' + dat(d.datum) + ' haben bezahlt. Der Link ist inzwischen abgelaufen.');
+    if (d.fehler === 'unbekannt'){ merkLoeschen(merkSchluessel()); DATEN = null; return hinweis('Diesen Link gibt es nicht mehr.', 'Er wurde zurückgezogen oder war nie gültig.'); }
+    if (d.abgelaufen){ merkLoeschen(merkSchluessel()); DATEN = null; return hinweis('Alles erledigt – danke!', 'Alle Gäste vom ' + (d.art || 'Termin') + ' am ' + dat(d.datum) + ' haben bezahlt. Der Link ist inzwischen abgelaufen.'); }
+    if (d.fehler) throw new Error(d.fehler);
     DATEN = d;
+    geholtUm = Date.now();
+    merkSchreiben(merkSchluessel(), d);
+    statusText = ''; statusWarn = false;
     zeichnen();
   } catch (e) {
-    hinweis('Keine Verbindung.', 'Die Liste ließ sich nicht holen. Bitte bei besserem Empfang noch einmal öffnen.');
+    if (DATEN){
+      // Lieber den letzten Stand mit klarem Hinweis als eine leere Seite.
+      status('Gerade keine Verbindung – das ist der Stand vom ' + uhr(DATEN.stand) + '. Zum Aktualisieren nach unten ziehen.', true);
+    } else {
+      hinweis('Keine Verbindung.', 'Die Liste ließ sich nicht holen. Bitte bei besserem Empfang noch einmal öffnen.');
+    }
+  } finally {
+    laeuftGerade = false;
+    $('inhalt').removeAttribute('aria-busy');
   }
 }
 
@@ -228,6 +291,15 @@ function hinweis(titel, text){
     <button class="btn" type="button" id="nochmal">Noch einmal versuchen</button></div>`;
   $('nochmal').addEventListener('click', () => { $('inhalt').innerHTML = '<p class="lade">Einen Moment …</p>'; laden(); });
 }
+
+/* Zurück aus der Banking-App: Die Seite holt sich den neuesten Stand selbst –
+   aber höchstens alle 20 Sekunden, damit kurzes Hin- und Herwechseln nicht
+   jedes Mal eine Abfrage auslöst. */
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !DATEN) return;
+  if (Date.now() - geholtUm < 20000) return;
+  laden();
+});
 
 function zeichnen(){
   const d = DATEN;
@@ -253,8 +325,8 @@ function zeichnen(){
   // Alphabetisch nach Namen (Wunsch Johannes, 01.11.2026) – bezahlt oder nicht.
   const sortiert = gaeste.slice().sort((a, b) => a.n.localeCompare(b.n, 'de', { sensitivity: 'base' }));
   const karte = g => `
-    <div class="gast${g.bezahlt ? ' bezahlt' : ''}">
-      <button type="button" aria-expanded="false">
+    <div class="gast${g.bezahlt ? ' bezahlt' : ''}${aufgeklappt.has(g.n) ? ' auf' : ''}" data-n="${esc(g.n)}">
+      <button type="button" aria-expanded="${aufgeklappt.has(g.n)}">
         <div class="av">${esc((g.n || '?').charAt(0).toUpperCase())}</div>
         <div class="n"><b>${esc(g.n)}</b><span>${g.s.length === 1 ? '1 Posten' : g.s.length + ' Posten'}</span></div>
         <div style="text-align:right">
@@ -280,6 +352,7 @@ function zeichnen(){
       </div>
       <div class="balken"><i style="width:${anteil}%"></i></div>
       <div class="mini"><span>${nBez} von ${gaeste.length} ${gaeste.length === 1 ? 'hat' : 'haben'} bezahlt</span><span>Stand ${esc(uhr(d.stand))}</span></div>
+      <div class="status${statusWarn ? ' warn' : ''}" id="status" aria-live="polite">${esc(statusText)}</div>
     </div>
 
     <h2>Die Gäste</h2>
@@ -303,10 +376,12 @@ function zeichnen(){
 
   $('liste').querySelectorAll('.gast > button').forEach(b => b.addEventListener('click', () => {
     const k = b.parentElement; k.classList.toggle('auf');
-    b.setAttribute('aria-expanded', k.classList.contains('auf'));
+    const auf = k.classList.contains('auf');
+    b.setAttribute('aria-expanded', auf);
+    if (auf) aufgeklappt.add(k.dataset.n); else aufgeklappt.delete(k.dataset.n);
   }));
   $('liste').querySelectorAll('[data-zahl]').forEach(b => b.addEventListener('click', () => {
-    gewaehlt = b.dataset.zahl; zahlZeichnen();
+    gewaehlt = b.dataset.zahl; merkSchreiben(ichSchluessel(), gewaehlt); zahlZeichnen();
     $('wahl').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }));
   if (offene.length) zahlZeichnen();
@@ -318,7 +393,9 @@ function zahlZeichnen(){
   $('wahl').innerHTML = gaeste.map(g => `<button class="chip${g.n === gewaehlt ? ' an' : ''}" type="button"
       data-w="${esc(g.n)}"${g.bezahlt ? ' disabled' : ''}>${esc(g.n)}${g.bezahlt ? ' ✓' : ''}</button>`).join('');
   $('wahl').querySelectorAll('[data-w]').forEach(b => b.addEventListener('click', () => {
-    gewaehlt = gewaehlt === b.dataset.w ? '' : b.dataset.w; zahlZeichnen();
+    gewaehlt = gewaehlt === b.dataset.w ? '' : b.dataset.w;
+    if (gewaehlt) merkSchreiben(ichSchluessel(), gewaehlt); else merkLoeschen(ichSchluessel());
+    zahlZeichnen();
   }));
 
   const g = gaeste.filter(x => x.n === gewaehlt && !x.bezahlt)[0];
