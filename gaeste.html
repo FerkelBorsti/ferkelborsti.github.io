@@ -306,7 +306,7 @@ function zeichnen(){
   const gaeste = d.gaeste || [];
   const kopf = `<div class="eyebrow">${esc(d.art === 'Kegelabend' ? 'Kegelabend mit Gästen' : (d.art || 'Termin') + ' mit Gästen')}</div>
     <h1>${esc(tagText(d.datum))}</h1>
-    <div class="sub">Schön, dass ihr dabei wart! Hier steht, was an dem Abend zusammengekommen ist.</div>`;
+    <div class="sub">Schön, dass du dabei warst! Hier steht, was an dem Abend zusammengekommen ist.</div>`;
 
   if (!gaeste.length){
     $('inhalt').innerHTML = kopf + `<div class="card" style="margin-top:18px"><p class="note" style="margin:0">
