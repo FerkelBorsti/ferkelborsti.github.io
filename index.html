@@ -1514,7 +1514,13 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
      bekommen keinen Schnitt – dort ergibt er keinen Sinn.
    Backend unverändert. Betrifft nur Schriftführer und Kasse – „Was ist neu“
    bleibt unverändert. */
-const APP_VERSION = '1.63';
+/* 1.64 (07.11.2026): Gäste im Rückblick auf den Abend.
+   - Die Anwesenheit nennt Kegelbrüder und Gäste getrennt.
+   - Ein Gast kann Pumpenkegel des Abends werden; ohneGaeste() nimmt die
+     Gäste dafür nicht mehr aus la.pumpen.
+   - Die Gäste-Seite (gaeste.html) zeigt denselben Block „Der ganze Abend“.
+   Braucht Backend 1.59 (vorher fehlt nur die Zahl der Gäste). */
+const APP_VERSION = '1.64';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -1888,7 +1894,8 @@ function ohneGaeste(d){
     la.teuerster = ohneGaesteTitel(la.teuerster);
     la.bester    = ohneGaesteTitel(la.bester);
     if (Array.isArray(la.sonder)) la.sonder = la.sonder.filter(s => !istGast(s.n));
-    if (Array.isArray(la.pumpen)) la.pumpen = la.pumpen.filter(p => !istGast(p.n));
+    /* la.pumpen bleibt seit 1.64 MIT Gästen: Ein Gast kann Pumpenkegel des
+       Abends werden (Entscheidung Johannes, 07.11.2026). */
   }
   return d;
 }
@@ -3050,6 +3057,15 @@ function pumpenkegelZeile(la){
     max + '×');
 }
 
+/* Anwesenheit im Rückblick (1.64): Kegelbrüder und Gäste getrennt, sobald
+   Gäste da waren – „9 Kegelbrüder · 4 Gäste“. Ohne Gäste wie bisher. */
+function anwesendText(la){
+  const k = Number(la.anwesend) || 0, g = Number(la.gaeste) || 0;
+  if (!k && !g) return 'Anwesenheit nicht erfasst';
+  if (!g) return k + ' anwesend';
+  return plural(k, 'Kegelbruder', 'Kegelbrüder') + ' · ' + plural(g, 'Gast', 'Gäste');
+}
+
 function rueckblick(la){
   const eigene = fasseZusammen(la.eigeneEintraege || []);
   const eigeneSumme = la.eigeneSumme || 0;
@@ -3064,7 +3080,7 @@ function rueckblick(la){
 
   // Block 2: der ganze Abend.
   h += `<div class="group-head"><span>Der ganze Abend</span>
-      <span>${la.anwesend ? la.anwesend + ' anwesend' : 'Anwesenheit nicht erfasst'}</span></div>`;
+      <span>${anwesendText(la)}</span></div>`;
 
   const schnitt = typeof la.schnitt === 'number' && la.schnitt > 0
     ? hl('Ø','Durchschnittsstrafe §15','Strafen der Anwesenden geteilt durch ihre Anzahl'
@@ -10975,6 +10991,9 @@ const TOUR_NEU      = 'kc-tour-neu';      // App-Fassung, deren Neuerungen schon
      { fassung: '1.59', punkte: [ 'Erster Punkt, ein Satz.', 'Zweiter Punkt.' ] }
    Solange die Liste leer ist, fehlt der Punkt "Was ist neu" in den Einstellungen. */
 const NEUERUNGEN = [
+  { fassung: '1.64', punkte: [
+    'Im Rückblick auf den letzten Abend zählen die Gäste mit: Die Anwesenheit nennt Kegelbrüder und Gäste getrennt, und auch ein Gast kann Pumpenkegel werden.'
+  ] },
   { fassung: '1.60', punkte: [
     'Unter Verein › Termine steht bei jedem kommenden Termin, ob du dabei bist. Antippen, und du sagst zu oder ab – nicht mehr nur beim nächsten Termin.',
     '„Mehrere beantworten“ sagt mehreren Terminen auf einmal zu oder ab, etwa wenn du im Urlaub bist.',
