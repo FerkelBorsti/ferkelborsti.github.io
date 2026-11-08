@@ -1520,7 +1520,16 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
      Gäste dafür nicht mehr aus la.pumpen.
    - Die Gäste-Seite (gaeste.html) zeigt denselben Block „Der ganze Abend“.
    Braucht Backend 1.59 (vorher fehlt nur die Zahl der Gäste). */
-const APP_VERSION = '1.64';
+/* 1.65 (08.11.2026): Die Anzeige beim Übertragen.
+   - Während die Übertragung läuft, steht ein neutraler Hinweis mit der
+     Wartezeit, die gerade gilt, und eine mitlaufende Uhr – statt eines roten
+     „Angefordert … Das läuft von allein weiter.“, das wie ein Fehler aussah.
+   - Rot bleibt nur für echte Fehler.
+   - Seit dem Zeitfenster in Strafen_Warnung (gleicher Tag) holt das Tabellen-
+     Skript Aufträge abends jede Minute, tagsüber jede dritte und nachts jede
+     fünfzehnte Minute ab. Die App wartet entsprechend lange, bevor sie
+     „Bisher keine Rückmeldung“ meldet. Backend unverändert. */
+const APP_VERSION = '1.65';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -6530,6 +6539,7 @@ async function erfSyncNachsehen(){
     const r = await api('syncStand', { token: token, datum: d, art: a }, 1);
     if (lauf !== erfLauf || !ERF || ERF.datum !== d || ERF.art !== a) return;
     if (!r || r.fehler || !r.status || r.status === 'keine') return;
+    if (r.status === 'offen') erfSyncSeit = syncSeitAus(r.angefordert);
     erfSyncStand = r;
     erfZeichnen();
     if (r.status === 'offen') erfSyncVerfolgen(0);
@@ -6824,12 +6834,60 @@ function erfSyncBlock(){
     <button class="btn" id="erfSync" style="margin-top:12px"${
       laeuft || erfSyncGewuenscht ? ' disabled' : ''}>${
       erfSyncGewuenscht ? 'Sendet noch ' + offen + ' …'
-      : laeuft ? 'Angefordert …' : 'Jetzt übertragen'}</button>
-    ${st.status ? `<p class="note ${fertig ? '' : 'warnton'}" style="margin-top:10px">${
+      : laeuft ? 'Wird übertragen …' : 'Jetzt übertragen'}</button>
+    ${st.status ? `<p class="note ${fertig || laeuft ? '' : 'warnton'}" style="margin-top:10px">${
       fertig ? 'Übertragen am ' + esc(st.erledigt || '') + (st.meldung ? ' · ' + esc(st.meldung) : '')
              : laeuft ? esc(angefordertText(st.angefordert))
+               + ' <span id="erfSyncLaeuft">' + esc(syncLaeuftSeitText()) + '</span>'
              : esc(st.meldung || '')}</p>` : ''}`;
 }
+
+/* 1.65: Das Zeitfenster, in dem Strafen_Warnung Aufträge abholt (appSyncAbholen).
+   Abends 17–24 Uhr jede Minute, tagsüber 6–17 Uhr jede dritte, nachts jede
+   fünfzehnte. Gerechnet in deutscher Zeit, egal wo das Handy gerade ist.
+   Muss zu syncZeitfensterOffen in Strafen_Warnung passen. */
+function syncWartezeitSek(){
+  let h = new Date().getHours();
+  try {
+    /* formatToParts statt format: Im Deutschen hängt format() ein „Uhr“ an. */
+    const teil = new Intl.DateTimeFormat('de-DE', { hour: 'numeric', hourCycle: 'h23',
+      timeZone: 'Europe/Berlin' }).formatToParts(new Date()).find(x => x.type === 'hour');
+    const hb = teil ? Number(teil.value) : NaN;
+    if (hb >= 0 && hb <= 23) h = hb;
+  } catch (e){}
+  if (h >= 17) return 60;
+  if (h >= 6) return 180;
+  return 900;
+}
+function syncWartezeitText(){
+  const s = syncWartezeitSek();
+  return s <= 60 ? 'bis zu einer Minute' : s <= 180 ? 'bis zu drei Minuten' : 'nachts bis zu 15 Minuten';
+}
+
+/* Seit wann die Übertragung läuft – für die mitlaufende Uhr. Gesetzt beim
+   Anfordern; kommt der Stand erst beim Öffnen des Abends herein, wird die
+   Uhrzeit aus der Anforderung gelesen, und nur wenn das nicht geht, ab jetzt. */
+let erfSyncSeit = 0;
+function syncSeitAus(wert){
+  const t = /(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(String(wert || ''));
+  if (t){
+    const d = new Date(+t[1], +t[2] - 1, +t[3], +t[4], +t[5], +(t[6] || 0)).getTime();
+    if (d && d <= Date.now() + 60000) return d;
+  }
+  const p = Date.parse(String(wert || ''));
+  return (p && p <= Date.now() + 60000) ? p : Date.now();
+}
+function syncLaeuftSeitText(){
+  if (!erfSyncSeit) erfSyncSeit = Date.now();
+  const sek = Math.max(0, Math.floor((Date.now() - erfSyncSeit) / 1000));
+  return 'Läuft seit ' + Math.floor(sek / 60) + ':' + String(sek % 60).padStart(2, '0') + '.';
+}
+/* Die Uhr tickt nur in ihrem eigenen Feld – ein ganzes erfZeichnen() je Sekunde
+   würde offene Eingaben zurücksetzen. Ist das Feld weg, schläft sie. */
+setInterval(() => {
+  const el = document.getElementById('erfSyncLaeuft');
+  if (el && erfSyncStand && erfSyncStand.status === 'offen') el.textContent = syncLaeuftSeitText();
+}, 1000);
 
 /* Bis 1.39 stand hier fest "Angefordert um " + angefordert.slice(11,16) + " Uhr".
    Gemeldet am 08.09.2026 stand auf dem Handy "Angefordert um  Uhr" – ohne Zeit.
@@ -6839,8 +6897,8 @@ function erfSyncBlock(){
    steht, entfällt der Satzteil, statt eine Lücke zu drucken. */
 function angefordertText(wert){
   const t = /(\d{1,2}:\d{2})/.exec(String(wert || ''));
-  return (t ? 'Angefordert um ' + t[1] + ' Uhr. ' : 'Angefordert. ')
-       + 'Das läuft von allein weiter.';
+  return 'Wird übertragen' + (t ? ' (angefordert um ' + t[1] + ' Uhr)' : '')
+       + ' – das dauert ' + syncWartezeitText() + '.';
 }
 
 /* Merkt sich, dass übertragen werden soll, während die Schlange noch läuft. */
@@ -6883,6 +6941,7 @@ async function erfSyncAnfordern(){
     /* Gibt das Backend keinen Zeitstempel her (ältere Fassung), nimmt die App
        ihre eigene Uhr. Besser eine Uhrzeit auf die Sekunde genau daneben als
        gar keine. */
+    erfSyncSeit = r.seit ? syncSeitAus(r.seit) : Date.now();
     erfSyncStand = { status: 'offen',
                      angefordert: r.seit || new Date().toLocaleTimeString('de-DE',
                        { hour: '2-digit', minute: '2-digit' }) };
@@ -6900,7 +6959,10 @@ async function erfSyncAnfordern(){
    was zu tun ist, statt ein Rädchen, das sich für immer dreht. */
 function erfSyncVerfolgen(versuch){
   clearTimeout(erfSyncUhr);
-  if (versuch > 12){
+  /* Bis 1.64 fest 12 Nachfragen (zwei Minuten). Seit dem Zeitfenster dauert
+     es tagsüber bis zu drei, nachts bis zu fünfzehn Minuten – gewartet wird
+     deshalb so lange plus anderthalb Minuten Luft. */
+  if (versuch > Math.ceil((syncWartezeitSek() + 90) / 10)){
     erfSyncStand = { status: 'fehlt', meldung: 'Bisher keine Rückmeldung. Erfasst ist alles, '
       + 'nur die Übertragung hängt – versuch es gleich noch einmal. Bleibt es dabei, '
       + 'sag dem Betreuer der App Bescheid.' };
@@ -10991,6 +11053,9 @@ const TOUR_NEU      = 'kc-tour-neu';      // App-Fassung, deren Neuerungen schon
      { fassung: '1.59', punkte: [ 'Erster Punkt, ein Satz.', 'Zweiter Punkt.' ] }
    Solange die Liste leer ist, fehlt der Punkt "Was ist neu" in den Einstellungen. */
 const NEUERUNGEN = [
+  { fassung: '1.65', punkte: [
+    'Beim Übertragen eines Abends zeigt die App jetzt, wie lange es dauert, und lässt eine Uhr mitlaufen. Abends geht es in höchstens einer Minute, tagsüber in höchstens drei. Rot wird es nur noch, wenn wirklich etwas schiefgeht.'
+  ] },
   { fassung: '1.64', punkte: [
     'Im Rückblick auf den letzten Abend zählen die Gäste mit: Die Anwesenheit nennt Kegelbrüder und Gäste getrennt, und auch ein Gast kann Pumpenkegel werden.'
   ] },
