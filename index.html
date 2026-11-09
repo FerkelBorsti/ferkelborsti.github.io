@@ -20,19 +20,24 @@
 <script src="./kc-push-konfig.js"></script>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- Die Schriften halten die erste Anzeige nicht mehr auf. Ein gewöhnliches
-     <link rel=stylesheet> im Kopf ist "render blocking": Der Browser zeigt gar
-     nichts, bis die Datei von fonts.googleapis.com da ist – bei schlechtem
-     Empfang im Kegelheim ein voller Rundlauf zu einem fremden Server, bevor
-     das erste Pixel steht. Mit media="print" gilt die Datei zunächst als
-     Druck-Stil und blockiert nicht; sobald sie da ist, wird sie über onload
-     auf "all" gestellt. Bis dahin steht der Text in der Systemschrift – die
-     Schriftfamilien unten führen sie ausdrücklich als Rückfall. -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Black&display=swap"
-      media="print" onload="this.media='all';this.onload=null">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Black&display=swap"></noscript>
+<!-- 1.66: Die Schriften liegen bei uns, nicht mehr bei Google.
+     Bis 1.65 kamen sie von fonts.googleapis.com – damit ging bei jedem Start
+     die IP-Adresse des Handys an Google (LG München I, 20.01.2022, 3 O 17493/20).
+     Jetzt liegen sie im Ordner schrift/, zugeschnitten auf lateinische Zeichen
+     (deutsch inklusive €, Anführungszeichen, Pfeile). Archivo ist eine
+     variable Schrift: EINE Datei deckt 400 bis 700 ab. Lizenz: SIL OFL 1.1,
+     siehe schrift/OFL-*.txt. font-display:swap – bis die Datei da ist, steht
+     der Text in der Systemschrift; die Familien unten führen sie als Rückfall.
+     Der Service Worker legt die Dateien in den Bilder-Speicher, sie werden
+     also einmal geladen und danach nie wieder. Ändert sich eine Schrift,
+     bekommt die Datei einen neuen Namen (archivo-2.woff). -->
+<link rel="preload" href="schrift/archivo-1.woff" as="font" type="font/woff" crossorigin>
+<style>
+@font-face{font-family:'Archivo';font-style:normal;font-weight:400 700;font-display:swap;
+  src:url('schrift/archivo-1.woff') format('woff');}
+@font-face{font-family:'Archivo Black';font-style:normal;font-weight:400;font-display:swap;
+  src:url('schrift/archivo-black-1.woff') format('woff');}
+</style>
 <style>
 
 :root, :root[data-app-theme="dark"]{
@@ -1377,6 +1382,19 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
         </div>
       </div>
 
+      <div>
+        <div class="eyebrow" style="margin-bottom:10px">Datenschutz</div>
+        <details class="kasse" style="border-radius:var(--radius);border-bottom:none">
+          <summary><span class="lbl">Welche Daten die App verarbeitet</span><span class="go">›</span></summary>
+          <div class="note" style="padding:0 15px 14px">
+            <p style="margin:0 0 8px"><b>Was gespeichert wird:</b> Name, Ämter, Strafen, Zahlungen, An- und Abmeldungen, Geburtsdatum und die Ergebnisse der Kegelabende. Das sind die Vereinsdaten, die auch vorher in den Listen standen.</p>
+            <p style="margin:0 0 8px"><b>Wo:</b> In den Google-Tabellen des Vereins. Die App spricht mit ihnen über ein Google-Apps-Script. Auf diesem Handy liegen nur deine Anmeldung, eine Kopie der Daten für den Start ohne Netz und deine Einstellungen.</p>
+            <p style="margin:0 0 8px"><b>Wer noch beteiligt ist:</b> Die App selbst liegt bei GitHub Pages; beim Laden sieht GitHub die Adresse deines Handys. Für Benachrichtigungen meldet sich das Handy bei Firebase Cloud Messaging (Google) an – schaltest du die Meldungen aus, entfällt das. Schriften und Bilder kommen nicht mehr von fremden Servern. Es gibt keine Werbung und kein Tracking.</p>
+            <p style="margin:0">Fragen, Auskunft oder Löschung: an den Vorstand. Mit „Abmelden“ unten verschwinden die Daten von diesem Handy.</p>
+          </div>
+        </details>
+      </div>
+
       <button class="btn ghost" id="logoutBtn">Abmelden</button>
       <div class="version" id="versionText"></div>
       <div class="version" id="messText" style="margin-top:-14px;opacity:.7"></div>
@@ -1529,7 +1547,13 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
      Skript Aufträge abends jede Minute, tagsüber jede dritte und nachts jede
      fünfzehnte Minute ab. Die App wartet entsprechend lange, bevor sie
      „Bisher keine Rückmeldung“ meldet. Backend unverändert. */
-const APP_VERSION = '1.65';
+/* 1.66 (09.11.2026): Schriften selbst ausgeliefert, Datenschutz-Hinweis.
+   - Archivo und Archivo Black liegen in schrift/ (WOFF, lateinisch
+     zugeschnitten) statt bei fonts.googleapis.com. Keine Verbindung mehr zu
+     Google beim Start – außer für Push (Firebase), wenn eingeschaltet.
+   - Einstellungen › Datenschutz: kurze Erklärung, was wo liegt.
+   - gaeste.html genauso umgestellt. Backend unverändert (1.61). */
+const APP_VERSION = '1.66';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -11053,6 +11077,10 @@ const TOUR_NEU      = 'kc-tour-neu';      // App-Fassung, deren Neuerungen schon
      { fassung: '1.59', punkte: [ 'Erster Punkt, ein Satz.', 'Zweiter Punkt.' ] }
    Solange die Liste leer ist, fehlt der Punkt "Was ist neu" in den Einstellungen. */
 const NEUERUNGEN = [
+  { fassung: '1.66', punkte: [
+    'Die Schriften der App kommen jetzt von unserer eigenen Seite statt von Google. Beim Start geht damit nichts mehr an Google.',
+    'Unter Einstellungen › Datenschutz steht kurz, welche Daten die App verarbeitet und wo sie liegen.'
+  ] },
   { fassung: '1.65', punkte: [
     'Beim Übertragen eines Abends zeigt die App jetzt, wie lange es dauert, und lässt eine Uhr mitlaufen. Abends geht es in höchstens einer Minute, tagsüber in höchstens drei. Rot wird es nur noch, wenn wirklich etwas schiefgeht.'
   ] },
