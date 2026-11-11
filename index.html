@@ -1553,7 +1553,12 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
      Google beim Start – außer für Push (Firebase), wenn eingeschaltet.
    - Einstellungen › Datenschutz: kurze Erklärung, was wo liegt.
    - gaeste.html genauso umgestellt. Backend unverändert (1.61). */
-const APP_VERSION = '1.66';
+/* 1.67 (11.11.2026): Platz für die Testumgebung unter /test/.
+   - sw.js lässt alles unter /test/ in Ruhe (wie gaeste.html) und räumt die
+     Speicher der Test-App ("kc-test-…") beim Fassungswechsel nicht weg.
+   - Sonst keine Änderung, deshalb kein Eintrag unter „Was ist neu“.
+     Backend unverändert (1.61). */
+const APP_VERSION = '1.67';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden

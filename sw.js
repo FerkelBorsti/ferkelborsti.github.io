@@ -25,7 +25,7 @@
               lädt jedes Gerät bei jeder Fassung 300 KB Bilder neu, die sich
               nie ändern. Ändert sich ein Logo doch einmal, bekommt die Datei
               einen neuen Namen – dann holt der Browser sie von selbst. */
-const VERSION = 'kc-v1.66';
+const VERSION = 'kc-v1.67';
 const BILDER  = 'kc-bilder';
 
 /* Was beim Installieren geholt wird. Bewusst knapp:
@@ -144,8 +144,13 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
-      // Der Bilder-Speicher bleibt. Nur alte Hüllen werden geräumt.
-      Promise.all(keys.filter(k => k !== VERSION && k !== BILDER).map(k => caches.delete(k)))
+      /* Der Bilder-Speicher bleibt. Nur alte Hüllen werden geräumt.
+         1.67: Speicher, die mit "kc-test-" beginnen, gehören der Test-App
+         unter /test/ und bleiben ebenfalls stehen. Die Speicher teilen sich
+         alle Seiten dieser Adresse – ohne die Ausnahme räumte jede neue
+         Fassung der echten App die Test-App leer. */
+      Promise.all(keys.filter(k => k !== VERSION && k !== BILDER && k.indexOf('kc-test-') !== 0)
+                      .map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });
@@ -178,6 +183,14 @@ self.addEventListener('fetch', e => {
      die App installiert hat und den Gäste-Link in der Gruppe antippt, sähe
      sonst die App statt der Gäste-Seite. Sie geht immer frisch übers Netz. */
   if (/\/gaeste\.html$/.test(url.pathname)) return;
+
+  /* 1.67: Die Test-App unter /test/ gehört ebenfalls nicht zu dieser App.
+     Ohne diese Zeile beantwortete dieser Worker den ersten Aufruf von /test/
+     als Navigation mit der gespeicherten ECHTEN index.html – wer die App
+     installiert hat, sähe dann die echte App mit dem echten Backend. Sobald
+     die Test-App ihren eigenen Worker hat (Bereich /test/), übernimmt der;
+     bis dahin geht alles unter /test/ unverändert übers Netz. */
+  if (url.pathname.indexOf('/test/') === 0) return;
 
   /* Die Logos: Zwischenspeicher zuerst, und wenn sie da sind, wird nicht
      einmal nachgefragt. Sie ändern sich nie – ändert sich doch eines, trägt
