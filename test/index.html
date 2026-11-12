@@ -100,6 +100,70 @@ html.ios-app{ --oben:calc(env(safe-area-inset-top) + 16px); }
   :root[data-app-theme="auto"]{ color-scheme: light; }
 }
 
+/* DRUCKANSICHT (1.68). Das Blatt ist immer hell – egal, welches Design die
+   App gerade zeigt –, weil es auf Papier oder in ein PDF geht. Farben wie im
+   hellen Design der App. */
+#druckEbene{position:fixed;inset:0;z-index:60;background:#E9E3E7;overflow:auto;-webkit-overflow-scrolling:touch}
+#druckEbene.hidden{display:none}
+html.druckOffen body{overflow:hidden}
+.druckLeiste{position:sticky;top:0;z-index:1;display:flex;justify-content:space-between;gap:8px;
+  padding:calc(var(--oben) + 8px) 12px 10px;background:var(--ink);border-bottom:1px solid var(--line)}
+.dblatt{max-width:794px;margin:12px auto 40px;color:#1B141E;font-family:'Archivo',system-ui,sans-serif}
+.dseite{background:#fff;padding:36px 34px 24px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,0,0,.12);border-radius:4px}
+.dkopf{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;padding-bottom:12px;border-bottom:3px solid #C2185B}
+.dmarke{display:flex;align-items:center;gap:12px}
+.dmarke > img{width:46px;height:46px}
+.dwort{width:190px;height:auto;display:block;margin-bottom:5px}
+.dklein{font-size:12px;color:#6B5F71;font-weight:400}
+.dpille{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#C2185B;
+  border:1.5px solid #C2185B;border-radius:999px;padding:4px 10px;white-space:nowrap}
+.dseite h1{font-family:'Archivo Black','Archivo',sans-serif;font-weight:400;font-size:26px;line-height:1.15;margin:20px 0 4px}
+.dstand{margin-bottom:16px}
+.dseite h2{font-size:12.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#C2185B;margin:18px 0 8px}
+.dseite h2 .dklein{text-transform:none;letter-spacing:0;margin-left:6px}
+.dvermerk{border:1.5px solid #1B7D59;border-radius:10px;padding:10px 14px;margin-bottom:14px}
+.dvermerk strong{color:#1B7D59;font-size:14px}
+.dvermerk.warn{border-color:#8A5D0C}.dvermerk.warn strong{color:#8A5D0C}
+.dvermerk.offen{border-color:#D9CCD5}.dvermerk.offen strong{color:#1B141E}
+.dkacheln{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.dkachel{border:1px solid #D9CCD5;border-radius:10px;padding:10px 12px;background:#F4EEF2}
+.dk1{font-size:10.5px;color:#6B5F71;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.dk2{font-family:'Archivo Black','Archivo',sans-serif;font-size:18px;margin-top:5px}
+.dk3{font-size:11px;color:#6B5F71;margin-top:3px}
+.dzwei{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.dseite table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.dseite th{text-align:left;font-size:10.5px;font-weight:700;color:#6B5F71;text-transform:uppercase;letter-spacing:.05em;
+  padding:5px 7px;border-bottom:1.5px solid #1B141E}
+.dseite td{font-size:12.5px;padding:5px 7px;border-bottom:1px solid #D9CCD5}
+.dseite .r{text-align:right}
+.dseite tr.fuss td{font-weight:700;border-top:1.5px solid #1B141E;border-bottom:none}
+.dseite tr.dhl td{background:#F4EEF2;font-weight:700}
+.dseite tr{break-inside:avoid}
+.ddavon{color:#6B5F71;padding-left:12px}
+.dkasten{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1.5px solid #C2185B;
+  border-radius:10px;padding:8px 14px;margin-bottom:8px;font-size:12.5px;color:#6B5F71}
+.dkasten strong{font-family:'Archivo Black','Archivo',sans-serif;font-weight:400;font-size:15px;color:#C2185B}
+.dhinweis{font-size:11.5px;color:#6B5F71;background:#F4EEF2;border-radius:8px;padding:8px 12px;margin:8px 0 0}
+.dfuss{display:flex;justify-content:space-between;font-size:10.5px;color:#6B5F71;border-top:1px solid #D9CCD5;padding-top:8px;margin-top:18px}
+@media (max-width:560px){
+  .dseite{padding:22px 16px 16px}
+  .dkacheln{grid-template-columns:1fr 1fr}
+  .dzwei{grid-template-columns:1fr;gap:0}
+}
+@media print{
+  @page{size:A4;margin:12mm}
+  html.druckOffen body > *:not(#druckEbene){display:none !important}
+  html.druckOffen body{overflow:visible;background:#fff}
+  #druckEbene{position:static;background:#fff;overflow:visible}
+  .druckLeiste{display:none !important}
+  .dblatt{max-width:none;margin:0}
+  .dseite{box-shadow:none;border-radius:0;padding:0;margin:0;break-after:page}
+  .dseite:last-child{break-after:auto}
+  .dkacheln{grid-template-columns:repeat(4,1fr)}
+  .dzwei{grid-template-columns:1fr 1fr;gap:22px}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+
 /* Meldung in der App (wenn eine Benachrichtigung kommt, während die App offen ist) */
 .meldung{position:fixed;left:12px;right:12px;bottom:calc(76px + var(--nav-unten));
   max-width:calc(var(--shell) - 24px);margin:0 auto;z-index:15;
@@ -863,6 +927,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
         <p class="note" id="kasseKopf">Zahlungen, Kontostand, Ausgaben und sonstige Einnahmen. Alles, was du hier einträgst, gilt sofort.</p>
         <div class="chips" id="kasseChips">
           <button data-kasse="uebersicht" aria-pressed="true">Übersicht</button>
+          <button data-kasse="pruefung" aria-pressed="false">Prüfung &amp; Druck</button>
           <button data-kasse="offen" aria-pressed="false">Offene Beträge</button>
           <button data-kasse="beitraege" aria-pressed="false">Monatsbeiträge</button>
           <button data-kasse="ausgaben" aria-pressed="false">Ausgaben</button>
@@ -1559,7 +1624,18 @@ const API = 'https://script.google.com/macros/s/AKfycby359xVegJ5gEFeb282uN7pTCfL
      Speicher der Test-App ("kc-test-…") beim Fassungswechsel nicht weg.
    - Sonst keine Änderung, deshalb kein Eintrag unter „Was ist neu“.
      Backend unverändert (1.61). */
-const APP_VERSION = '1.67';
+/* 1.68 (12.11.2026): Kassenprüfung und Druckansicht (Plan-Schritt 5).
+   - Neue Freigabe „Einsicht für die Kassenprüfer“ (kpKasse). Die
+     Kassenprüfer sehen Summen, Ausgaben, sonstige Einnahmen und Konto – keine
+     Namen, keine Einzelposten der Kegelbrüder (Backend schickt sie nicht).
+   - Prüfvermerk „Kasse geprüft am …“, Anmerkung freiwillig. Steht oben im
+     Kassenbericht; Kassenwart und Schriftführer bekommen eine Nachricht.
+   - Kasse › „Prüfung & Druck“ und Auswertung › Übersicht: Druckansicht als
+     helles A4-Blatt, „Drucken / als PDF“ über den Druckdialog des Geräts.
+   - Freigaben darf jetzt auch der Vertreter des Amtes setzen – außer denen,
+     die ihm selbst etwas freischalten.
+   Braucht Backend 1.62. */
+const APP_VERSION = '1.68';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -4929,7 +5005,9 @@ const SICHTEN = {
     const A = D.auswertung || [];
     if (!A.length) return `<p class="note" style="margin-top:16px">Noch keine Daten.</p>`;
     const quote = A.reduce((a,r)=>a+r.da,0) / Math.max(1, A.reduce((a,r)=>a+r.termine,0));
-    return `<div class="list" style="margin-top:16px">
+    /* Druckansicht (1.68) – jederzeit, nicht nur zur Generalversammlung. */
+    return `<button class="btn ghost" data-druck="amt" style="margin-top:16px;width:100%">Auswertung drucken / als PDF</button>
+    <div class="list" style="margin-top:16px">
       ${bwBlock('5 in die Vollen (Ø je Termin)', vollenSchnitt, true,
         r=>vollenSchnitt(r).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+' Holz',
         'Nach §26 zählt der Durchschnitt, nicht die Summe. Kegelkönig wird nur, wer bei mindestens '
@@ -9649,7 +9727,7 @@ const KASSE_SICHTEN = {
             Math.abs(diff) >= 0.005)}
       </div>`;
 
-    return kasse18Block() + `
+    return kasse18Block() + pruefBanner(b.pruefung) + `
       <div class="list" style="margin-top:16px">
         ${zeile('Offen gesamt',
                 b.schuldner
@@ -10137,6 +10215,9 @@ const KASSE_SICHTEN = {
         ${k.iban ? 'IBAN und Kontoinhaber bleiben davon unberührt.' : ''}</p>`;
   },
 
+  /* Prüfvermerk und Druckansicht (1.68). */
+  pruefung(){ return kassePruefSicht(); },
+
   ausgaben(){
     const liste = kasseD().ausgaben;
     const summe = Math.round(liste.reduce((s, a) => s + a.betrag, 0) * 100) / 100;
@@ -10236,15 +10317,22 @@ function zeichneKasse(sicht){
      Prüfung stünden dort ab dem Tag der Generalversammlung zwei Reiter, in
      denen "noch nichts erfasst" steht, obwohl die halbe Saison drin ist. */
   const hatPosten = !!(D.kasseDaten && D.kasseDaten.offene);
-  const NUR_LESEN = hatPosten
-    ? ['uebersicht', 'strafen', 'umlagen', 'spenden', 'faellig']   // "Fällig" ist seit 1.51 dabei
+  /* Kassenprüfer (1.68): Übersicht und "Prüfung & Druck" – sonst nichts.
+     Wer nur den freigegebenen Bericht sieht, bekommt weiter nur die
+     Übersicht; die Druckansicht steht dann nicht zur Wahl. */
+  const pruefer = !!(D.ich && D.ich.nurPruefKasse);
+  const NUR_LESEN = pruefer ? ['uebersicht', 'pruefung']
+    : hatPosten
+    ? ['uebersicht', 'pruefung', 'strafen', 'umlagen', 'spenden', 'faellig']   // "Fällig" ist seit 1.51 dabei
     : ['uebersicht'];
   document.querySelectorAll('#kasseChips button').forEach(b =>
     b.classList.toggle('hidden', nurBericht && NUR_LESEN.indexOf(b.dataset.kasse) < 0));
   if (nurBericht && NUR_LESEN.indexOf(aktuelleKasseSicht) < 0) aktuelleKasseSicht = 'uebersicht';
 
   $('kasseKopf').textContent = nurBericht
-    ? (D.ich && D.ich.nurLesenKasse
+    ? (pruefer
+        ? 'Als Kassenprüfer siehst du Summen, Ausgaben und Konto – ansehen ja, ändern nein. Wer wie viel gezahlt hat, bleibt bis zur Generalversammlung beim Kassenwart.'
+       : D.ich && D.ich.nurLesenKasse
         ? 'Der Kassenwart hat dir als Stellvertreter Einsicht gegeben – ansehen ja, ändern nein.'
         : 'Der Kassenbericht dieser Saison, freigegeben vom Kassenwart.')
     : 'Zahlungen, Kontostand, Ausgaben und sonstige Einnahmen. Alles, was du hier einträgst, gilt sofort.';
@@ -10537,6 +10625,375 @@ $('kasseBody').addEventListener('click', async e => {
    Kegelkönig-Schalter lag im Amt-Bereich zwischen den Ranglisten reichlich
    versteckt für etwas, das genau einmal im Jahr gedrückt wird. */
 
+/* ===================================================================
+   KASSENPRÜFUNG UND DRUCKANSICHT (1.68, Plan-Schritt 5, 12.11.2026)
+
+   Drei Dinge, die vor jeder Generalversammlung gebraucht werden:
+   1. Die Kassenprüfer sehen die Kasse – Summen, Ausgaben, Konto. KEINE
+      Namen: Wer wie viel gezahlt hat, bleibt bis zur Generalversammlung
+      vertraulich (Entscheidung Johannes vom 12.11.2026). Das Backend schickt
+      ihnen diese Daten gar nicht erst (Backend 1.62, Freigabe "kpKasse").
+   2. Der Prüfvermerk "Kasse geprüft am …" – Anmerkung freiwillig.
+   3. Eine Druckansicht für die Kasse und für die Auswertung des
+      Schriftführers, jederzeit, für jeden, der den Bereich sehen darf.
+      Sie öffnet als helles Blatt über der App; "Drucken / als PDF" ruft den
+      Druckdialog des Geräts, der auf dem Handy "Als PDF sichern" anbietet.
+   =================================================================== */
+
+let pruefErgebnis = 'ok';
+
+function pruefDatumText(p){
+  return p && p.am ? dat(p.am) : '';
+}
+
+/* Der Vermerk als kleine Karte – oben in der Übersicht und in "Prüfung". */
+function pruefBanner(p, gross){
+  if (!p){
+    return gross ? `<div class="list" style="margin-top:16px"><div class="row"><div>
+        <div class="n">Noch nicht geprüft</div>
+        <div class="m">In dieser Saison ist noch kein Prüfvermerk eingetragen.</div></div></div></div>` : '';
+  }
+  const ok = p.ergebnis !== 'anmerkung';
+  return `<div class="list" style="margin-top:16px;border:1.5px solid ${ok ? 'var(--ok)' : 'var(--warn)'}">
+    <div class="row"><div>
+      <div class="n" style="color:${ok ? 'var(--ok)' : 'var(--warn)'}">Kasse geprüft am ${esc(pruefDatumText(p))} – ${ok ? 'ohne Beanstandung' : 'mit Anmerkung'}</div>
+      <div class="m">Eingetragen von ${esc(p.von || '–')}${p.eingetragen ? ' am ' + esc(dat(String(p.eingetragen).slice(0, 10))) : ''}</div>
+      ${p.text ? `<div class="m" style="font-style:italic">„${esc(p.text)}“</div>` : ''}
+    </div></div></div>`;
+}
+
+function pruefFormular(){
+  if (!(D.ich && D.ich.kassenpruefer)) return '';
+  return `<div class="eyebrow" style="margin:22px 0 10px">Prüfvermerk eintragen</div>
+    <div class="kassefeld">
+      <div class="eyebrow">Geprüft am</div>
+      <input class="search" type="date" id="pruefAm" value="${esc(D.heute)}" max="${esc(D.heute)}" aria-label="Geprüft am">
+    </div>
+    <div class="kassefeld">
+      <div class="eyebrow">Ergebnis</div>
+      <div class="chips" id="pruefErg" style="margin:0;padding:2px 0">
+        <button data-pruef-erg="ok" aria-pressed="${pruefErgebnis === 'ok'}">Ohne Beanstandung</button>
+        <button data-pruef-erg="anmerkung" aria-pressed="${pruefErgebnis === 'anmerkung'}">Mit Anmerkung</button>
+      </div>
+    </div>
+    <div class="kassefeld">
+      <div class="eyebrow">Anmerkung</div>
+      <input enterkeyhint="done" class="search" id="pruefText" maxlength="300" placeholder="freiwillig" aria-label="Anmerkung">
+    </div>
+    <p class="note hidden" id="pruefFehler" style="margin-top:8px"></p>
+    <button class="btn" id="pruefSenden" style="margin-top:12px;width:100%">Prüfvermerk speichern</button>
+    <p class="note" style="margin-top:8px">Kassenwart und Schriftführer bekommen eine Nachricht. Der Vermerk steht danach oben im Kassenbericht.</p>`;
+}
+
+/* Reine Lese-Listen – für die Kassenprüfer, die die Eingabemasken nicht
+   sehen. Ausgaben und sonstige Einnahmen tragen keine Namen von Kegelbrüdern. */
+function kasseListeNurLesen(titel, liste, leer){
+  if (!liste || !liste.length){
+    return `<div class="eyebrow" style="margin:22px 0 10px">${titel}</div>
+      <p class="note">${leer}</p>`;
+  }
+  const summe = Math.round(liste.reduce((s, a) => s + (a.betrag || 0), 0) * 100) / 100;
+  return `<div class="eyebrow" style="margin:22px 0 10px">${titel} · ${eur(summe)}</div>
+    <div class="list">${liste.map(a => `<div class="row">
+      <div><div class="n">${esc(a.notiz || a.kategorie || '–')}</div>
+        <div class="m">${[dat(a.datum), a.kategorie].filter(Boolean).map(esc).join(' · ')}</div></div>
+      <div class="v">${eur(a.betrag)}</div></div>`).join('')}</div>`;
+}
+
+function kassePruefSicht(){
+  const b = D.kassenbericht;
+  const pruefer = !!(D.ich && D.ich.nurPruefKasse);
+  return pruefBanner(b && b.pruefung, true)
+    + pruefFormular()
+    + `<button class="btn ghost" data-druck="kasse" style="margin-top:18px;width:100%">Kassenbericht drucken / als PDF</button>`
+    + (pruefer ? `<p class="note" style="margin-top:8px">Fassung für die Kassenprüfer: Summen, Ausgaben, sonstige Einnahmen und Konto.
+        Wer wie viel gezahlt hat, steht nicht darin – das bleibt bis zur Generalversammlung beim Kassenwart.</p>` : '')
+    + (pruefer ? kasseListeNurLesen('Ausgaben im Einzelnen', kasseD().ausgaben, 'Noch keine Ausgaben erfasst.')
+               + kasseListeNurLesen('Sonstige Einnahmen', kasseD().umlage, 'Noch keine sonstigen Einnahmen erfasst.') : '');
+}
+
+document.addEventListener('click', async e => {
+  const erg = e.target.closest('button[data-pruef-erg]');
+  if (erg){
+    pruefErgebnis = erg.dataset.pruefErg;
+    document.querySelectorAll('#pruefErg button').forEach(x => x.setAttribute('aria-pressed', x === erg));
+    return;
+  }
+  const senden = e.target.closest('#pruefSenden');
+  if (senden){
+    const am = ($('pruefAm') || {}).value || '';
+    const text = (($('pruefText') || {}).value || '').trim();
+    if (!am){ kasseFehler('pruefFehler', 'Bitte das Datum der Prüfung angeben.'); return; }
+    if (pruefErgebnis === 'anmerkung' && !text){
+      /* Freiwillig heißt freiwillig – aber "mit Anmerkung" ohne Anmerkung
+         wäre eine Beanstandung, die niemand nachlesen kann. Nachfragen statt
+         verbieten. */
+      if (senden.dataset.sicher !== '1'){
+        senden.dataset.sicher = '1';
+        kasseFehler('pruefFehler', '„Mit Anmerkung“, aber ohne Text? Zum Speichern noch einmal tippen.');
+        return;
+      }
+    }
+    senden.dataset.sicher = '';
+    const r = await kasseSenden('kassePruefen',
+      { pruefung: { am: am, ergebnis: pruefErgebnis, text: text } },
+      senden, 'Prüfvermerk speichern', 'pruefFehler');
+    if (r && r.ok){
+      if (D.kassenbericht && r.pruefung) D.kassenbericht.pruefung = r.pruefung;
+      pruefErgebnis = 'ok';
+      hinweisleiste('Prüfvermerk gespeichert.');
+      reiterZeichnen('kasse', true);
+    }
+    return;
+  }
+  const dr = e.target.closest('button[data-druck]');
+  if (dr){ druckOeffnen(dr.dataset.druck); return; }
+  if (e.target.closest('#druckZu')){ druckSchliessen(); return; }
+  if (e.target.closest('#druckLos')){ window.print(); return; }
+});
+
+/* ------------------------------------------------------- das Blatt */
+
+/* "ab": ab welcher Spalte rechtsbündig gesetzt wird (Zahlen). */
+function dZeile(zellen, kl, ab){
+  ab = ab || 1;
+  return '<tr' + (kl ? ' class="' + kl + '"' : '') + '>' + zellen.map((z, i) =>
+    '<td' + (i >= ab ? ' class="r"' : '') + '>' + z + '</td>').join('') + '</tr>';
+}
+function dTabelle(kopf, zeilen, fuss, ab){
+  ab = ab || 1;
+  return '<table><thead><tr>' + kopf.map((k, i) => '<th' + (i >= ab ? ' class="r"' : '') + '>' + k + '</th>').join('')
+    + '</tr></thead><tbody>' + zeilen.join('')
+    + (fuss ? dZeile(fuss, 'fuss', ab) : '') + '</tbody></table>';
+}
+function dKachel(titel, wert, unter, farbe){
+  return `<div class="dkachel"><div class="dk1">${titel}</div>
+    <div class="dk2"${farbe ? ' style="color:' + farbe + '"' : ''}>${wert}</div>
+    <div class="dk3">${unter || ''}</div></div>`;
+}
+function dKasten(titel, wert){
+  return `<div class="dkasten"><span>${titel}</span><strong>${wert}</strong></div>`;
+}
+function dKopf(bereich, titel, vertraulich){
+  const jetzt = new Date();
+  const uhr = String(jetzt.getHours()).padStart(2, '0') + ':' + String(jetzt.getMinutes()).padStart(2, '0');
+  const amt = (D.ich && D.ich.rollen && D.ich.rollen.length) ? ' (' + D.ich.rollen.join(', ') + ')' : '';
+  return `<div class="dkopf">
+      <div class="dmarke"><img src="../logo/standard-hell-marke.png" alt="">
+        <div><img class="dwort" src="../logo/wortmarke-hell.png" alt="KC Knüppeldick">
+          <div class="dklein">${bereich} · Druckansicht</div></div></div>
+      ${vertraulich ? `<div class="dpille">${vertraulich}</div>` : ''}
+    </div>
+    <h1>${titel}</h1>
+    <div class="dklein dstand">Saison ${esc(SAISON_LAEUFT)} · Stand ${esc(dat(D.heute))}, ${uhr} Uhr · erstellt von ${esc((D.ich && D.ich.name) || '–')}${esc(amt)}</div>`;
+}
+function dFuss(){
+  return `<div class="dfuss"><span>KC Knüppeldick · aus der Vereins-App, Fassung ${esc(APP_VERSION)}</span>
+    <span>Stand ${esc(dat(D.heute))}</span></div>`;
+}
+
+function druckKasse(){
+  const b = D.kassenbericht;
+  if (!b) return '<p>Noch keine Kassenzahlen vorhanden.</p>';
+  const pruefer = !!(D.ich && D.ich.nurPruefKasse);
+  const p = b.pruefung;
+  const eingegangen = Math.round(((b.bewegung || 0) + (b.ausgaben || 0)) * 100) / 100;
+
+  const vermerk = p
+    ? `<div class="dvermerk${p.ergebnis === 'anmerkung' ? ' warn' : ''}"><strong>Kasse geprüft am ${esc(pruefDatumText(p))} – ${
+        p.ergebnis === 'anmerkung' ? 'mit Anmerkung' : 'ohne Beanstandung'}</strong>
+        <div class="dklein">Eingetragen von ${esc(p.von || '–')}${(p.pruefer && p.pruefer.length) ? ' · Kassenprüfer: ' + esc(p.pruefer.join(', ')) : ''}${
+          p.text ? ' · Anmerkung: „' + esc(p.text) + '“' : ''}</div></div>`
+    : `<div class="dvermerk offen"><strong>Noch nicht geprüft</strong>
+        <div class="dklein">In dieser Saison ist noch kein Prüfvermerk eingetragen.</div></div>`;
+
+  const kacheln = `<div class="dkacheln">
+    ${dKachel('Kontostand', eur(b.kontostandBerechnet || 0), b.auszugAm ? 'Auszug vom ' + esc(b.auszugAm) : 'gerechnet')}
+    ${dKachel('Eingegangen', eur(eingegangen), 'Strafen-Quote ' + (b.quote || 0) + ' %', '#1B7D59')}
+    ${dKachel('Ausgaben', eur(b.ausgaben || 0), plural(b.ausgabenAnzahl || 0, 'Eintrag', 'Einträge'))}
+    ${dKachel('Noch offen', eur(b.offen || 0), b.schuldner ? plural(b.schuldner, 'Kegelbruder', 'Kegelbrüder') : 'alles beglichen', '#C2185B')}
+  </div>`;
+
+  const davon = t => '<span class="ddavon">' + t + '</span>';
+  const ein = [dZeile(['Strafen (bezahlt)', eur(b.bezahlt || 0)])];
+  if (b.teilzahlungen > 0) ein.push(dZeile([davon('davon Anzahlungen'), eur(b.teilzahlungen)]));
+  if (b.gaesteBezahlt > 0) ein.push(dZeile([davon('davon Gäste'), eur(b.gaesteBezahlt)]));
+  ein.push(dZeile(['Monatsbeiträge', eur(b.beitraegeBezahlt || 0)]));
+  if (b.umlagenBezahlt > 0) ein.push(dZeile(['Umlagen', eur(b.umlagenBezahlt)]));
+  ein.push(dZeile(['Spenden', eur(b.spenden || 0)]));
+  ein.push(dZeile(['Sonstige Einnahmen', eur(b.umlage || 0)]));
+  const tEin = dTabelle(['Einnahmen', 'Betrag'], ein, ['Eingegangen gesamt', eur(eingegangen)]);
+
+  const kat = (b.ausgabenJeKategorie || []);
+  const tAus = dTabelle(['Ausgaben je Kategorie', 'Anz.', 'Betrag'],
+    kat.length ? kat.map(k => dZeile([esc(k.k), k.anzahl, eur(k.summe)])) : [dZeile(['keine Ausgaben', '', ''])],
+    ['Ausgaben gesamt', b.ausgabenAnzahl || 0, eur(b.ausgaben || 0)]);
+
+  const diff = b.differenz;
+  const konto = [dZeile(['Anfangsbestand' + (b.anfangAm ? ' (' + esc(b.anfangAm) + ')' : ''), eur(b.anfang || 0)]),
+    dZeile(['Bewegung der Saison', (b.bewegung >= 0 ? '+ ' : '− ') + eur(Math.abs(b.bewegung || 0))]),
+    dZeile(['Kontostand (gerechnet)', eur(b.kontostandBerechnet || 0)])];
+  if (b.auszug !== null && b.auszug !== undefined)
+    konto.push(dZeile(['Laut Kontoauszug' + (b.auszugAm ? ' vom ' + esc(b.auszugAm) : ''), eur(b.auszug)]));
+  const tKonto = dTabelle(['Konto', 'Betrag'], konto,
+    (diff === null || diff === undefined) ? null
+      : ['Differenz', Math.abs(diff) < 0.005 ? '0,00 € · alles erfasst' : (diff > 0 ? '+ ' : '− ') + eur(Math.abs(diff))]);
+
+  const offenZ = [];
+  if (b.offenStrafen !== undefined && (b.beitraegeOffen > 0 || b.umlagenOffen > 0)){
+    offenZ.push(dZeile([davon('davon Strafen'), eur(b.offenStrafen)]));
+    if (b.umlagenOffen > 0) offenZ.push(dZeile([davon('davon Umlagen'), eur(b.umlagenOffen)]));
+    if (b.beitraegeOffen > 0) offenZ.push(dZeile([davon('davon Monatsbeiträge'), eur(b.beitraegeOffen)]));
+  }
+  offenZ.push(dZeile(['davon überfällig (§34)', eur(b.ueberfaellig || 0)]));
+  offenZ.push(dZeile(['Verspätungszuschläge der Saison', eur(b.zuschlaege || 0)]));
+  const tOffen = dTabelle(['Noch offen', 'Betrag'], offenZ, ['Offen gesamt', eur(b.offen || 0)]);
+
+  const seite1 = `<section class="dseite">${dKopf('Kasse', 'Kassenbericht', pruefer ? 'Fassung Kassenprüfer' : '')}
+    ${vermerk}${kacheln}
+    <div class="dzwei"><div><h2>Einnahmen</h2>${tEin}</div><div><h2>Ausgaben</h2>${tAus}</div></div>
+    <div class="dzwei"><div><h2>Konto</h2>${tKonto}</div><div><h2>Noch offen</h2>${tOffen}</div></div>
+    ${dFuss()}</section>`;
+
+  const ausg = (kasseD().ausgaben || []).slice().sort((x, y) => x.datum < y.datum ? -1 : 1);
+  const tAusg = dTabelle(['Datum', 'Zweck', 'Kategorie', 'Betrag'].map((k, i) => k),
+    ausg.length ? ausg.map(a => '<tr><td>' + esc(dat(a.datum)) + '</td><td>' + esc(a.notiz || '–')
+        + '</td><td>' + esc(a.kategorie || '') + '</td><td class="r">' + eur(a.betrag) + '</td></tr>')
+      : ['<tr><td colspan="4">Noch keine Ausgaben erfasst.</td></tr>'],
+    null, 3);
+  const sonst = (kasseD().umlage || []).slice().sort((x, y) => x.datum < y.datum ? -1 : 1);
+  const tSonst = sonst.length ? '<h2>Sonstige Einnahmen</h2>' + dTabelle(['Datum', 'Notiz', 'Betrag'],
+    sonst.map(a => '<tr><td>' + esc(dat(a.datum)) + '</td><td>' + esc(a.notiz || a.kategorie || '–')
+      + '</td><td class="r">' + eur(a.betrag) + '</td></tr>'), null, 2) : '';
+
+  /* Offene Beträge je Kegelbruder – NUR wer die Einzelposten ohnehin hat
+     (Kassenwart, Vertreter mit Einsicht, Kegelväter mit Einsicht). Die
+     Kassenprüfer haben sie nicht im Gerät, der Abschnitt fehlt dann von
+     selbst. */
+  let tLeute = '';
+  const offene = (D.kasseDaten && D.kasseDaten.offene) || null;
+  if (offene && !pruefer){
+    const je = {};
+    offene.filter(o => !o.bezahlt && !o.ausgesetzt && Math.abs(o.offen || 0) >= 0.005).forEach(o => {
+      if (!je[o.name]) je[o.name] = { n: o.name, posten: 0, offen: 0 };
+      je[o.name].posten += 1; je[o.name].offen += (o.offen || 0);
+    });
+    const l = Object.keys(je).map(k => je[k]).sort((x, y) => x.n.localeCompare(y.n, 'de'));
+    const summe = l.reduce((s, x) => s + x.offen, 0), posten = l.reduce((s, x) => s + x.posten, 0);
+    tLeute = '<h2>Offene Strafen je Kegelbruder <span class="dklein">nur Kassenwart</span></h2>'
+      + dTabelle(['Kegelbruder', 'Posten', 'offen'],
+          l.length ? l.map(x => dZeile([esc(x.n), x.posten, (x.offen < 0 ? '− ' : '') + eur(Math.abs(x.offen))]))
+                   : [dZeile(['alles beglichen', '', ''])],
+          ['Offen gesamt (netto)', posten, (summe < 0 ? '− ' : '') + eur(Math.abs(summe))])
+      + '<p class="dhinweis">Dieser Abschnitt steht nur im Ausdruck von Kassenwart und Vertretung. In der Fassung für die Kassenprüfer fehlt er – wer wie viel gezahlt hat, bleibt bis zur Generalversammlung vertraulich.</p>';
+  }
+
+  const seite2 = `<section class="dseite">${dKopf('Kasse', 'Kassenbericht – Einzelheiten', tLeute ? 'nur Kassenwart' : (pruefer ? 'Fassung Kassenprüfer' : ''))}
+    <h2>Ausgaben im Einzelnen</h2>${tAusg}${tSonst}${tLeute}${dFuss()}</section>`;
+  return seite1 + seite2;
+}
+
+function druckAuswertung(){
+  const A = (D.auswertung || []).slice();
+  if (!A.length) return '<p>Noch keine Daten.</p>';
+  const holz = r => vollenSchnitt(r).toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+  const vollen = A.slice().sort((a, b) => vollenSchnitt(b) - vollenSchnitt(a));
+  const koenig = vollen.filter(koenigsfaehig)[0];
+  const hT = huerdeText();
+  const tVollen = dTabelle(['Platz', 'Kegelbruder', 'Ø Holz', 'Kegelabende', ''],
+    vollen.map((r, i) => '<tr' + (koenig && r.n === koenig.n ? ' class="dhl"' : '') + '><td>' + (i + 1) + '</td><td>' + esc(r.n)
+      + '</td><td class="r">' + holz(r) + '</td><td class="r">' + (r.daKegeln !== undefined ? r.daKegeln + '/' + r.kegelTermine : '–')
+      + '</td><td class="r">' + (koenig && r.n === koenig.n ? 'vorn' : koenigsfaehig(r) ? '' : 'unter Hürde') + '</td></tr>'), null, 2);
+
+  const pumpen = A.slice().sort((a, b) => gesamtPumpen(b) - gesamtPumpen(a));
+  const tPumpen = dTabelle(['Platz', 'Kegelbruder', 'Pumpen'],
+    pumpen.map((r, i) => '<tr' + (i === 0 ? ' class="dhl"' : '') + '><td>' + (i + 1) + '</td><td>' + esc(r.n) + '</td><td class="r">'
+      + gesamtPumpen(r).toLocaleString('de-DE') + '</td></tr>'), null, 2);
+
+  const neun = A.slice().sort((a, b) => b.alle9 - a.alle9);
+  const tNeun = dTabelle(['Platz', 'Kegelbruder', 'alle 9'],
+    neun.map((r, i) => '<tr' + (i === 0 && r.alle9 > 0 ? ' class="dhl"' : '') + '><td>' + (i + 1) + '</td><td>' + esc(r.n) + '</td><td class="r">'
+      + r.alle9 + '×</td></tr>'), null, 2);
+
+  const anw = A.slice().sort((a, b) => b.da - a.da);
+  const letzter = anw[anw.length - 1];
+  const tAnw = dTabelle(['Platz', 'Kegelbruder', 'anwesend', 'Quote'],
+    anw.map((r, i) => '<tr' + (letzter && r.n === letzter.n && i > 0 ? ' class="dhl"' : '') + '><td>' + (i + 1) + '</td><td>' + esc(r.n)
+      + '</td><td class="r">' + r.da + '/' + r.termine + '</td><td class="r">'
+      + (r.termine ? Math.round(r.da / r.termine * 100) : 0) + ' %</td></tr>'), null, 2);
+
+  const sonder = A.slice().filter(r => gesamtSonder(r) > 0).sort((a, b) => gesamtSonder(b) - gesamtSonder(a));
+  const tSonder = dTabelle(['Kegelbruder', 'Kranz', 'König', '8 ums V.', 'alle 9', 'gesamt'],
+    sonder.length ? sonder.map(r => dZeile([esc(r.n), r.kranz, r.koenig, r.acht, r.alle9, gesamtSonder(r)]))
+                  : ['<tr><td colspan="6">Noch keine Sonderwürfe.</td></tr>'], null);
+
+  /* Strafen je Kegelbruder: die ANZAHL, wie in Auswertung › Strafen – ohne
+     Beträge, die gehören zum Kassenwart (07.09.2026). Die Zählung kommt aus
+     einer eigenen Abfrage; ist sie noch nicht da, wird sie geholt. */
+  let tStrafen = '';
+  if (zaehlungDaten && !zaehlungDaten.fehler){
+    const t = swTrennen(swAusZaehlung().filter(z => !z.g));
+    const o = { id: 'amt', zeilen: t.echt, geld: false };
+    const je = {};
+    A.forEach(r => je[r.n] = 0);
+    t.echt.forEach(z => { je[z.n] = (je[z.n] || 0) + swSumme(o, [z]); });
+    const l = Object.keys(je).map(n => ({ n: n, a: je[n] })).sort((x, y) => y.a - x.a);
+    const schnitt = l.length ? l.reduce((s, x) => s + x.a, 0) / l.length : 0;
+    tStrafen = '<h2>Strafen je Kegelbruder</h2>' + dKasten('Vereinsschnitt', zahl1(schnitt) + ' Strafen')
+      + dTabelle(['Platz', 'Kegelbruder', 'Anzahl'],
+          l.map((x, i) => dZeile([i + 1, esc(x.n), x.a.toLocaleString('de-DE')], '', 2)), null, 2)
+      + '<p class="dhinweis">Gezählt wird, wie oft eine Strafe erfasst ist – ohne Beträge, ohne Gäste.</p>';
+  } else {
+    zaehlungHolen();
+    tStrafen = '<h2>Strafen je Kegelbruder</h2><p class="dhinweis">Die Zählung der Strafen wird gerade geholt. Bitte die Druckansicht gleich noch einmal öffnen.</p>';
+  }
+
+  const vertr = 'vertraulich bis zur GV';
+  const seite1 = `<section class="dseite">${dKopf('Schriftführer', 'Auswertung des Schriftführers', vertr)}
+    <h2>Kegelkönig <span class="dklein">5 in die Vollen · ${hT ? 'Mindest-Anwesenheit ' + esc(hT) + ' der Kegelabende' : '§26'}</span></h2>
+    ${dKasten('Vereinsschnitt bei 5 in die Vollen', zahl1(schnittVon(A, vollenSchnitt)) + ' Holz')}${tVollen}
+    <div class="dzwei"><div><h2>Pumpenkönig</h2>${dKasten('Vereinsschnitt', zahl1(schnittVon(A, gesamtPumpen)) + ' Pumpen')}${tPumpen}</div>
+      <div><h2>9er König</h2>${dKasten('Vereinsschnitt', zahl1(schnittVon(A, r => r.alle9)) + '×')}${tNeun}</div></div>
+    ${dFuss()}</section>`;
+  const seite2 = `<section class="dseite">${dKopf('Schriftführer', 'Auswertung des Schriftführers', vertr)}
+    <h2>Anwesenheit <span class="dklein">§39 · alle Kegelveranstaltungen</span></h2>
+    ${dKasten('Vereinsschnitt', esc(String(anwesenheitSchnitt(A)).replace(/<[^>]*>/g, '')))}${tAnw}
+    <p class="dhinweis">Hinterlegt: schlechteste Anwesenheit nach §39.</p>
+    <h2>Sonderwürfe</h2>${tSonder}
+    ${tStrafen}
+    ${dFuss()}</section>`;
+  return seite1 + seite2;
+}
+
+function druckOeffnen(was){
+  /* Nur wer den Bereich sieht, bekommt das Blatt – die Daten dafür liegen
+     ohnehin nur in seinem Gerät. Die Prüfung hier fängt einen alten Knopf
+     nach einem Rechtewechsel ab. */
+  if (was === 'kasse' && !darfKasseSehen()) return;
+  if (was === 'amt' && !darfAmtSehen()) return;
+  let e = $('druckEbene');
+  if (!e){
+    e = document.createElement('div');
+    e.id = 'druckEbene';
+    document.body.appendChild(e);
+  }
+  const inhalt = was === 'kasse' ? druckKasse() : druckAuswertung();
+  e.innerHTML = `<div class="druckLeiste">
+      <button class="btn ghost small" id="druckZu">Schließen</button>
+      <button class="btn small" id="druckLos">Drucken / als PDF</button>
+    </div>
+    <div class="dblatt">${inhalt}</div>`;
+  e.classList.remove('hidden');
+  document.documentElement.classList.add('druckOffen');
+  e.scrollTop = 0;
+}
+function druckSchliessen(){
+  const e = $('druckEbene');
+  if (e){ e.classList.add('hidden'); e.innerHTML = ''; }
+  document.documentElement.classList.remove('druckOffen');
+}
+
 const FREIGABEN = [
   { k: 'gv', titel: 'Kegelkönig freigeben',
     dsc: 'Zeigt Kegelkönig und Pumpenkönig allen Kegelbrüdern. Gedacht für die Generalversammlung.' },
@@ -10551,7 +11008,9 @@ const FREIGABEN = [
   { k: 'kvAmt', titel: 'Einsicht für die Kegelväter (Schriftführer)',
     dsc: 'Beide Kegelväter dürfen den Bereich des Schriftführers mitlesen. Nur lesen.' },
   { k: 'kvKasse', titel: 'Einsicht für die Kegelväter (Kasse)',
-    dsc: 'Beide Kegelväter dürfen den Kassenbericht mitlesen. Nur lesen.' }
+    dsc: 'Beide Kegelväter dürfen den Kassenbericht mitlesen. Nur lesen.' },
+  { k: 'kpKasse', titel: 'Einsicht für die Kassenprüfer',
+    dsc: 'Die Kassenprüfer sehen Summen, Ausgaben, sonstige Einnahmen und das Konto und können den Prüfvermerk setzen. Keine Namen: Wer wie viel gezahlt hat, sehen sie nicht. Am besten vor der Kassenprüfung setzen.' }
 ];
 
 /* Freigaben und Codes liegen zusammen in einer eigenen Ebene statt verstreut in
