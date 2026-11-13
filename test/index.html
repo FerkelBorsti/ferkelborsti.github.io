@@ -11261,7 +11261,9 @@ async function druckPdfTeilen(knopf){
   if (!druckDatei) return;
   try {
     if (navigator.canShare && navigator.canShare({ files: [druckDatei] })){
-      await navigator.share({ files: [druckDatei], title: druckDatei.name });
+      /* Nur die Datei – ohne title/text. iOS legt sonst eine zweite Datei
+         „Text“ dazu (Johannes, 13.11.2026). */
+      await navigator.share({ files: [druckDatei] });
       return;
     }
   } catch (e) {
