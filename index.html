@@ -100,6 +100,70 @@ html.ios-app{ --oben:calc(env(safe-area-inset-top) + 16px); }
   :root[data-app-theme="auto"]{ color-scheme: light; }
 }
 
+/* DRUCKANSICHT (1.68). Das Blatt ist immer hell – egal, welches Design die
+   App gerade zeigt –, weil es auf Papier oder in ein PDF geht. Farben wie im
+   hellen Design der App. */
+#druckEbene{position:fixed;inset:0;z-index:60;background:#E9E3E7;overflow:auto;-webkit-overflow-scrolling:touch}
+#druckEbene.hidden{display:none}
+html.druckOffen body{overflow:hidden}
+.druckLeiste{position:sticky;top:0;z-index:1;display:flex;justify-content:space-between;gap:8px;
+  padding:calc(var(--oben) + 8px) 12px 10px;background:var(--ink);border-bottom:1px solid var(--line)}
+.dblatt{max-width:794px;margin:12px auto 40px;color:#1B141E;font-family:'Archivo',system-ui,sans-serif}
+.dseite{background:#fff;padding:36px 34px 24px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,0,0,.12);border-radius:4px}
+.dkopf{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;padding-bottom:12px;border-bottom:3px solid #C2185B}
+.dmarke{display:flex;align-items:center;gap:12px}
+.dmarke > img{width:46px;height:46px}
+.dwort{width:190px;height:auto;display:block;margin-bottom:5px}
+.dklein{font-size:12px;color:#6B5F71;font-weight:400}
+.dpille{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#C2185B;
+  border:1.5px solid #C2185B;border-radius:999px;padding:4px 10px;white-space:nowrap}
+.dseite h1{font-family:'Archivo Black','Archivo',sans-serif;font-weight:400;font-size:26px;line-height:1.15;margin:20px 0 4px}
+.dstand{margin-bottom:16px}
+.dseite h2{font-size:12.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#C2185B;margin:18px 0 8px}
+.dseite h2 .dklein{text-transform:none;letter-spacing:0;margin-left:6px}
+.dvermerk{border:1.5px solid #1B7D59;border-radius:10px;padding:10px 14px;margin-bottom:14px}
+.dvermerk strong{color:#1B7D59;font-size:14px}
+.dvermerk.warn{border-color:#8A5D0C}.dvermerk.warn strong{color:#8A5D0C}
+.dvermerk.offen{border-color:#D9CCD5}.dvermerk.offen strong{color:#1B141E}
+.dkacheln{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.dkachel{border:1px solid #D9CCD5;border-radius:10px;padding:10px 12px;background:#F4EEF2}
+.dk1{font-size:10.5px;color:#6B5F71;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.dk2{font-family:'Archivo Black','Archivo',sans-serif;font-size:18px;margin-top:5px}
+.dk3{font-size:11px;color:#6B5F71;margin-top:3px}
+.dzwei{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.dseite table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.dseite th{text-align:left;font-size:10.5px;font-weight:700;color:#6B5F71;text-transform:uppercase;letter-spacing:.05em;
+  padding:5px 7px;border-bottom:1.5px solid #1B141E}
+.dseite td{font-size:12.5px;padding:5px 7px;border-bottom:1px solid #D9CCD5}
+.dseite .r{text-align:right}
+.dseite tr.fuss td{font-weight:700;border-top:1.5px solid #1B141E;border-bottom:none}
+.dseite tr.dhl td{background:#F4EEF2;font-weight:700}
+.dseite tr{break-inside:avoid}
+.ddavon{color:#6B5F71;padding-left:12px}
+.dkasten{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1.5px solid #C2185B;
+  border-radius:10px;padding:8px 14px;margin-bottom:8px;font-size:12.5px;color:#6B5F71}
+.dkasten strong{font-family:'Archivo Black','Archivo',sans-serif;font-weight:400;font-size:15px;color:#C2185B}
+.dhinweis{font-size:11.5px;color:#6B5F71;background:#F4EEF2;border-radius:8px;padding:8px 12px;margin:8px 0 0}
+.dfuss{display:flex;justify-content:space-between;font-size:10.5px;color:#6B5F71;border-top:1px solid #D9CCD5;padding-top:8px;margin-top:18px}
+@media (max-width:560px){
+  .dseite{padding:22px 16px 16px}
+  .dkacheln{grid-template-columns:1fr 1fr}
+  .dzwei{grid-template-columns:1fr;gap:0}
+}
+@media print{
+  @page{size:A4;margin:12mm}
+  html.druckOffen body > *:not(#druckEbene){display:none !important}
+  html.druckOffen body{overflow:visible;background:#fff}
+  #druckEbene{position:static;background:#fff;overflow:visible}
+  .druckLeiste{display:none !important}
+  .dblatt{max-width:none;margin:0}
+  .dseite{box-shadow:none;border-radius:0;padding:0;margin:0;break-after:page}
+  .dseite:last-child{break-after:auto}
+  .dkacheln{grid-template-columns:repeat(4,1fr)}
+  .dzwei{grid-template-columns:1fr 1fr;gap:22px}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+
 /* Meldung in der App (wenn eine Benachrichtigung kommt, während die App offen ist) */
 .meldung{position:fixed;left:12px;right:12px;bottom:calc(76px + var(--nav-unten));
   max-width:calc(var(--shell) - 24px);margin:0 auto;z-index:15;
@@ -862,6 +926,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
         <p class="note" id="kasseKopf">Zahlungen, Kontostand, Ausgaben und sonstige Einnahmen. Alles, was du hier einträgst, gilt sofort.</p>
         <div class="chips" id="kasseChips">
           <button data-kasse="uebersicht" aria-pressed="true">Übersicht</button>
+          <button data-kasse="pruefung" aria-pressed="false">Prüfung &amp; Druck</button>
           <button data-kasse="offen" aria-pressed="false">Offene Beträge</button>
           <button data-kasse="beitraege" aria-pressed="false">Monatsbeiträge</button>
           <button data-kasse="ausgaben" aria-pressed="false">Ausgaben</button>
@@ -1558,7 +1623,18 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
      Speicher der Test-App ("kc-test-…") beim Fassungswechsel nicht weg.
    - Sonst keine Änderung, deshalb kein Eintrag unter „Was ist neu“.
      Backend unverändert (1.61). */
-const APP_VERSION = '1.67';
+/* 1.68 (12.11.2026): Kassenprüfung und Druckansicht (Plan-Schritt 5).
+   - Neue Freigabe „Einsicht für die Kassenprüfer“ (kpKasse). Die
+     Kassenprüfer sehen Summen, Ausgaben, sonstige Einnahmen und Konto – keine
+     Namen, keine Einzelposten der Kegelbrüder (Backend schickt sie nicht).
+   - Prüfvermerk „Kasse geprüft am …“, Anmerkung freiwillig. Steht oben im
+     Kassenbericht; Kassenwart und Schriftführer bekommen eine Nachricht.
+   - Kasse › „Prüfung & Druck“ und Auswertung › Übersicht: Druckansicht als
+     helles A4-Blatt, „Drucken / als PDF“ über den Druckdialog des Geräts.
+   - Freigaben darf jetzt auch der Vertreter des Amtes setzen – außer denen,
+     die ihm selbst etwas freischalten.
+   Braucht Backend 1.62. */
+const APP_VERSION = '1.68';  // 1.68b intern: PDF selbst gebaut (13.11.2026)
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -4926,7 +5002,9 @@ const SICHTEN = {
     const A = D.auswertung || [];
     if (!A.length) return `<p class="note" style="margin-top:16px">Noch keine Daten.</p>`;
     const quote = A.reduce((a,r)=>a+r.da,0) / Math.max(1, A.reduce((a,r)=>a+r.termine,0));
-    return `<div class="list" style="margin-top:16px">
+    /* Druckansicht (1.68) – jederzeit, nicht nur zur Generalversammlung. */
+    return `<button class="btn ghost" data-druck="amt" style="margin-top:16px;width:100%">Auswertung drucken / als PDF</button>
+    <div class="list" style="margin-top:16px">
       ${bwBlock('5 in die Vollen (Ø je Termin)', vollenSchnitt, true,
         r=>vollenSchnitt(r).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+' Holz',
         'Nach §26 zählt der Durchschnitt, nicht die Summe. Kegelkönig wird nur, wer bei mindestens '
@@ -9646,7 +9724,7 @@ const KASSE_SICHTEN = {
             Math.abs(diff) >= 0.005)}
       </div>`;
 
-    return kasse18Block() + `
+    return kasse18Block() + pruefBanner(b.pruefung) + `
       <div class="list" style="margin-top:16px">
         ${zeile('Offen gesamt',
                 b.schuldner
@@ -10134,6 +10212,9 @@ const KASSE_SICHTEN = {
         ${k.iban ? 'IBAN und Kontoinhaber bleiben davon unberührt.' : ''}</p>`;
   },
 
+  /* Prüfvermerk und Druckansicht (1.68). */
+  pruefung(){ return kassePruefSicht(); },
+
   ausgaben(){
     const liste = kasseD().ausgaben;
     const summe = Math.round(liste.reduce((s, a) => s + a.betrag, 0) * 100) / 100;
@@ -10233,15 +10314,22 @@ function zeichneKasse(sicht){
      Prüfung stünden dort ab dem Tag der Generalversammlung zwei Reiter, in
      denen "noch nichts erfasst" steht, obwohl die halbe Saison drin ist. */
   const hatPosten = !!(D.kasseDaten && D.kasseDaten.offene);
-  const NUR_LESEN = hatPosten
-    ? ['uebersicht', 'strafen', 'umlagen', 'spenden', 'faellig']   // "Fällig" ist seit 1.51 dabei
+  /* Kassenprüfer (1.68): Übersicht und "Prüfung & Druck" – sonst nichts.
+     Wer nur den freigegebenen Bericht sieht, bekommt weiter nur die
+     Übersicht; die Druckansicht steht dann nicht zur Wahl. */
+  const pruefer = !!(D.ich && D.ich.nurPruefKasse);
+  const NUR_LESEN = pruefer ? ['uebersicht', 'pruefung']
+    : hatPosten
+    ? ['uebersicht', 'pruefung', 'strafen', 'umlagen', 'spenden', 'faellig']   // "Fällig" ist seit 1.51 dabei
     : ['uebersicht'];
   document.querySelectorAll('#kasseChips button').forEach(b =>
     b.classList.toggle('hidden', nurBericht && NUR_LESEN.indexOf(b.dataset.kasse) < 0));
   if (nurBericht && NUR_LESEN.indexOf(aktuelleKasseSicht) < 0) aktuelleKasseSicht = 'uebersicht';
 
   $('kasseKopf').textContent = nurBericht
-    ? (D.ich && D.ich.nurLesenKasse
+    ? (pruefer
+        ? 'Als Kassenprüfer siehst du Summen, Ausgaben und Konto – ansehen ja, ändern nein. Wer wie viel gezahlt hat, bleibt bis zur Generalversammlung beim Kassenwart.'
+       : D.ich && D.ich.nurLesenKasse
         ? 'Der Kassenwart hat dir als Stellvertreter Einsicht gegeben – ansehen ja, ändern nein.'
         : 'Der Kassenbericht dieser Saison, freigegeben vom Kassenwart.')
     : 'Zahlungen, Kontostand, Ausgaben und sonstige Einnahmen. Alles, was du hier einträgst, gilt sofort.';
@@ -10534,6 +10622,702 @@ $('kasseBody').addEventListener('click', async e => {
    Kegelkönig-Schalter lag im Amt-Bereich zwischen den Ranglisten reichlich
    versteckt für etwas, das genau einmal im Jahr gedrückt wird. */
 
+/* ===================================================================
+   KASSENPRÜFUNG UND DRUCKANSICHT (1.68, Plan-Schritt 5, 12.11.2026)
+
+   Drei Dinge, die vor jeder Generalversammlung gebraucht werden:
+   1. Die Kassenprüfer sehen die Kasse – Summen, Ausgaben, Konto. KEINE
+      Namen: Wer wie viel gezahlt hat, bleibt bis zur Generalversammlung
+      vertraulich (Entscheidung Johannes vom 12.11.2026). Das Backend schickt
+      ihnen diese Daten gar nicht erst (Backend 1.62, Freigabe "kpKasse").
+   2. Der Prüfvermerk "Kasse geprüft am …" – Anmerkung freiwillig.
+   3. Eine Druckansicht für die Kasse und für die Auswertung des
+      Schriftführers, jederzeit, für jeden, der den Bereich sehen darf.
+      Sie öffnet als helles Blatt über der App; "Drucken / als PDF" ruft den
+      Druckdialog des Geräts, der auf dem Handy "Als PDF sichern" anbietet.
+   =================================================================== */
+
+let pruefErgebnis = 'ok';
+
+function pruefDatumText(p){
+  return p && p.am ? dat(p.am) : '';
+}
+
+/* Der Vermerk als kleine Karte – oben in der Übersicht und in "Prüfung". */
+function pruefBanner(p, gross){
+  if (!p){
+    return gross ? `<div class="list" style="margin-top:16px"><div class="row"><div>
+        <div class="n">Noch nicht geprüft</div>
+        <div class="m">In dieser Saison ist noch kein Prüfvermerk eingetragen.</div></div></div></div>` : '';
+  }
+  const ok = p.ergebnis !== 'anmerkung';
+  return `<div class="list" style="margin-top:16px;border:1.5px solid ${ok ? 'var(--ok)' : 'var(--warn)'}">
+    <div class="row"><div>
+      <div class="n" style="color:${ok ? 'var(--ok)' : 'var(--warn)'}">Kasse geprüft am ${esc(pruefDatumText(p))} – ${ok ? 'ohne Beanstandung' : 'mit Anmerkung'}</div>
+      <div class="m">Eingetragen von ${esc(p.von || '–')}${p.eingetragen ? ' am ' + esc(dat(String(p.eingetragen).slice(0, 10))) : ''}</div>
+      ${p.text ? `<div class="m" style="font-style:italic">„${esc(p.text)}“</div>` : ''}
+    </div></div></div>`;
+}
+
+function pruefFormular(){
+  if (!(D.ich && D.ich.kassenpruefer)) return '';
+  return `<div class="eyebrow" style="margin:22px 0 10px">Prüfvermerk eintragen</div>
+    <div class="kassefeld">
+      <div class="eyebrow">Geprüft am</div>
+      <input class="search" type="date" id="pruefAm" value="${esc(D.heute)}" max="${esc(D.heute)}" aria-label="Geprüft am">
+    </div>
+    <div class="kassefeld">
+      <div class="eyebrow">Ergebnis</div>
+      <div class="chips" id="pruefErg" style="margin:0;padding:2px 0">
+        <button data-pruef-erg="ok" aria-pressed="${pruefErgebnis === 'ok'}">Ohne Beanstandung</button>
+        <button data-pruef-erg="anmerkung" aria-pressed="${pruefErgebnis === 'anmerkung'}">Mit Anmerkung</button>
+      </div>
+    </div>
+    <div class="kassefeld">
+      <div class="eyebrow">Anmerkung</div>
+      <input enterkeyhint="done" class="search" id="pruefText" maxlength="300" placeholder="freiwillig" aria-label="Anmerkung">
+    </div>
+    <p class="note hidden" id="pruefFehler" style="margin-top:8px"></p>
+    <button class="btn" id="pruefSenden" style="margin-top:12px;width:100%">Prüfvermerk speichern</button>
+    <p class="note" style="margin-top:8px">Kassenwart und Schriftführer bekommen eine Nachricht. Der Vermerk steht danach oben im Kassenbericht.</p>`;
+}
+
+/* Reine Lese-Listen – für die Kassenprüfer, die die Eingabemasken nicht
+   sehen. Ausgaben und sonstige Einnahmen tragen keine Namen von Kegelbrüdern. */
+function kasseListeNurLesen(titel, liste, leer){
+  if (!liste || !liste.length){
+    return `<div class="eyebrow" style="margin:22px 0 10px">${titel}</div>
+      <p class="note">${leer}</p>`;
+  }
+  const summe = Math.round(liste.reduce((s, a) => s + (a.betrag || 0), 0) * 100) / 100;
+  return `<div class="eyebrow" style="margin:22px 0 10px">${titel} · ${eur(summe)}</div>
+    <div class="list">${liste.map(a => `<div class="row">
+      <div><div class="n">${esc(a.notiz || a.kategorie || '–')}</div>
+        <div class="m">${[dat(a.datum), a.kategorie].filter(Boolean).map(esc).join(' · ')}</div></div>
+      <div class="v">${eur(a.betrag)}</div></div>`).join('')}</div>`;
+}
+
+function kassePruefSicht(){
+  const b = D.kassenbericht;
+  const pruefer = !!(D.ich && D.ich.nurPruefKasse);
+  return pruefBanner(b && b.pruefung, true)
+    + pruefFormular()
+    + `<button class="btn ghost" data-druck="kasse" style="margin-top:18px;width:100%">Kassenbericht drucken / als PDF</button>`
+    + (pruefer ? `<p class="note" style="margin-top:8px">Fassung für die Kassenprüfer: Summen, Ausgaben, sonstige Einnahmen und Konto.
+        Wer wie viel gezahlt hat, steht nicht darin – das bleibt bis zur Generalversammlung beim Kassenwart.</p>` : '')
+    + (pruefer ? kasseListeNurLesen('Ausgaben im Einzelnen', kasseD().ausgaben, 'Noch keine Ausgaben erfasst.')
+               + kasseListeNurLesen('Sonstige Einnahmen', kasseD().umlage, 'Noch keine sonstigen Einnahmen erfasst.') : '');
+}
+
+document.addEventListener('click', async e => {
+  const erg = e.target.closest('button[data-pruef-erg]');
+  if (erg){
+    pruefErgebnis = erg.dataset.pruefErg;
+    document.querySelectorAll('#pruefErg button').forEach(x => x.setAttribute('aria-pressed', x === erg));
+    return;
+  }
+  const senden = e.target.closest('#pruefSenden');
+  if (senden){
+    const am = ($('pruefAm') || {}).value || '';
+    const text = (($('pruefText') || {}).value || '').trim();
+    if (!am){ kasseFehler('pruefFehler', 'Bitte das Datum der Prüfung angeben.'); return; }
+    if (pruefErgebnis === 'anmerkung' && !text){
+      /* Freiwillig heißt freiwillig – aber "mit Anmerkung" ohne Anmerkung
+         wäre eine Beanstandung, die niemand nachlesen kann. Nachfragen statt
+         verbieten. */
+      if (senden.dataset.sicher !== '1'){
+        senden.dataset.sicher = '1';
+        kasseFehler('pruefFehler', '„Mit Anmerkung“, aber ohne Text? Zum Speichern noch einmal tippen.');
+        return;
+      }
+    }
+    senden.dataset.sicher = '';
+    const r = await kasseSenden('kassePruefen',
+      { pruefung: { am: am, ergebnis: pruefErgebnis, text: text } },
+      senden, 'Prüfvermerk speichern', 'pruefFehler');
+    if (r && r.ok){
+      if (D.kassenbericht && r.pruefung) D.kassenbericht.pruefung = r.pruefung;
+      pruefErgebnis = 'ok';
+      hinweisleiste('Prüfvermerk gespeichert.');
+      reiterZeichnen('kasse', true);
+    }
+    return;
+  }
+  const dr = e.target.closest('button[data-druck]');
+  if (dr){ druckOeffnen(dr.dataset.druck); return; }
+  if (e.target.closest('#druckZu')){ druckSchliessen(); return; }
+  if (e.target.closest('#druckLos')){ window.print(); return; }
+  const pdfK = e.target.closest('#druckPdf');
+  if (pdfK){ druckPdfTeilen(pdfK); return; }
+});
+
+/* ------------------------------------------------------- das Blatt */
+/*
+ * 1.68b (13.11.2026): Auf dem iPhone tut window.print() in der App vom
+ * Home-Bildschirm NICHTS – Apple liefert den Druckdialog dort nicht aus
+ * (Test Johannes, 13.11.2026). Deshalb baut die App das PDF jetzt selbst:
+ * Jede Seite wird mit den Schriften und Farben der App auf eine
+ * Zeichenfläche gemalt und als Bild in eine schlichte PDF-Datei gelegt.
+ * Die Datei geht über das Teilen-Menü des Handys raus – dort stehen
+ * „Drucken“, „In Dateien sichern“, WhatsApp und Mail. Auf dem PC wird sie
+ * heruntergeladen. Ohne fremde Bibliothek, ohne Netz: Die Daten verlassen
+ * das Gerät nur, wenn man sie selbst teilt.
+ *
+ * Grundlage für Bildschirm UND PDF ist dasselbe Modell (druckModellKasse /
+ * druckModellAuswertung): eine Liste Seiten mit Bausteinen – Vermerk,
+ * Kacheln, Überschrift, Tabelle, Kasten, Hinweis, zwei Spalten.
+ */
+
+const DF = { txt:'#1B141E', mut:'#6B5F71', acc:'#C2185B', line:'#D9CCD5', s2:'#F4EEF2', ok:'#1B7D59', warn:'#8A5D0C' };
+
+function dEur(x){ return (x < -0.004 ? '− ' : '') + eur(Math.abs(x || 0)); }
+function dZ(z, o){ return Object.assign({ z: z }, o || {}); }
+
+function druckStand(){
+  const jetzt = new Date();
+  const uhr = String(jetzt.getHours()).padStart(2, '0') + ':' + String(jetzt.getMinutes()).padStart(2, '0');
+  const amt = (D.ich && D.ich.rollen && D.ich.rollen.length) ? ' (' + D.ich.rollen.join(', ') + ')' : '';
+  return 'Saison ' + SAISON_LAEUFT + ' · Stand ' + dat(D.heute) + ', ' + uhr + ' Uhr · erstellt von '
+    + ((D.ich && D.ich.name) || '–') + amt;
+}
+
+/* ---------- Modell: Kasse */
+function druckModellKasse(){
+  const b = D.kassenbericht;
+  if (!b) return null;
+  const pruefer = !!(D.ich && D.ich.nurPruefKasse);
+  const p = b.pruefung;
+  const eingegangen = Math.round(((b.bewegung || 0) + (b.ausgaben || 0)) * 100) / 100;
+
+  const vermerk = p
+    ? { t:'vermerk', art: p.ergebnis === 'anmerkung' ? 'warn' : 'ok',
+        titel: 'Kasse geprüft am ' + pruefDatumText(p) + ' – ' + (p.ergebnis === 'anmerkung' ? 'mit Anmerkung' : 'ohne Beanstandung'),
+        text: 'Eingetragen von ' + (p.von || '–')
+          + ((p.pruefer && p.pruefer.length) ? ' · Kassenprüfer: ' + p.pruefer.join(', ') : '')
+          + (p.text ? ' · Anmerkung: „' + p.text + '“' : '') }
+    : { t:'vermerk', art:'offen', titel:'Noch nicht geprüft', text:'In dieser Saison ist noch kein Prüfvermerk eingetragen.' };
+
+  const kacheln = { t:'kacheln', items: [
+    { titel:'Kontostand', wert: eur(b.kontostandBerechnet || 0), unter: b.auszugAm ? 'Auszug vom ' + b.auszugAm : 'gerechnet' },
+    { titel:'Eingegangen', wert: eur(eingegangen), unter: 'Strafen-Quote ' + (b.quote || 0) + ' %', farbe: DF.ok },
+    { titel:'Ausgaben', wert: eur(b.ausgaben || 0), unter: plural(b.ausgabenAnzahl || 0, 'Eintrag', 'Einträge') },
+    { titel:'Noch offen', wert: eur(b.offen || 0), unter: b.schuldner ? plural(b.schuldner, 'Kegelbruder', 'Kegelbrüder') : 'alles beglichen', farbe: DF.acc }
+  ]};
+
+  const ein = [dZ(['Strafen (bezahlt)', eur(b.bezahlt || 0)])];
+  if (b.teilzahlungen > 0) ein.push(dZ(['davon Anzahlungen', eur(b.teilzahlungen)], { davon:true }));
+  if (b.gaesteBezahlt > 0) ein.push(dZ(['davon Gäste', eur(b.gaesteBezahlt)], { davon:true }));
+  ein.push(dZ(['Monatsbeiträge', eur(b.beitraegeBezahlt || 0)]));
+  if (b.umlagenBezahlt > 0) ein.push(dZ(['Umlagen', eur(b.umlagenBezahlt)]));
+  ein.push(dZ(['Spenden', eur(b.spenden || 0)]));
+  ein.push(dZ(['Sonstige Einnahmen', eur(b.umlage || 0)]));
+  const tEin = { t:'tabelle', kopf:['Einnahmen', 'Betrag'], zeilen: ein, fuss:['Eingegangen gesamt', eur(eingegangen)], ab:1 };
+
+  const kat = b.ausgabenJeKategorie || [];
+  const tAus = { t:'tabelle', kopf:['Ausgaben je Kategorie', 'Anz.', 'Betrag'], ab:1,
+    zeilen: kat.map(k => dZ([k.k, String(k.anzahl), eur(k.summe)])), leer:'Keine Ausgaben.',
+    fuss:['Ausgaben gesamt', String(b.ausgabenAnzahl || 0), eur(b.ausgaben || 0)] };
+
+  const konto = [dZ(['Anfangsbestand' + (b.anfangAm ? ' (' + b.anfangAm + ')' : ''), eur(b.anfang || 0)]),
+    dZ(['Bewegung der Saison', (b.bewegung >= 0 ? '+ ' : '− ') + eur(Math.abs(b.bewegung || 0))]),
+    dZ(['Kontostand (gerechnet)', eur(b.kontostandBerechnet || 0)])];
+  if (b.auszug !== null && b.auszug !== undefined)
+    konto.push(dZ(['Laut Kontoauszug' + (b.auszugAm ? ' vom ' + b.auszugAm : ''), eur(b.auszug)]));
+  const diff = b.differenz;
+  const tKonto = { t:'tabelle', kopf:['Konto', 'Betrag'], zeilen: konto, ab:1,
+    fuss: (diff === null || diff === undefined) ? null
+      : ['Differenz', Math.abs(diff) < 0.005 ? '0,00 € · alles erfasst' : (diff > 0 ? '+ ' : '− ') + eur(Math.abs(diff))] };
+
+  const offenZ = [];
+  if (b.offenStrafen !== undefined && (b.beitraegeOffen > 0 || b.umlagenOffen > 0)){
+    offenZ.push(dZ(['davon Strafen', eur(b.offenStrafen)], { davon:true }));
+    if (b.umlagenOffen > 0) offenZ.push(dZ(['davon Umlagen', eur(b.umlagenOffen)], { davon:true }));
+    if (b.beitraegeOffen > 0) offenZ.push(dZ(['davon Monatsbeiträge', eur(b.beitraegeOffen)], { davon:true }));
+  }
+  offenZ.push(dZ(['davon überfällig (§34)', eur(b.ueberfaellig || 0)]));
+  offenZ.push(dZ(['Verspätungszuschläge der Saison', eur(b.zuschlaege || 0)]));
+  const tOffen = { t:'tabelle', kopf:['Noch offen', 'Betrag'], zeilen: offenZ, fuss:['Offen gesamt', eur(b.offen || 0)], ab:1 };
+
+  const seite1 = { bereich:'Kasse', titel:'Kassenbericht', vertraulich: pruefer ? 'Fassung Kassenprüfer' : '',
+    bloecke: [vermerk, kacheln,
+      { t:'zwei', a:[{ t:'h2', text:'Einnahmen' }, tEin], b:[{ t:'h2', text:'Ausgaben' }, tAus] },
+      { t:'zwei', a:[{ t:'h2', text:'Konto' }, tKonto], b:[{ t:'h2', text:'Noch offen' }, tOffen] }] };
+
+  const ausg = (kasseD().ausgaben || []).slice().sort((x, y) => x.datum < y.datum ? -1 : 1);
+  const sonst = (kasseD().umlage || []).slice().sort((x, y) => x.datum < y.datum ? -1 : 1);
+  const bl2 = [{ t:'h2', text:'Ausgaben im Einzelnen' },
+    { t:'tabelle', kopf:['Datum', 'Zweck', 'Kategorie', 'Betrag'], ab:3, leer:'Noch keine Ausgaben erfasst.',
+      zeilen: ausg.map(a => dZ([dat(a.datum), a.notiz || '–', a.kategorie || '', eur(a.betrag)])) }];
+  if (sonst.length){
+    bl2.push({ t:'h2', text:'Sonstige Einnahmen' });
+    bl2.push({ t:'tabelle', kopf:['Datum', 'Notiz', 'Betrag'], ab:2,
+      zeilen: sonst.map(a => dZ([dat(a.datum), a.notiz || a.kategorie || '–', eur(a.betrag)])) });
+  }
+  /* Offene Strafen je Kegelbruder – NUR wer die Einzelposten ohnehin hat. Die
+     Kassenprüfer haben sie nicht im Gerät, der Abschnitt fehlt dann von selbst. */
+  const offene = (D.kasseDaten && D.kasseDaten.offene) || null;
+  let mitNamen = false;
+  if (offene && !pruefer){
+    const je = {};
+    offene.filter(o => !o.bezahlt && !o.ausgesetzt && Math.abs(o.offen || 0) >= 0.005).forEach(o => {
+      if (!je[o.name]) je[o.name] = { n: o.name, posten: 0, offen: 0 };
+      je[o.name].posten += 1; je[o.name].offen += (o.offen || 0);
+    });
+    const l = Object.keys(je).map(k => je[k]).sort((x, y) => x.n.localeCompare(y.n, 'de'));
+    const summe = l.reduce((s, x) => s + x.offen, 0), posten = l.reduce((s, x) => s + x.posten, 0);
+    bl2.push({ t:'h2', text:'Offene Strafen je Kegelbruder', klein:'nur Kassenwart' });
+    bl2.push({ t:'tabelle', kopf:['Kegelbruder', 'Posten', 'offen'], ab:1, leer:'Alles beglichen.',
+      zeilen: l.map(x => dZ([x.n, String(x.posten), dEur(x.offen)])),
+      fuss:['Offen gesamt (netto)', String(posten), dEur(summe)] });
+    bl2.push({ t:'hinweis', text:'Dieser Abschnitt steht nur im Ausdruck von Kassenwart und Vertretung. In der Fassung für die Kassenprüfer fehlt er – wer wie viel gezahlt hat, bleibt bis zur Generalversammlung vertraulich.' });
+    mitNamen = true;
+  }
+  const seite2 = { bereich:'Kasse', titel:'Kassenbericht – Einzelheiten',
+    vertraulich: mitNamen ? 'nur Kassenwart' : (pruefer ? 'Fassung Kassenprüfer' : ''), bloecke: bl2 };
+  return { name:'Kassenbericht', seiten:[seite1, seite2] };
+}
+
+/* ---------- Modell: Auswertung */
+function druckModellAuswertung(){
+  const A = (D.auswertung || []).slice();
+  if (!A.length) return null;
+  const holz = r => vollenSchnitt(r).toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const vollen = A.slice().sort((a, b) => vollenSchnitt(b) - vollenSchnitt(a));
+  const koenig = vollen.filter(koenigsfaehig)[0];
+  const hT = huerdeText();
+  const pumpen = A.slice().sort((a, b) => gesamtPumpen(b) - gesamtPumpen(a));
+  const neun = A.slice().sort((a, b) => b.alle9 - a.alle9);
+  const anw = A.slice().sort((a, b) => b.da - a.da);
+  const letzter = anw[anw.length - 1];
+  const sonder = A.filter(r => gesamtSonder(r) > 0).sort((a, b) => gesamtSonder(b) - gesamtSonder(a));
+
+  const s1 = [
+    { t:'h2', text:'Kegelkönig', klein:'5 in die Vollen · ' + (hT ? 'Mindest-Anwesenheit ' + hT + ' der Kegelabende' : '§26') },
+    { t:'kasten', titel:'Vereinsschnitt bei 5 in die Vollen', wert: zahl1(schnittVon(A, vollenSchnitt)) + ' Holz' },
+    { t:'tabelle', kopf:['Platz', 'Kegelbruder', 'Ø Holz', 'Kegelabende', ''], ab:2,
+      zeilen: vollen.map((r, i) => dZ([String(i + 1), r.n, holz(r),
+        r.daKegeln !== undefined ? r.daKegeln + '/' + r.kegelTermine : '–',
+        koenig && r.n === koenig.n ? 'vorn' : (koenigsfaehig(r) ? '' : 'unter Hürde')], { hl: !!(koenig && r.n === koenig.n) })) },
+    { t:'zwei',
+      a:[{ t:'h2', text:'Pumpenkönig' }, { t:'kasten', titel:'Vereinsschnitt', wert: zahl1(schnittVon(A, gesamtPumpen)) + ' Pumpen' },
+         { t:'tabelle', kopf:['Platz', 'Kegelbruder', 'Pumpen'], ab:2,
+           zeilen: pumpen.map((r, i) => dZ([String(i + 1), r.n, gesamtPumpen(r).toLocaleString('de-DE')], { hl: i === 0 })) }],
+      b:[{ t:'h2', text:'9er König' }, { t:'kasten', titel:'Vereinsschnitt', wert: zahl1(schnittVon(A, r => r.alle9)) + '×' },
+         { t:'tabelle', kopf:['Platz', 'Kegelbruder', 'alle 9'], ab:2,
+           zeilen: neun.map((r, i) => dZ([String(i + 1), r.n, r.alle9 + '×'], { hl: i === 0 && r.alle9 > 0 })) }] }
+  ];
+
+  const s2 = [
+    { t:'h2', text:'Anwesenheit', klein:'§39 · alle Kegelveranstaltungen' },
+    { t:'kasten', titel:'Vereinsschnitt', wert: String(anwesenheitSchnitt(A)).replace(/<[^>]*>/g, '') },
+    { t:'tabelle', kopf:['Platz', 'Kegelbruder', 'anwesend', 'Quote'], ab:2,
+      zeilen: anw.map((r, i) => dZ([String(i + 1), r.n, r.da + '/' + r.termine,
+        (r.termine ? Math.round(r.da / r.termine * 100) : 0) + ' %'], { hl: !!(letzter && r.n === letzter.n && i > 0) })) },
+    { t:'hinweis', text:'Hinterlegt: schlechteste Anwesenheit nach §39.' },
+    { t:'h2', text:'Sonderwürfe' },
+    { t:'tabelle', kopf:['Kegelbruder', 'Kranz', 'König', '8 ums V.', 'alle 9', 'gesamt'], ab:1, leer:'Noch keine Sonderwürfe.',
+      zeilen: sonder.map(r => dZ([r.n, String(r.kranz), String(r.koenig), String(r.acht), String(r.alle9), String(gesamtSonder(r))])) }
+  ];
+  /* Strafen je Kegelbruder: die ANZAHL, wie in Auswertung › Strafen – ohne
+     Beträge, die gehören zum Kassenwart (07.09.2026). */
+  s2.push({ t:'h2', text:'Strafen je Kegelbruder' });
+  if (zaehlungDaten && !zaehlungDaten.fehler){
+    const t = swTrennen(swAusZaehlung().filter(z => !z.g));
+    const o = { id: 'amt', zeilen: t.echt, geld: false };
+    const je = {};
+    A.forEach(r => je[r.n] = 0);
+    t.echt.forEach(z => { je[z.n] = (je[z.n] || 0) + swSumme(o, [z]); });
+    const l = Object.keys(je).map(n => ({ n: n, a: je[n] })).sort((x, y) => y.a - x.a);
+    const schnitt = l.length ? l.reduce((s, x) => s + x.a, 0) / l.length : 0;
+    s2.push({ t:'kasten', titel:'Vereinsschnitt', wert: zahl1(schnitt) + ' Strafen' });
+    s2.push({ t:'tabelle', kopf:['Platz', 'Kegelbruder', 'Anzahl'], ab:2,
+      zeilen: l.map((x, i) => dZ([String(i + 1), x.n, x.a.toLocaleString('de-DE')])) });
+    s2.push({ t:'hinweis', text:'Gezählt wird, wie oft eine Strafe erfasst ist – ohne Beträge, ohne Gäste.' });
+  } else {
+    zaehlungHolen();
+    s2.push({ t:'hinweis', text:'Die Zählung der Strafen wird gerade geholt. Bitte die Druckansicht gleich noch einmal öffnen.' });
+  }
+  const v = 'vertraulich bis zur GV';
+  return { name:'Auswertung', seiten:[
+    { bereich:'Schriftführer', titel:'Auswertung des Schriftführers', vertraulich: v, bloecke: s1 },
+    { bereich:'Schriftführer', titel:'Auswertung des Schriftführers', vertraulich: v, bloecke: s2 }] };
+}
+
+/* ---------- Bildschirm: Modell → HTML */
+function dHtmlBlock(b){
+  switch (b.t){
+    case 'vermerk': return `<div class="dvermerk${b.art === 'ok' ? '' : ' ' + b.art}"><strong>${esc(b.titel)}</strong><div class="dklein">${esc(b.text)}</div></div>`;
+    case 'kacheln': return '<div class="dkacheln">' + b.items.map(k => `<div class="dkachel"><div class="dk1">${esc(k.titel)}</div>
+      <div class="dk2"${k.farbe ? ' style="color:' + k.farbe + '"' : ''}>${esc(k.wert)}</div><div class="dk3">${esc(k.unter || '')}</div></div>`).join('') + '</div>';
+    case 'h2': return `<h2>${esc(b.text)}${b.klein ? ' <span class="dklein">' + esc(b.klein) + '</span>' : ''}</h2>`;
+    case 'kasten': return `<div class="dkasten"><span>${esc(b.titel)}</span><strong>${esc(b.wert)}</strong></div>`;
+    case 'hinweis': return `<p class="dhinweis">${esc(b.text)}</p>`;
+    case 'zwei': return '<div class="dzwei"><div>' + b.a.map(dHtmlBlock).join('') + '</div><div>' + b.b.map(dHtmlBlock).join('') + '</div></div>';
+    case 'tabelle': {
+      const ab = b.ab || 1;
+      const zelle = (z, i, tag) => '<' + tag + (i >= ab ? ' class="r"' : '') + '>' + z + '</' + tag + '>';
+      const kopf = '<tr>' + b.kopf.map((k, i) => zelle(esc(k), i, 'th')).join('') + '</tr>';
+      const zeilen = b.zeilen.length
+        ? b.zeilen.map(r => '<tr' + (r.hl ? ' class="dhl"' : '') + '>' + r.z.map((z, i) =>
+            zelle(i === 0 && r.davon ? '<span class="ddavon">' + esc(z) + '</span>' : esc(z), i, 'td')).join('') + '</tr>').join('')
+        : '<tr><td colspan="' + b.kopf.length + '">' + esc(b.leer || '–') + '</td></tr>';
+      const fuss = b.fuss ? '<tr class="fuss">' + b.fuss.map((z, i) => zelle(esc(z), i, 'td')).join('') + '</tr>' : '';
+      return '<table><thead>' + kopf + '</thead><tbody>' + zeilen + fuss + '</tbody></table>';
+    }
+  }
+  return '';
+}
+function druckHtml(m){
+  const stand = druckStand();
+  return m.seiten.map(s => `<section class="dseite">
+    <div class="dkopf">
+      <div class="dmarke"><img src="./logo/standard-hell-marke.png" alt="">
+        <div><img class="dwort" src="./logo/wortmarke-hell.png" alt="KC Knüppeldick">
+          <div class="dklein">${esc(s.bereich)} · Druckansicht</div></div></div>
+      ${s.vertraulich ? `<div class="dpille">${esc(s.vertraulich)}</div>` : ''}
+    </div>
+    <h1>${esc(s.titel)}</h1>
+    <div class="dklein dstand">${esc(stand)}</div>
+    ${s.bloecke.map(dHtmlBlock).join('')}
+    <div class="dfuss"><span>KC Knüppeldick · aus der Vereins-App, Fassung ${esc(APP_VERSION)}</span><span>Stand ${esc(dat(D.heute))}</span></div>
+  </section>`).join('');
+}
+
+/* ---------- PDF: Modell → Zeichenfläche → PDF */
+const PDF_W = 794, PDF_H = 1123, PDF_RAND = 46, PDF_SKALA = 2.5;
+const pdfSchrift = (gew, px) => gew + ' ' + px + 'px Archivo, "Helvetica Neue", Arial, sans-serif';
+const pdfBlack = px => px + 'px "Archivo Black", Archivo, "Helvetica Neue", Arial, sans-serif';
+
+function pdfBild(src){
+  return new Promise(ok => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = src; });
+}
+function pdfUmbruch(ctx, text, breite){
+  const woerter = String(text).split(/\s+/); const zeilen = []; let z = '';
+  woerter.forEach(w => {
+    const probe = z ? z + ' ' + w : w;
+    if (ctx.measureText(probe).width <= breite || !z) z = probe; else { zeilen.push(z); z = w; }
+  });
+  if (z) zeilen.push(z);
+  return zeilen.length ? zeilen : [''];
+}
+function pdfRund(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
+}
+
+/* Jeder Baustein kann sich messen (zeichnen = false) und zeichnen. */
+function pdfBlock(ctx, b, x, y, w, zeichnen){
+  switch (b.t){
+    case 'h2': {
+      const h = 34;
+      if (zeichnen){
+        ctx.font = pdfSchrift(700, 12.5); ctx.fillStyle = DF.acc; ctx.textBaseline = 'alphabetic';
+        const t = b.text.toUpperCase(); ctx.fillText(t, x, y + 28);
+        if (b.klein){ const tw = ctx.measureText(t).width; ctx.font = pdfSchrift(400, 12); ctx.fillStyle = DF.mut; ctx.fillText(b.klein, x + tw + 8, y + 28); }
+      }
+      return h;
+    }
+    case 'vermerk': {
+      ctx.font = pdfSchrift(400, 12);
+      const zl = pdfUmbruch(ctx, b.text, w - 28);
+      const h = 14 + 18 + zl.length * 16 + 10;
+      if (zeichnen){
+        const farbe = b.art === 'ok' ? DF.ok : b.art === 'warn' ? DF.warn : DF.line;
+        pdfRund(ctx, x, y, w, h, 10); ctx.lineWidth = 1.5; ctx.strokeStyle = farbe; ctx.stroke();
+        ctx.font = pdfSchrift(700, 14); ctx.fillStyle = b.art === 'offen' ? DF.txt : farbe; ctx.fillText(b.titel, x + 14, y + 28);
+        ctx.font = pdfSchrift(400, 12); ctx.fillStyle = DF.mut;
+        zl.forEach((z, i) => ctx.fillText(z, x + 14, y + 46 + i * 16));
+      }
+      return h + 14;
+    }
+    case 'kacheln': {
+      const gap = 10, n = b.items.length, kw = (w - gap * (n - 1)) / n, h = 70;
+      if (zeichnen) b.items.forEach((k, i) => {
+        const kx = x + i * (kw + gap);
+        pdfRund(ctx, kx, y, kw, h, 10); ctx.fillStyle = DF.s2; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = DF.line; ctx.stroke();
+        ctx.font = pdfSchrift(700, 10.5); ctx.fillStyle = DF.mut; ctx.fillText(k.titel.toUpperCase(), kx + 12, y + 20);
+        ctx.font = pdfBlack(18); ctx.fillStyle = k.farbe || DF.txt; ctx.fillText(k.wert, kx + 12, y + 45);
+        ctx.font = pdfSchrift(400, 11); ctx.fillStyle = DF.mut; ctx.fillText(k.unter || '', kx + 12, y + 61);
+      });
+      return h + 4;
+    }
+    case 'kasten': {
+      const h = 36;
+      if (zeichnen){
+        pdfRund(ctx, x, y, w, h, 10); ctx.lineWidth = 1.5; ctx.strokeStyle = DF.acc; ctx.stroke();
+        ctx.font = pdfSchrift(400, 12.5); ctx.fillStyle = DF.mut; ctx.fillText(b.titel, x + 14, y + 23);
+        ctx.font = pdfBlack(15); ctx.fillStyle = DF.acc; ctx.textAlign = 'right'; ctx.fillText(b.wert, x + w - 14, y + 24); ctx.textAlign = 'left';
+      }
+      return h + 8;
+    }
+    case 'hinweis': {
+      ctx.font = pdfSchrift(400, 11.5);
+      const zl = pdfUmbruch(ctx, b.text, w - 24);
+      const h = 16 + zl.length * 15;
+      if (zeichnen){
+        pdfRund(ctx, x, y + 8, w, h, 8); ctx.fillStyle = DF.s2; ctx.fill();
+        ctx.fillStyle = DF.mut; zl.forEach((z, i) => ctx.fillText(z, x + 12, y + 8 + 19 + i * 15));
+      }
+      return h + 8;
+    }
+    case 'zwei': {
+      const sw = (w - 22) / 2;
+      const spalte = (liste, sx) => { let yy = y; liste.forEach(bb => { yy += pdfBlock(ctx, bb, sx, yy, sw, zeichnen); }); return yy - y; };
+      return Math.max(spalte(b.a, x), spalte(b.b, x + sw + 22));
+    }
+    case 'tabelle': return pdfTabelle(ctx, b, x, y, w, zeichnen, 0, b.zeilen.length).h;
+  }
+  return 0;
+}
+
+/* Spaltenbreiten: nach Inhalt, der Rest geht an die erste Textspalte. */
+function pdfSpalten(ctx, b, w){
+  const n = b.kopf.length, ab = b.ab || 1, br = new Array(n).fill(0);
+  const miss = (t, font) => { ctx.font = font; return ctx.measureText(t).width + 16; };
+  b.kopf.forEach((k, i) => br[i] = Math.max(br[i], miss(String(k).toUpperCase(), pdfSchrift(700, 10.5))));
+  b.zeilen.forEach(r => r.z.forEach((z, i) => br[i] = Math.max(br[i], miss(z, pdfSchrift(r.hl ? 700 : 400, 12.5)) + (r.davon && i === 0 ? 12 : 0))));
+  if (b.fuss) b.fuss.forEach((z, i) => br[i] = Math.max(br[i], miss(z, pdfSchrift(700, 12.5))));
+  let textSp = 0;
+  for (let i = 0; i < ab; i++) if (br[i] > br[textSp]) textSp = i;
+  if (ab > 1 && /^Platz$/.test(b.kopf[0])) textSp = 1;
+  const summe = br.reduce((s, v) => s + v, 0);
+  br[textSp] = Math.max(70, br[textSp] + (w - summe));
+  return br;
+}
+function pdfZellen(ctx, zellen, br, ab, font){
+  ctx.font = font;
+  return zellen.map((z, i) => i >= ab ? [String(z)] : pdfUmbruch(ctx, z, br[i] - 16));
+}
+function pdfTabelle(ctx, b, x, y, w, zeichnen, von, bis){
+  const br = pdfSpalten(ctx, b, w), ab = b.ab || 1;
+  let yy = y;
+  const kopfH = 26;
+  if (zeichnen){
+    ctx.font = pdfSchrift(700, 10.5); ctx.fillStyle = DF.mut;
+    let xx = x;
+    b.kopf.forEach((k, i) => {
+      const t = String(k).toUpperCase();
+      if (i >= ab){ ctx.textAlign = 'right'; ctx.fillText(t, xx + br[i] - 8, yy + 17); ctx.textAlign = 'left'; }
+      else ctx.fillText(t, xx + 8, yy + 17);
+      xx += br[i];
+    });
+    ctx.fillStyle = DF.txt; ctx.fillRect(x, yy + kopfH - 1.5, w, 1.5);
+  }
+  yy += kopfH;
+  const zeile = (zellen, font, hl, davon, fuss) => {
+    const zl = pdfZellen(ctx, zellen, br, ab, font);
+    const h = Math.max.apply(null, zl.map(l => l.length)) * 16 + 10;
+    if (zeichnen){
+      if (hl){ ctx.fillStyle = DF.s2; ctx.fillRect(x, yy, w, h); }
+      if (fuss){ ctx.fillStyle = DF.txt; ctx.fillRect(x, yy, w, 1.5); }
+      ctx.font = font; let xx = x;
+      zl.forEach((linien, i) => {
+        ctx.fillStyle = (davon && i === 0) ? DF.mut : DF.txt;
+        linien.forEach((t, j) => {
+          const ty = yy + 18 + j * 16;
+          if (i >= ab){ ctx.textAlign = 'right'; ctx.fillText(t, xx + br[i] - 8, ty); ctx.textAlign = 'left'; }
+          else ctx.fillText(t, xx + 8 + ((davon && i === 0) ? 12 : 0), ty);
+        });
+        xx += br[i];
+      });
+      if (!fuss){ ctx.fillStyle = DF.line; ctx.fillRect(x, yy + h - 1, w, 1); }
+    }
+    yy += h;
+  };
+  if (!b.zeilen.length && von === 0) zeile([b.leer || '–'].concat(new Array(b.kopf.length - 1).fill('')), pdfSchrift(400, 12.5), false, false, false);
+  for (let i = von; i < bis; i++){ const r = b.zeilen[i]; zeile(r.z, pdfSchrift(r.hl ? 700 : 400, 12.5), r.hl, r.davon, false); }
+  if (b.fuss && bis >= b.zeilen.length) zeile(b.fuss, pdfSchrift(700, 12.5), false, false, true);
+  return { h: yy - y + 4 };
+}
+
+/* Verteilt die Bausteine auf A4-Seiten. Tabellen dürfen umbrechen (der
+   Tabellenkopf wiederholt sich), alles andere wandert als Ganzes weiter. */
+function pdfSeitenPlanen(ctx, m){
+  const w = PDF_W - 2 * PDF_RAND, unten = PDF_H - 56;
+  const seiten = [];
+  m.seiten.forEach(s => {
+    let seite = { s: s, erste: true, ops: [] }; seiten.push(seite);
+    let y = 196;
+    const neu = () => { seite = { s: s, erste: false, ops: [] }; seiten.push(seite); y = 110; };
+    s.bloecke.forEach((b, bi) => {
+      if (b.t === 'tabelle'){
+        let von = 0;
+        const n = b.zeilen.length;
+        while (true){
+          let bis = von, h = 0;
+          // so viele Zeilen wie passen, mindestens drei – sonst neue Seite
+          for (bis = von; bis <= n; bis++){
+            h = pdfTabelle(ctx, b, 0, 0, w, false, von, bis).h;
+            if (y + h > unten) break;
+          }
+          bis = Math.min(bis - 1, n);
+          if (bis < n && bis - von < 3 && !(seite.ops.length === 0)){ neu(); continue; }
+          if (bis < von + 1 && n > 0){ bis = Math.min(von + 1, n); }
+          const v0 = von, b0 = bis, y0 = y;
+          seite.ops.push(ctx2 => pdfTabelle(ctx2, b, PDF_RAND, y0, w, true, v0, b0));
+          y += pdfTabelle(ctx, b, 0, 0, w, false, von, bis).h;
+          von = bis;
+          if (von >= n) break;
+          neu();
+        }
+        return;
+      }
+      /* Eine Überschrift zieht den nächsten Baustein mit: nie allein unten. */
+      let h = pdfBlock(ctx, b, 0, 0, w, false);
+      const folge = (b.t === 'h2' && s.bloecke[bi + 1]) ? Math.min(140, pdfBlock(ctx, s.bloecke[bi + 1], 0, 0, w, false)) : 0;
+      if (y + h + folge > unten && seite.ops.length) neu();
+      const y0 = y;
+      seite.ops.push(ctx2 => pdfBlock(ctx2, b, PDF_RAND, y0, w, true));
+      y += h;
+    });
+  });
+  return seiten;
+}
+
+async function pdfSeiteMalen(seite, nr, gesamt, bilder, stand){
+  const c = document.createElement('canvas');
+  c.width = Math.round(PDF_W * PDF_SKALA); c.height = Math.round(PDF_H * PDF_SKALA);
+  const ctx = c.getContext('2d');
+  ctx.scale(PDF_SKALA, PDF_SKALA);
+  ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, PDF_W, PDF_H);
+  ctx.textBaseline = 'alphabetic';
+  const x = PDF_RAND, w = PDF_W - 2 * PDF_RAND, y = 40, s = seite.s;
+  if (bilder.marke) ctx.drawImage(bilder.marke, x, y, 46, 46);
+  let wh = 20;
+  if (bilder.wort){ wh = 190 * bilder.wort.naturalHeight / bilder.wort.naturalWidth; ctx.drawImage(bilder.wort, x + 58, y + 4, 190, wh); }
+  ctx.font = pdfSchrift(400, 12); ctx.fillStyle = DF.mut;
+  ctx.fillText(s.bereich + ' · Druckansicht' + (seite.erste ? '' : ' · Fortsetzung'), x + 58, y + 4 + wh + 16);
+  if (s.vertraulich){
+    ctx.font = pdfSchrift(700, 10.5);
+    const t = s.vertraulich.toUpperCase(), tw = ctx.measureText(t).width + 22;
+    pdfRund(ctx, x + w - tw, y + 12, tw, 24, 12); ctx.lineWidth = 1.5; ctx.strokeStyle = DF.acc; ctx.stroke();
+    ctx.fillStyle = DF.acc; ctx.fillText(t, x + w - tw + 11, y + 28);
+  }
+  ctx.fillStyle = DF.acc; ctx.fillRect(x, y + 58, w, 3);
+  if (seite.erste){
+    ctx.font = pdfBlack(26); ctx.fillStyle = DF.txt; ctx.fillText(s.titel, x, y + 104);
+    ctx.font = pdfSchrift(400, 12); ctx.fillStyle = DF.mut; ctx.fillText(stand, x, y + 126);
+  }
+  seite.ops.forEach(op => op(ctx));
+  ctx.fillStyle = DF.line; ctx.fillRect(x, PDF_H - 44, w, 1);
+  ctx.font = pdfSchrift(400, 10.5); ctx.fillStyle = DF.mut;
+  ctx.fillText('KC Knüppeldick · aus der Vereins-App, Fassung ' + APP_VERSION, x, PDF_H - 28);
+  ctx.textAlign = 'center'; ctx.fillText('Stand ' + dat(D.heute), x + w / 2, PDF_H - 28);
+  ctx.textAlign = 'right'; ctx.fillText('Seite ' + nr + ' von ' + gesamt, x + w, PDF_H - 28); ctx.textAlign = 'left';
+  const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.9));
+  return { daten: new Uint8Array(await blob.arrayBuffer()), bw: c.width, bh: c.height };
+}
+
+/* Die kleinste brauchbare PDF-Datei: je Seite ein JPEG über die volle Seite. */
+function pdfBauen(bilder){
+  const teile = []; const offs = []; let laenge = 0;
+  const enc = new TextEncoder();
+  const schreib = d => { const b = typeof d === 'string' ? enc.encode(d) : d; teile.push(b); laenge += b.length; };
+  const obj = (n, kopf, strom) => {
+    offs[n] = laenge;
+    schreib(n + ' 0 obj\n' + kopf);
+    if (strom){ schreib('\nstream\n'); schreib(strom); schreib('\nendstream'); }
+    schreib('\nendobj\n');
+  };
+  schreib('%PDF-1.4\n'); schreib(new Uint8Array([37, 226, 227, 207, 211, 10]));
+  const n = bilder.length, kids = [];
+  for (let i = 0; i < n; i++) kids.push((3 + i * 3) + ' 0 R');
+  obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2, '<< /Type /Pages /Kids [' + kids.join(' ') + '] /Count ' + n + ' >>');
+  bilder.forEach((b, i) => {
+    const p = 3 + i * 3;
+    const inhalt = enc.encode('q 595.28 0 0 841.89 0 0 cm /I' + i + ' Do Q');
+    obj(p, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /I' + i + ' ' + (p + 2)
+      + ' 0 R >> >> /Contents ' + (p + 1) + ' 0 R >>');
+    obj(p + 1, '<< /Length ' + inhalt.length + ' >>', inhalt);
+    obj(p + 2, '<< /Type /XObject /Subtype /Image /Width ' + b.bw + ' /Height ' + b.bh
+      + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + b.daten.length + ' >>', b.daten);
+  });
+  const xref = laenge, anzahl = 3 + n * 3;
+  let x = 'xref\n0 ' + anzahl + '\n0000000000 65535 f \n';
+  for (let i = 1; i < anzahl; i++) x += String(offs[i]).padStart(10, '0') + ' 00000 n \n';
+  schreib(x + 'trailer\n<< /Size ' + anzahl + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF\n');
+  return new Blob(teile, { type: 'application/pdf' });
+}
+
+async function druckPdfErzeugen(m){
+  try { await Promise.all([document.fonts.load(pdfSchrift(400, 12)), document.fonts.load(pdfSchrift(700, 12)), document.fonts.load(pdfBlack(18))]); } catch (e) {}
+  const [marke, wort] = await Promise.all([pdfBild('./logo/standard-hell-marke.png'), pdfBild('./logo/wortmarke-hell.png')]);
+  const mess = document.createElement('canvas').getContext('2d');
+  const seiten = pdfSeitenPlanen(mess, m);
+  const stand = druckStand();
+  const bilder = [];
+  for (let i = 0; i < seiten.length; i++) bilder.push(await pdfSeiteMalen(seiten[i], i + 1, seiten.length, { marke: marke, wort: wort }, stand));
+  const name = m.name + '_KC_Knueppeldick_' + D.heute + '.pdf';
+  return new File([pdfBauen(bilder)], name, { type: 'application/pdf' });
+}
+
+let druckDatei = null;
+
+async function druckPdfTeilen(knopf){
+  if (!druckDatei) return;
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [druckDatei] })){
+      /* Nur die Datei – ohne title/text. iOS legt sonst eine zweite Datei
+         „Text“ dazu (Johannes, 13.11.2026). */
+      await navigator.share({ files: [druckDatei] });
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;          // im Teilen-Menü abgebrochen
+  }
+  /* Kein Teilen-Menü (PC): herunterladen. */
+  const url = URL.createObjectURL(druckDatei);
+  const a = document.createElement('a');
+  a.href = url; a.download = druckDatei.name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+function druckOeffnen(was){
+  /* Nur wer den Bereich sieht, bekommt das Blatt – die Daten dafür liegen
+     ohnehin nur in seinem Gerät. */
+  if (was === 'kasse' && !darfKasseSehen()) return;
+  if (was === 'amt' && !darfAmtSehen()) return;
+  const m = was === 'kasse' ? druckModellKasse() : druckModellAuswertung();
+  if (!m){ hinweisleiste('Noch keine Daten für die Druckansicht.'); return; }
+  let e = $('druckEbene');
+  if (!e){ e = document.createElement('div'); e.id = 'druckEbene'; document.body.appendChild(e); }
+  /* Auf dem iPhone (App vom Home-Bildschirm) gibt es keinen Druckdialog –
+     dort nur „Als PDF teilen“; das Teilen-Menü hat „Drucken“ selbst. */
+  const druckGeht = window.navigator.standalone !== true;
+  e.innerHTML = `<div class="druckLeiste">
+      <button class="btn ghost small" id="druckZu">Schließen</button>
+      <span style="display:flex;gap:8px">
+        ${druckGeht ? '<button class="btn ghost small" id="druckLos">Drucken</button>' : ''}
+        <button class="btn small" id="druckPdf" disabled>PDF wird erstellt …</button>
+      </span>
+    </div>
+    <div class="dblatt">${druckHtml(m)}</div>`;
+  e.classList.remove('hidden');
+  document.documentElement.classList.add('druckOffen');
+  e.scrollTop = 0;
+  /* Das PDF entsteht sofort beim Öffnen – beim Antippen muss es fertig sein,
+     sonst lässt das iPhone das Teilen-Menü nicht mehr zu. */
+  druckDatei = null;
+  const lauf = {};
+  druckOeffnen.lauf = lauf;
+  druckPdfErzeugen(m).then(f => {
+    if (druckOeffnen.lauf !== lauf) return;
+    druckDatei = f;
+    const k = $('druckPdf'); if (k){ k.disabled = false; k.textContent = 'Als PDF teilen'; }
+  }).catch(err => {
+    console.error(err);
+    const k = $('druckPdf'); if (k){ k.textContent = 'PDF ging nicht'; }
+  });
+}
+function druckSchliessen(){
+  const e = $('druckEbene');
+  if (e){ e.classList.add('hidden'); e.innerHTML = ''; }
+  druckDatei = null; druckOeffnen.lauf = null;
+  document.documentElement.classList.remove('druckOffen');
+}
+
+
 const FREIGABEN = [
   { k: 'gv', titel: 'Kegelkönig freigeben',
     dsc: 'Zeigt Kegelkönig und Pumpenkönig allen Kegelbrüdern. Gedacht für die Generalversammlung.' },
@@ -10548,7 +11332,9 @@ const FREIGABEN = [
   { k: 'kvAmt', titel: 'Einsicht für die Kegelväter (Schriftführer)',
     dsc: 'Beide Kegelväter dürfen den Bereich des Schriftführers mitlesen. Nur lesen.' },
   { k: 'kvKasse', titel: 'Einsicht für die Kegelväter (Kasse)',
-    dsc: 'Beide Kegelväter dürfen den Kassenbericht mitlesen. Nur lesen.' }
+    dsc: 'Beide Kegelväter dürfen den Kassenbericht mitlesen. Nur lesen.' },
+  { k: 'kpKasse', titel: 'Einsicht für die Kassenprüfer',
+    dsc: 'Die Kassenprüfer sehen Summen, Ausgaben, sonstige Einnahmen und das Konto und können den Prüfvermerk setzen. Keine Namen: Wer wie viel gezahlt hat, sehen sie nicht. Am besten vor der Kassenprüfung setzen.' }
 ];
 
 /* Freigaben und Codes liegen zusammen in einer eigenen Ebene statt verstreut in
