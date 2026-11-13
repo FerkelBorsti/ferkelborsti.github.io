@@ -1635,7 +1635,7 @@ const API = 'https://script.google.com/macros/s/AKfycby359xVegJ5gEFeb282uN7pTCfL
    - Freigaben darf jetzt auch der Vertreter des Amtes setzen – außer denen,
      die ihm selbst etwas freischalten.
    Braucht Backend 1.62. */
-const APP_VERSION = '1.68';
+const APP_VERSION = '1.68';  // 1.68b intern: PDF selbst gebaut (13.11.2026)
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -10750,128 +10750,116 @@ document.addEventListener('click', async e => {
   if (dr){ druckOeffnen(dr.dataset.druck); return; }
   if (e.target.closest('#druckZu')){ druckSchliessen(); return; }
   if (e.target.closest('#druckLos')){ window.print(); return; }
+  const pdfK = e.target.closest('#druckPdf');
+  if (pdfK){ druckPdfTeilen(pdfK); return; }
 });
 
 /* ------------------------------------------------------- das Blatt */
+/*
+ * 1.68b (13.11.2026): Auf dem iPhone tut window.print() in der App vom
+ * Home-Bildschirm NICHTS – Apple liefert den Druckdialog dort nicht aus
+ * (Test Johannes, 13.11.2026). Deshalb baut die App das PDF jetzt selbst:
+ * Jede Seite wird mit den Schriften und Farben der App auf eine
+ * Zeichenfläche gemalt und als Bild in eine schlichte PDF-Datei gelegt.
+ * Die Datei geht über das Teilen-Menü des Handys raus – dort stehen
+ * „Drucken“, „In Dateien sichern“, WhatsApp und Mail. Auf dem PC wird sie
+ * heruntergeladen. Ohne fremde Bibliothek, ohne Netz: Die Daten verlassen
+ * das Gerät nur, wenn man sie selbst teilt.
+ *
+ * Grundlage für Bildschirm UND PDF ist dasselbe Modell (druckModellKasse /
+ * druckModellAuswertung): eine Liste Seiten mit Bausteinen – Vermerk,
+ * Kacheln, Überschrift, Tabelle, Kasten, Hinweis, zwei Spalten.
+ */
 
-/* "ab": ab welcher Spalte rechtsbündig gesetzt wird (Zahlen). */
-function dZeile(zellen, kl, ab){
-  ab = ab || 1;
-  return '<tr' + (kl ? ' class="' + kl + '"' : '') + '>' + zellen.map((z, i) =>
-    '<td' + (i >= ab ? ' class="r"' : '') + '>' + z + '</td>').join('') + '</tr>';
-}
-function dTabelle(kopf, zeilen, fuss, ab){
-  ab = ab || 1;
-  return '<table><thead><tr>' + kopf.map((k, i) => '<th' + (i >= ab ? ' class="r"' : '') + '>' + k + '</th>').join('')
-    + '</tr></thead><tbody>' + zeilen.join('')
-    + (fuss ? dZeile(fuss, 'fuss', ab) : '') + '</tbody></table>';
-}
-function dKachel(titel, wert, unter, farbe){
-  return `<div class="dkachel"><div class="dk1">${titel}</div>
-    <div class="dk2"${farbe ? ' style="color:' + farbe + '"' : ''}>${wert}</div>
-    <div class="dk3">${unter || ''}</div></div>`;
-}
-function dKasten(titel, wert){
-  return `<div class="dkasten"><span>${titel}</span><strong>${wert}</strong></div>`;
-}
-function dKopf(bereich, titel, vertraulich){
+const DF = { txt:'#1B141E', mut:'#6B5F71', acc:'#C2185B', line:'#D9CCD5', s2:'#F4EEF2', ok:'#1B7D59', warn:'#8A5D0C' };
+
+function dEur(x){ return (x < -0.004 ? '− ' : '') + eur(Math.abs(x || 0)); }
+function dZ(z, o){ return Object.assign({ z: z }, o || {}); }
+
+function druckStand(){
   const jetzt = new Date();
   const uhr = String(jetzt.getHours()).padStart(2, '0') + ':' + String(jetzt.getMinutes()).padStart(2, '0');
   const amt = (D.ich && D.ich.rollen && D.ich.rollen.length) ? ' (' + D.ich.rollen.join(', ') + ')' : '';
-  return `<div class="dkopf">
-      <div class="dmarke"><img src="../logo/standard-hell-marke.png" alt="">
-        <div><img class="dwort" src="../logo/wortmarke-hell.png" alt="KC Knüppeldick">
-          <div class="dklein">${bereich} · Druckansicht</div></div></div>
-      ${vertraulich ? `<div class="dpille">${vertraulich}</div>` : ''}
-    </div>
-    <h1>${titel}</h1>
-    <div class="dklein dstand">Saison ${esc(SAISON_LAEUFT)} · Stand ${esc(dat(D.heute))}, ${uhr} Uhr · erstellt von ${esc((D.ich && D.ich.name) || '–')}${esc(amt)}</div>`;
-}
-function dFuss(){
-  return `<div class="dfuss"><span>KC Knüppeldick · aus der Vereins-App, Fassung ${esc(APP_VERSION)}</span>
-    <span>Stand ${esc(dat(D.heute))}</span></div>`;
+  return 'Saison ' + SAISON_LAEUFT + ' · Stand ' + dat(D.heute) + ', ' + uhr + ' Uhr · erstellt von '
+    + ((D.ich && D.ich.name) || '–') + amt;
 }
 
-function druckKasse(){
+/* ---------- Modell: Kasse */
+function druckModellKasse(){
   const b = D.kassenbericht;
-  if (!b) return '<p>Noch keine Kassenzahlen vorhanden.</p>';
+  if (!b) return null;
   const pruefer = !!(D.ich && D.ich.nurPruefKasse);
   const p = b.pruefung;
   const eingegangen = Math.round(((b.bewegung || 0) + (b.ausgaben || 0)) * 100) / 100;
 
   const vermerk = p
-    ? `<div class="dvermerk${p.ergebnis === 'anmerkung' ? ' warn' : ''}"><strong>Kasse geprüft am ${esc(pruefDatumText(p))} – ${
-        p.ergebnis === 'anmerkung' ? 'mit Anmerkung' : 'ohne Beanstandung'}</strong>
-        <div class="dklein">Eingetragen von ${esc(p.von || '–')}${(p.pruefer && p.pruefer.length) ? ' · Kassenprüfer: ' + esc(p.pruefer.join(', ')) : ''}${
-          p.text ? ' · Anmerkung: „' + esc(p.text) + '“' : ''}</div></div>`
-    : `<div class="dvermerk offen"><strong>Noch nicht geprüft</strong>
-        <div class="dklein">In dieser Saison ist noch kein Prüfvermerk eingetragen.</div></div>`;
+    ? { t:'vermerk', art: p.ergebnis === 'anmerkung' ? 'warn' : 'ok',
+        titel: 'Kasse geprüft am ' + pruefDatumText(p) + ' – ' + (p.ergebnis === 'anmerkung' ? 'mit Anmerkung' : 'ohne Beanstandung'),
+        text: 'Eingetragen von ' + (p.von || '–')
+          + ((p.pruefer && p.pruefer.length) ? ' · Kassenprüfer: ' + p.pruefer.join(', ') : '')
+          + (p.text ? ' · Anmerkung: „' + p.text + '“' : '') }
+    : { t:'vermerk', art:'offen', titel:'Noch nicht geprüft', text:'In dieser Saison ist noch kein Prüfvermerk eingetragen.' };
 
-  const kacheln = `<div class="dkacheln">
-    ${dKachel('Kontostand', eur(b.kontostandBerechnet || 0), b.auszugAm ? 'Auszug vom ' + esc(b.auszugAm) : 'gerechnet')}
-    ${dKachel('Eingegangen', eur(eingegangen), 'Strafen-Quote ' + (b.quote || 0) + ' %', '#1B7D59')}
-    ${dKachel('Ausgaben', eur(b.ausgaben || 0), plural(b.ausgabenAnzahl || 0, 'Eintrag', 'Einträge'))}
-    ${dKachel('Noch offen', eur(b.offen || 0), b.schuldner ? plural(b.schuldner, 'Kegelbruder', 'Kegelbrüder') : 'alles beglichen', '#C2185B')}
-  </div>`;
+  const kacheln = { t:'kacheln', items: [
+    { titel:'Kontostand', wert: eur(b.kontostandBerechnet || 0), unter: b.auszugAm ? 'Auszug vom ' + b.auszugAm : 'gerechnet' },
+    { titel:'Eingegangen', wert: eur(eingegangen), unter: 'Strafen-Quote ' + (b.quote || 0) + ' %', farbe: DF.ok },
+    { titel:'Ausgaben', wert: eur(b.ausgaben || 0), unter: plural(b.ausgabenAnzahl || 0, 'Eintrag', 'Einträge') },
+    { titel:'Noch offen', wert: eur(b.offen || 0), unter: b.schuldner ? plural(b.schuldner, 'Kegelbruder', 'Kegelbrüder') : 'alles beglichen', farbe: DF.acc }
+  ]};
 
-  const davon = t => '<span class="ddavon">' + t + '</span>';
-  const ein = [dZeile(['Strafen (bezahlt)', eur(b.bezahlt || 0)])];
-  if (b.teilzahlungen > 0) ein.push(dZeile([davon('davon Anzahlungen'), eur(b.teilzahlungen)]));
-  if (b.gaesteBezahlt > 0) ein.push(dZeile([davon('davon Gäste'), eur(b.gaesteBezahlt)]));
-  ein.push(dZeile(['Monatsbeiträge', eur(b.beitraegeBezahlt || 0)]));
-  if (b.umlagenBezahlt > 0) ein.push(dZeile(['Umlagen', eur(b.umlagenBezahlt)]));
-  ein.push(dZeile(['Spenden', eur(b.spenden || 0)]));
-  ein.push(dZeile(['Sonstige Einnahmen', eur(b.umlage || 0)]));
-  const tEin = dTabelle(['Einnahmen', 'Betrag'], ein, ['Eingegangen gesamt', eur(eingegangen)]);
+  const ein = [dZ(['Strafen (bezahlt)', eur(b.bezahlt || 0)])];
+  if (b.teilzahlungen > 0) ein.push(dZ(['davon Anzahlungen', eur(b.teilzahlungen)], { davon:true }));
+  if (b.gaesteBezahlt > 0) ein.push(dZ(['davon Gäste', eur(b.gaesteBezahlt)], { davon:true }));
+  ein.push(dZ(['Monatsbeiträge', eur(b.beitraegeBezahlt || 0)]));
+  if (b.umlagenBezahlt > 0) ein.push(dZ(['Umlagen', eur(b.umlagenBezahlt)]));
+  ein.push(dZ(['Spenden', eur(b.spenden || 0)]));
+  ein.push(dZ(['Sonstige Einnahmen', eur(b.umlage || 0)]));
+  const tEin = { t:'tabelle', kopf:['Einnahmen', 'Betrag'], zeilen: ein, fuss:['Eingegangen gesamt', eur(eingegangen)], ab:1 };
 
-  const kat = (b.ausgabenJeKategorie || []);
-  const tAus = dTabelle(['Ausgaben je Kategorie', 'Anz.', 'Betrag'],
-    kat.length ? kat.map(k => dZeile([esc(k.k), k.anzahl, eur(k.summe)])) : [dZeile(['keine Ausgaben', '', ''])],
-    ['Ausgaben gesamt', b.ausgabenAnzahl || 0, eur(b.ausgaben || 0)]);
+  const kat = b.ausgabenJeKategorie || [];
+  const tAus = { t:'tabelle', kopf:['Ausgaben je Kategorie', 'Anz.', 'Betrag'], ab:1,
+    zeilen: kat.map(k => dZ([k.k, String(k.anzahl), eur(k.summe)])), leer:'Keine Ausgaben.',
+    fuss:['Ausgaben gesamt', String(b.ausgabenAnzahl || 0), eur(b.ausgaben || 0)] };
 
-  const diff = b.differenz;
-  const konto = [dZeile(['Anfangsbestand' + (b.anfangAm ? ' (' + esc(b.anfangAm) + ')' : ''), eur(b.anfang || 0)]),
-    dZeile(['Bewegung der Saison', (b.bewegung >= 0 ? '+ ' : '− ') + eur(Math.abs(b.bewegung || 0))]),
-    dZeile(['Kontostand (gerechnet)', eur(b.kontostandBerechnet || 0)])];
+  const konto = [dZ(['Anfangsbestand' + (b.anfangAm ? ' (' + b.anfangAm + ')' : ''), eur(b.anfang || 0)]),
+    dZ(['Bewegung der Saison', (b.bewegung >= 0 ? '+ ' : '− ') + eur(Math.abs(b.bewegung || 0))]),
+    dZ(['Kontostand (gerechnet)', eur(b.kontostandBerechnet || 0)])];
   if (b.auszug !== null && b.auszug !== undefined)
-    konto.push(dZeile(['Laut Kontoauszug' + (b.auszugAm ? ' vom ' + esc(b.auszugAm) : ''), eur(b.auszug)]));
-  const tKonto = dTabelle(['Konto', 'Betrag'], konto,
-    (diff === null || diff === undefined) ? null
-      : ['Differenz', Math.abs(diff) < 0.005 ? '0,00 € · alles erfasst' : (diff > 0 ? '+ ' : '− ') + eur(Math.abs(diff))]);
+    konto.push(dZ(['Laut Kontoauszug' + (b.auszugAm ? ' vom ' + b.auszugAm : ''), eur(b.auszug)]));
+  const diff = b.differenz;
+  const tKonto = { t:'tabelle', kopf:['Konto', 'Betrag'], zeilen: konto, ab:1,
+    fuss: (diff === null || diff === undefined) ? null
+      : ['Differenz', Math.abs(diff) < 0.005 ? '0,00 € · alles erfasst' : (diff > 0 ? '+ ' : '− ') + eur(Math.abs(diff))] };
 
   const offenZ = [];
   if (b.offenStrafen !== undefined && (b.beitraegeOffen > 0 || b.umlagenOffen > 0)){
-    offenZ.push(dZeile([davon('davon Strafen'), eur(b.offenStrafen)]));
-    if (b.umlagenOffen > 0) offenZ.push(dZeile([davon('davon Umlagen'), eur(b.umlagenOffen)]));
-    if (b.beitraegeOffen > 0) offenZ.push(dZeile([davon('davon Monatsbeiträge'), eur(b.beitraegeOffen)]));
+    offenZ.push(dZ(['davon Strafen', eur(b.offenStrafen)], { davon:true }));
+    if (b.umlagenOffen > 0) offenZ.push(dZ(['davon Umlagen', eur(b.umlagenOffen)], { davon:true }));
+    if (b.beitraegeOffen > 0) offenZ.push(dZ(['davon Monatsbeiträge', eur(b.beitraegeOffen)], { davon:true }));
   }
-  offenZ.push(dZeile(['davon überfällig (§34)', eur(b.ueberfaellig || 0)]));
-  offenZ.push(dZeile(['Verspätungszuschläge der Saison', eur(b.zuschlaege || 0)]));
-  const tOffen = dTabelle(['Noch offen', 'Betrag'], offenZ, ['Offen gesamt', eur(b.offen || 0)]);
+  offenZ.push(dZ(['davon überfällig (§34)', eur(b.ueberfaellig || 0)]));
+  offenZ.push(dZ(['Verspätungszuschläge der Saison', eur(b.zuschlaege || 0)]));
+  const tOffen = { t:'tabelle', kopf:['Noch offen', 'Betrag'], zeilen: offenZ, fuss:['Offen gesamt', eur(b.offen || 0)], ab:1 };
 
-  const seite1 = `<section class="dseite">${dKopf('Kasse', 'Kassenbericht', pruefer ? 'Fassung Kassenprüfer' : '')}
-    ${vermerk}${kacheln}
-    <div class="dzwei"><div><h2>Einnahmen</h2>${tEin}</div><div><h2>Ausgaben</h2>${tAus}</div></div>
-    <div class="dzwei"><div><h2>Konto</h2>${tKonto}</div><div><h2>Noch offen</h2>${tOffen}</div></div>
-    ${dFuss()}</section>`;
+  const seite1 = { bereich:'Kasse', titel:'Kassenbericht', vertraulich: pruefer ? 'Fassung Kassenprüfer' : '',
+    bloecke: [vermerk, kacheln,
+      { t:'zwei', a:[{ t:'h2', text:'Einnahmen' }, tEin], b:[{ t:'h2', text:'Ausgaben' }, tAus] },
+      { t:'zwei', a:[{ t:'h2', text:'Konto' }, tKonto], b:[{ t:'h2', text:'Noch offen' }, tOffen] }] };
 
   const ausg = (kasseD().ausgaben || []).slice().sort((x, y) => x.datum < y.datum ? -1 : 1);
-  const tAusg = dTabelle(['Datum', 'Zweck', 'Kategorie', 'Betrag'].map((k, i) => k),
-    ausg.length ? ausg.map(a => '<tr><td>' + esc(dat(a.datum)) + '</td><td>' + esc(a.notiz || '–')
-        + '</td><td>' + esc(a.kategorie || '') + '</td><td class="r">' + eur(a.betrag) + '</td></tr>')
-      : ['<tr><td colspan="4">Noch keine Ausgaben erfasst.</td></tr>'],
-    null, 3);
   const sonst = (kasseD().umlage || []).slice().sort((x, y) => x.datum < y.datum ? -1 : 1);
-  const tSonst = sonst.length ? '<h2>Sonstige Einnahmen</h2>' + dTabelle(['Datum', 'Notiz', 'Betrag'],
-    sonst.map(a => '<tr><td>' + esc(dat(a.datum)) + '</td><td>' + esc(a.notiz || a.kategorie || '–')
-      + '</td><td class="r">' + eur(a.betrag) + '</td></tr>'), null, 2) : '';
-
-  /* Offene Beträge je Kegelbruder – NUR wer die Einzelposten ohnehin hat
-     (Kassenwart, Vertreter mit Einsicht, Kegelväter mit Einsicht). Die
-     Kassenprüfer haben sie nicht im Gerät, der Abschnitt fehlt dann von
-     selbst. */
-  let tLeute = '';
+  const bl2 = [{ t:'h2', text:'Ausgaben im Einzelnen' },
+    { t:'tabelle', kopf:['Datum', 'Zweck', 'Kategorie', 'Betrag'], ab:3, leer:'Noch keine Ausgaben erfasst.',
+      zeilen: ausg.map(a => dZ([dat(a.datum), a.notiz || '–', a.kategorie || '', eur(a.betrag)])) }];
+  if (sonst.length){
+    bl2.push({ t:'h2', text:'Sonstige Einnahmen' });
+    bl2.push({ t:'tabelle', kopf:['Datum', 'Notiz', 'Betrag'], ab:2,
+      zeilen: sonst.map(a => dZ([dat(a.datum), a.notiz || a.kategorie || '–', eur(a.betrag)])) });
+  }
+  /* Offene Strafen je Kegelbruder – NUR wer die Einzelposten ohnehin hat. Die
+     Kassenprüfer haben sie nicht im Gerät, der Abschnitt fehlt dann von selbst. */
   const offene = (D.kasseDaten && D.kasseDaten.offene) || null;
+  let mitNamen = false;
   if (offene && !pruefer){
     const je = {};
     offene.filter(o => !o.bezahlt && !o.ausgesetzt && Math.abs(o.offen || 0) >= 0.005).forEach(o => {
@@ -10880,58 +10868,62 @@ function druckKasse(){
     });
     const l = Object.keys(je).map(k => je[k]).sort((x, y) => x.n.localeCompare(y.n, 'de'));
     const summe = l.reduce((s, x) => s + x.offen, 0), posten = l.reduce((s, x) => s + x.posten, 0);
-    tLeute = '<h2>Offene Strafen je Kegelbruder <span class="dklein">nur Kassenwart</span></h2>'
-      + dTabelle(['Kegelbruder', 'Posten', 'offen'],
-          l.length ? l.map(x => dZeile([esc(x.n), x.posten, (x.offen < 0 ? '− ' : '') + eur(Math.abs(x.offen))]))
-                   : [dZeile(['alles beglichen', '', ''])],
-          ['Offen gesamt (netto)', posten, (summe < 0 ? '− ' : '') + eur(Math.abs(summe))])
-      + '<p class="dhinweis">Dieser Abschnitt steht nur im Ausdruck von Kassenwart und Vertretung. In der Fassung für die Kassenprüfer fehlt er – wer wie viel gezahlt hat, bleibt bis zur Generalversammlung vertraulich.</p>';
+    bl2.push({ t:'h2', text:'Offene Strafen je Kegelbruder', klein:'nur Kassenwart' });
+    bl2.push({ t:'tabelle', kopf:['Kegelbruder', 'Posten', 'offen'], ab:1, leer:'Alles beglichen.',
+      zeilen: l.map(x => dZ([x.n, String(x.posten), dEur(x.offen)])),
+      fuss:['Offen gesamt (netto)', String(posten), dEur(summe)] });
+    bl2.push({ t:'hinweis', text:'Dieser Abschnitt steht nur im Ausdruck von Kassenwart und Vertretung. In der Fassung für die Kassenprüfer fehlt er – wer wie viel gezahlt hat, bleibt bis zur Generalversammlung vertraulich.' });
+    mitNamen = true;
   }
-
-  const seite2 = `<section class="dseite">${dKopf('Kasse', 'Kassenbericht – Einzelheiten', tLeute ? 'nur Kassenwart' : (pruefer ? 'Fassung Kassenprüfer' : ''))}
-    <h2>Ausgaben im Einzelnen</h2>${tAusg}${tSonst}${tLeute}${dFuss()}</section>`;
-  return seite1 + seite2;
+  const seite2 = { bereich:'Kasse', titel:'Kassenbericht – Einzelheiten',
+    vertraulich: mitNamen ? 'nur Kassenwart' : (pruefer ? 'Fassung Kassenprüfer' : ''), bloecke: bl2 };
+  return { name:'Kassenbericht', seiten:[seite1, seite2] };
 }
 
-function druckAuswertung(){
+/* ---------- Modell: Auswertung */
+function druckModellAuswertung(){
   const A = (D.auswertung || []).slice();
-  if (!A.length) return '<p>Noch keine Daten.</p>';
+  if (!A.length) return null;
   const holz = r => vollenSchnitt(r).toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-
   const vollen = A.slice().sort((a, b) => vollenSchnitt(b) - vollenSchnitt(a));
   const koenig = vollen.filter(koenigsfaehig)[0];
   const hT = huerdeText();
-  const tVollen = dTabelle(['Platz', 'Kegelbruder', 'Ø Holz', 'Kegelabende', ''],
-    vollen.map((r, i) => '<tr' + (koenig && r.n === koenig.n ? ' class="dhl"' : '') + '><td>' + (i + 1) + '</td><td>' + esc(r.n)
-      + '</td><td class="r">' + holz(r) + '</td><td class="r">' + (r.daKegeln !== undefined ? r.daKegeln + '/' + r.kegelTermine : '–')
-      + '</td><td class="r">' + (koenig && r.n === koenig.n ? 'vorn' : koenigsfaehig(r) ? '' : 'unter Hürde') + '</td></tr>'), null, 2);
-
   const pumpen = A.slice().sort((a, b) => gesamtPumpen(b) - gesamtPumpen(a));
-  const tPumpen = dTabelle(['Platz', 'Kegelbruder', 'Pumpen'],
-    pumpen.map((r, i) => '<tr' + (i === 0 ? ' class="dhl"' : '') + '><td>' + (i + 1) + '</td><td>' + esc(r.n) + '</td><td class="r">'
-      + gesamtPumpen(r).toLocaleString('de-DE') + '</td></tr>'), null, 2);
-
   const neun = A.slice().sort((a, b) => b.alle9 - a.alle9);
-  const tNeun = dTabelle(['Platz', 'Kegelbruder', 'alle 9'],
-    neun.map((r, i) => '<tr' + (i === 0 && r.alle9 > 0 ? ' class="dhl"' : '') + '><td>' + (i + 1) + '</td><td>' + esc(r.n) + '</td><td class="r">'
-      + r.alle9 + '×</td></tr>'), null, 2);
-
   const anw = A.slice().sort((a, b) => b.da - a.da);
   const letzter = anw[anw.length - 1];
-  const tAnw = dTabelle(['Platz', 'Kegelbruder', 'anwesend', 'Quote'],
-    anw.map((r, i) => '<tr' + (letzter && r.n === letzter.n && i > 0 ? ' class="dhl"' : '') + '><td>' + (i + 1) + '</td><td>' + esc(r.n)
-      + '</td><td class="r">' + r.da + '/' + r.termine + '</td><td class="r">'
-      + (r.termine ? Math.round(r.da / r.termine * 100) : 0) + ' %</td></tr>'), null, 2);
+  const sonder = A.filter(r => gesamtSonder(r) > 0).sort((a, b) => gesamtSonder(b) - gesamtSonder(a));
 
-  const sonder = A.slice().filter(r => gesamtSonder(r) > 0).sort((a, b) => gesamtSonder(b) - gesamtSonder(a));
-  const tSonder = dTabelle(['Kegelbruder', 'Kranz', 'König', '8 ums V.', 'alle 9', 'gesamt'],
-    sonder.length ? sonder.map(r => dZeile([esc(r.n), r.kranz, r.koenig, r.acht, r.alle9, gesamtSonder(r)]))
-                  : ['<tr><td colspan="6">Noch keine Sonderwürfe.</td></tr>'], null);
+  const s1 = [
+    { t:'h2', text:'Kegelkönig', klein:'5 in die Vollen · ' + (hT ? 'Mindest-Anwesenheit ' + hT + ' der Kegelabende' : '§26') },
+    { t:'kasten', titel:'Vereinsschnitt bei 5 in die Vollen', wert: zahl1(schnittVon(A, vollenSchnitt)) + ' Holz' },
+    { t:'tabelle', kopf:['Platz', 'Kegelbruder', 'Ø Holz', 'Kegelabende', ''], ab:2,
+      zeilen: vollen.map((r, i) => dZ([String(i + 1), r.n, holz(r),
+        r.daKegeln !== undefined ? r.daKegeln + '/' + r.kegelTermine : '–',
+        koenig && r.n === koenig.n ? 'vorn' : (koenigsfaehig(r) ? '' : 'unter Hürde')], { hl: !!(koenig && r.n === koenig.n) })) },
+    { t:'zwei',
+      a:[{ t:'h2', text:'Pumpenkönig' }, { t:'kasten', titel:'Vereinsschnitt', wert: zahl1(schnittVon(A, gesamtPumpen)) + ' Pumpen' },
+         { t:'tabelle', kopf:['Platz', 'Kegelbruder', 'Pumpen'], ab:2,
+           zeilen: pumpen.map((r, i) => dZ([String(i + 1), r.n, gesamtPumpen(r).toLocaleString('de-DE')], { hl: i === 0 })) }],
+      b:[{ t:'h2', text:'9er König' }, { t:'kasten', titel:'Vereinsschnitt', wert: zahl1(schnittVon(A, r => r.alle9)) + '×' },
+         { t:'tabelle', kopf:['Platz', 'Kegelbruder', 'alle 9'], ab:2,
+           zeilen: neun.map((r, i) => dZ([String(i + 1), r.n, r.alle9 + '×'], { hl: i === 0 && r.alle9 > 0 })) }] }
+  ];
 
+  const s2 = [
+    { t:'h2', text:'Anwesenheit', klein:'§39 · alle Kegelveranstaltungen' },
+    { t:'kasten', titel:'Vereinsschnitt', wert: String(anwesenheitSchnitt(A)).replace(/<[^>]*>/g, '') },
+    { t:'tabelle', kopf:['Platz', 'Kegelbruder', 'anwesend', 'Quote'], ab:2,
+      zeilen: anw.map((r, i) => dZ([String(i + 1), r.n, r.da + '/' + r.termine,
+        (r.termine ? Math.round(r.da / r.termine * 100) : 0) + ' %'], { hl: !!(letzter && r.n === letzter.n && i > 0) })) },
+    { t:'hinweis', text:'Hinterlegt: schlechteste Anwesenheit nach §39.' },
+    { t:'h2', text:'Sonderwürfe' },
+    { t:'tabelle', kopf:['Kegelbruder', 'Kranz', 'König', '8 ums V.', 'alle 9', 'gesamt'], ab:1, leer:'Noch keine Sonderwürfe.',
+      zeilen: sonder.map(r => dZ([r.n, String(r.kranz), String(r.koenig), String(r.acht), String(r.alle9), String(gesamtSonder(r))])) }
+  ];
   /* Strafen je Kegelbruder: die ANZAHL, wie in Auswertung › Strafen – ohne
-     Beträge, die gehören zum Kassenwart (07.09.2026). Die Zählung kommt aus
-     einer eigenen Abfrage; ist sie noch nicht da, wird sie geholt. */
-  let tStrafen = '';
+     Beträge, die gehören zum Kassenwart (07.09.2026). */
+  s2.push({ t:'h2', text:'Strafen je Kegelbruder' });
   if (zaehlungDaten && !zaehlungDaten.fehler){
     const t = swTrennen(swAusZaehlung().filter(z => !z.g));
     const o = { id: 'amt', zeilen: t.echt, geld: false };
@@ -10940,59 +10932,392 @@ function druckAuswertung(){
     t.echt.forEach(z => { je[z.n] = (je[z.n] || 0) + swSumme(o, [z]); });
     const l = Object.keys(je).map(n => ({ n: n, a: je[n] })).sort((x, y) => y.a - x.a);
     const schnitt = l.length ? l.reduce((s, x) => s + x.a, 0) / l.length : 0;
-    tStrafen = '<h2>Strafen je Kegelbruder</h2>' + dKasten('Vereinsschnitt', zahl1(schnitt) + ' Strafen')
-      + dTabelle(['Platz', 'Kegelbruder', 'Anzahl'],
-          l.map((x, i) => dZeile([i + 1, esc(x.n), x.a.toLocaleString('de-DE')], '', 2)), null, 2)
-      + '<p class="dhinweis">Gezählt wird, wie oft eine Strafe erfasst ist – ohne Beträge, ohne Gäste.</p>';
+    s2.push({ t:'kasten', titel:'Vereinsschnitt', wert: zahl1(schnitt) + ' Strafen' });
+    s2.push({ t:'tabelle', kopf:['Platz', 'Kegelbruder', 'Anzahl'], ab:2,
+      zeilen: l.map((x, i) => dZ([String(i + 1), x.n, x.a.toLocaleString('de-DE')])) });
+    s2.push({ t:'hinweis', text:'Gezählt wird, wie oft eine Strafe erfasst ist – ohne Beträge, ohne Gäste.' });
   } else {
     zaehlungHolen();
-    tStrafen = '<h2>Strafen je Kegelbruder</h2><p class="dhinweis">Die Zählung der Strafen wird gerade geholt. Bitte die Druckansicht gleich noch einmal öffnen.</p>';
+    s2.push({ t:'hinweis', text:'Die Zählung der Strafen wird gerade geholt. Bitte die Druckansicht gleich noch einmal öffnen.' });
   }
+  const v = 'vertraulich bis zur GV';
+  return { name:'Auswertung', seiten:[
+    { bereich:'Schriftführer', titel:'Auswertung des Schriftführers', vertraulich: v, bloecke: s1 },
+    { bereich:'Schriftführer', titel:'Auswertung des Schriftführers', vertraulich: v, bloecke: s2 }] };
+}
 
-  const vertr = 'vertraulich bis zur GV';
-  const seite1 = `<section class="dseite">${dKopf('Schriftführer', 'Auswertung des Schriftführers', vertr)}
-    <h2>Kegelkönig <span class="dklein">5 in die Vollen · ${hT ? 'Mindest-Anwesenheit ' + esc(hT) + ' der Kegelabende' : '§26'}</span></h2>
-    ${dKasten('Vereinsschnitt bei 5 in die Vollen', zahl1(schnittVon(A, vollenSchnitt)) + ' Holz')}${tVollen}
-    <div class="dzwei"><div><h2>Pumpenkönig</h2>${dKasten('Vereinsschnitt', zahl1(schnittVon(A, gesamtPumpen)) + ' Pumpen')}${tPumpen}</div>
-      <div><h2>9er König</h2>${dKasten('Vereinsschnitt', zahl1(schnittVon(A, r => r.alle9)) + '×')}${tNeun}</div></div>
-    ${dFuss()}</section>`;
-  const seite2 = `<section class="dseite">${dKopf('Schriftführer', 'Auswertung des Schriftführers', vertr)}
-    <h2>Anwesenheit <span class="dklein">§39 · alle Kegelveranstaltungen</span></h2>
-    ${dKasten('Vereinsschnitt', esc(String(anwesenheitSchnitt(A)).replace(/<[^>]*>/g, '')))}${tAnw}
-    <p class="dhinweis">Hinterlegt: schlechteste Anwesenheit nach §39.</p>
-    <h2>Sonderwürfe</h2>${tSonder}
-    ${tStrafen}
-    ${dFuss()}</section>`;
-  return seite1 + seite2;
+/* ---------- Bildschirm: Modell → HTML */
+function dHtmlBlock(b){
+  switch (b.t){
+    case 'vermerk': return `<div class="dvermerk${b.art === 'ok' ? '' : ' ' + b.art}"><strong>${esc(b.titel)}</strong><div class="dklein">${esc(b.text)}</div></div>`;
+    case 'kacheln': return '<div class="dkacheln">' + b.items.map(k => `<div class="dkachel"><div class="dk1">${esc(k.titel)}</div>
+      <div class="dk2"${k.farbe ? ' style="color:' + k.farbe + '"' : ''}>${esc(k.wert)}</div><div class="dk3">${esc(k.unter || '')}</div></div>`).join('') + '</div>';
+    case 'h2': return `<h2>${esc(b.text)}${b.klein ? ' <span class="dklein">' + esc(b.klein) + '</span>' : ''}</h2>`;
+    case 'kasten': return `<div class="dkasten"><span>${esc(b.titel)}</span><strong>${esc(b.wert)}</strong></div>`;
+    case 'hinweis': return `<p class="dhinweis">${esc(b.text)}</p>`;
+    case 'zwei': return '<div class="dzwei"><div>' + b.a.map(dHtmlBlock).join('') + '</div><div>' + b.b.map(dHtmlBlock).join('') + '</div></div>';
+    case 'tabelle': {
+      const ab = b.ab || 1;
+      const zelle = (z, i, tag) => '<' + tag + (i >= ab ? ' class="r"' : '') + '>' + z + '</' + tag + '>';
+      const kopf = '<tr>' + b.kopf.map((k, i) => zelle(esc(k), i, 'th')).join('') + '</tr>';
+      const zeilen = b.zeilen.length
+        ? b.zeilen.map(r => '<tr' + (r.hl ? ' class="dhl"' : '') + '>' + r.z.map((z, i) =>
+            zelle(i === 0 && r.davon ? '<span class="ddavon">' + esc(z) + '</span>' : esc(z), i, 'td')).join('') + '</tr>').join('')
+        : '<tr><td colspan="' + b.kopf.length + '">' + esc(b.leer || '–') + '</td></tr>';
+      const fuss = b.fuss ? '<tr class="fuss">' + b.fuss.map((z, i) => zelle(esc(z), i, 'td')).join('') + '</tr>' : '';
+      return '<table><thead>' + kopf + '</thead><tbody>' + zeilen + fuss + '</tbody></table>';
+    }
+  }
+  return '';
+}
+function druckHtml(m){
+  const stand = druckStand();
+  return m.seiten.map(s => `<section class="dseite">
+    <div class="dkopf">
+      <div class="dmarke"><img src="../logo/standard-hell-marke.png" alt="">
+        <div><img class="dwort" src="../logo/wortmarke-hell.png" alt="KC Knüppeldick">
+          <div class="dklein">${esc(s.bereich)} · Druckansicht</div></div></div>
+      ${s.vertraulich ? `<div class="dpille">${esc(s.vertraulich)}</div>` : ''}
+    </div>
+    <h1>${esc(s.titel)}</h1>
+    <div class="dklein dstand">${esc(stand)}</div>
+    ${s.bloecke.map(dHtmlBlock).join('')}
+    <div class="dfuss"><span>KC Knüppeldick · aus der Vereins-App, Fassung ${esc(APP_VERSION)}</span><span>Stand ${esc(dat(D.heute))}</span></div>
+  </section>`).join('');
+}
+
+/* ---------- PDF: Modell → Zeichenfläche → PDF */
+const PDF_W = 794, PDF_H = 1123, PDF_RAND = 46, PDF_SKALA = 2.5;
+const pdfSchrift = (gew, px) => gew + ' ' + px + 'px Archivo, "Helvetica Neue", Arial, sans-serif';
+const pdfBlack = px => px + 'px "Archivo Black", Archivo, "Helvetica Neue", Arial, sans-serif';
+
+function pdfBild(src){
+  return new Promise(ok => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = src; });
+}
+function pdfUmbruch(ctx, text, breite){
+  const woerter = String(text).split(/\s+/); const zeilen = []; let z = '';
+  woerter.forEach(w => {
+    const probe = z ? z + ' ' + w : w;
+    if (ctx.measureText(probe).width <= breite || !z) z = probe; else { zeilen.push(z); z = w; }
+  });
+  if (z) zeilen.push(z);
+  return zeilen.length ? zeilen : [''];
+}
+function pdfRund(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
+}
+
+/* Jeder Baustein kann sich messen (zeichnen = false) und zeichnen. */
+function pdfBlock(ctx, b, x, y, w, zeichnen){
+  switch (b.t){
+    case 'h2': {
+      const h = 34;
+      if (zeichnen){
+        ctx.font = pdfSchrift(700, 12.5); ctx.fillStyle = DF.acc; ctx.textBaseline = 'alphabetic';
+        const t = b.text.toUpperCase(); ctx.fillText(t, x, y + 28);
+        if (b.klein){ const tw = ctx.measureText(t).width; ctx.font = pdfSchrift(400, 12); ctx.fillStyle = DF.mut; ctx.fillText(b.klein, x + tw + 8, y + 28); }
+      }
+      return h;
+    }
+    case 'vermerk': {
+      ctx.font = pdfSchrift(400, 12);
+      const zl = pdfUmbruch(ctx, b.text, w - 28);
+      const h = 14 + 18 + zl.length * 16 + 10;
+      if (zeichnen){
+        const farbe = b.art === 'ok' ? DF.ok : b.art === 'warn' ? DF.warn : DF.line;
+        pdfRund(ctx, x, y, w, h, 10); ctx.lineWidth = 1.5; ctx.strokeStyle = farbe; ctx.stroke();
+        ctx.font = pdfSchrift(700, 14); ctx.fillStyle = b.art === 'offen' ? DF.txt : farbe; ctx.fillText(b.titel, x + 14, y + 28);
+        ctx.font = pdfSchrift(400, 12); ctx.fillStyle = DF.mut;
+        zl.forEach((z, i) => ctx.fillText(z, x + 14, y + 46 + i * 16));
+      }
+      return h + 14;
+    }
+    case 'kacheln': {
+      const gap = 10, n = b.items.length, kw = (w - gap * (n - 1)) / n, h = 70;
+      if (zeichnen) b.items.forEach((k, i) => {
+        const kx = x + i * (kw + gap);
+        pdfRund(ctx, kx, y, kw, h, 10); ctx.fillStyle = DF.s2; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = DF.line; ctx.stroke();
+        ctx.font = pdfSchrift(700, 10.5); ctx.fillStyle = DF.mut; ctx.fillText(k.titel.toUpperCase(), kx + 12, y + 20);
+        ctx.font = pdfBlack(18); ctx.fillStyle = k.farbe || DF.txt; ctx.fillText(k.wert, kx + 12, y + 45);
+        ctx.font = pdfSchrift(400, 11); ctx.fillStyle = DF.mut; ctx.fillText(k.unter || '', kx + 12, y + 61);
+      });
+      return h + 4;
+    }
+    case 'kasten': {
+      const h = 36;
+      if (zeichnen){
+        pdfRund(ctx, x, y, w, h, 10); ctx.lineWidth = 1.5; ctx.strokeStyle = DF.acc; ctx.stroke();
+        ctx.font = pdfSchrift(400, 12.5); ctx.fillStyle = DF.mut; ctx.fillText(b.titel, x + 14, y + 23);
+        ctx.font = pdfBlack(15); ctx.fillStyle = DF.acc; ctx.textAlign = 'right'; ctx.fillText(b.wert, x + w - 14, y + 24); ctx.textAlign = 'left';
+      }
+      return h + 8;
+    }
+    case 'hinweis': {
+      ctx.font = pdfSchrift(400, 11.5);
+      const zl = pdfUmbruch(ctx, b.text, w - 24);
+      const h = 16 + zl.length * 15;
+      if (zeichnen){
+        pdfRund(ctx, x, y + 8, w, h, 8); ctx.fillStyle = DF.s2; ctx.fill();
+        ctx.fillStyle = DF.mut; zl.forEach((z, i) => ctx.fillText(z, x + 12, y + 8 + 19 + i * 15));
+      }
+      return h + 8;
+    }
+    case 'zwei': {
+      const sw = (w - 22) / 2;
+      const spalte = (liste, sx) => { let yy = y; liste.forEach(bb => { yy += pdfBlock(ctx, bb, sx, yy, sw, zeichnen); }); return yy - y; };
+      return Math.max(spalte(b.a, x), spalte(b.b, x + sw + 22));
+    }
+    case 'tabelle': return pdfTabelle(ctx, b, x, y, w, zeichnen, 0, b.zeilen.length).h;
+  }
+  return 0;
+}
+
+/* Spaltenbreiten: nach Inhalt, der Rest geht an die erste Textspalte. */
+function pdfSpalten(ctx, b, w){
+  const n = b.kopf.length, ab = b.ab || 1, br = new Array(n).fill(0);
+  const miss = (t, font) => { ctx.font = font; return ctx.measureText(t).width + 16; };
+  b.kopf.forEach((k, i) => br[i] = Math.max(br[i], miss(String(k).toUpperCase(), pdfSchrift(700, 10.5))));
+  b.zeilen.forEach(r => r.z.forEach((z, i) => br[i] = Math.max(br[i], miss(z, pdfSchrift(r.hl ? 700 : 400, 12.5)) + (r.davon && i === 0 ? 12 : 0))));
+  if (b.fuss) b.fuss.forEach((z, i) => br[i] = Math.max(br[i], miss(z, pdfSchrift(700, 12.5))));
+  let textSp = 0;
+  for (let i = 0; i < ab; i++) if (br[i] > br[textSp]) textSp = i;
+  if (ab > 1 && /^Platz$/.test(b.kopf[0])) textSp = 1;
+  const summe = br.reduce((s, v) => s + v, 0);
+  br[textSp] = Math.max(70, br[textSp] + (w - summe));
+  return br;
+}
+function pdfZellen(ctx, zellen, br, ab, font){
+  ctx.font = font;
+  return zellen.map((z, i) => i >= ab ? [String(z)] : pdfUmbruch(ctx, z, br[i] - 16));
+}
+function pdfTabelle(ctx, b, x, y, w, zeichnen, von, bis){
+  const br = pdfSpalten(ctx, b, w), ab = b.ab || 1;
+  let yy = y;
+  const kopfH = 26;
+  if (zeichnen){
+    ctx.font = pdfSchrift(700, 10.5); ctx.fillStyle = DF.mut;
+    let xx = x;
+    b.kopf.forEach((k, i) => {
+      const t = String(k).toUpperCase();
+      if (i >= ab){ ctx.textAlign = 'right'; ctx.fillText(t, xx + br[i] - 8, yy + 17); ctx.textAlign = 'left'; }
+      else ctx.fillText(t, xx + 8, yy + 17);
+      xx += br[i];
+    });
+    ctx.fillStyle = DF.txt; ctx.fillRect(x, yy + kopfH - 1.5, w, 1.5);
+  }
+  yy += kopfH;
+  const zeile = (zellen, font, hl, davon, fuss) => {
+    const zl = pdfZellen(ctx, zellen, br, ab, font);
+    const h = Math.max.apply(null, zl.map(l => l.length)) * 16 + 10;
+    if (zeichnen){
+      if (hl){ ctx.fillStyle = DF.s2; ctx.fillRect(x, yy, w, h); }
+      if (fuss){ ctx.fillStyle = DF.txt; ctx.fillRect(x, yy, w, 1.5); }
+      ctx.font = font; let xx = x;
+      zl.forEach((linien, i) => {
+        ctx.fillStyle = (davon && i === 0) ? DF.mut : DF.txt;
+        linien.forEach((t, j) => {
+          const ty = yy + 18 + j * 16;
+          if (i >= ab){ ctx.textAlign = 'right'; ctx.fillText(t, xx + br[i] - 8, ty); ctx.textAlign = 'left'; }
+          else ctx.fillText(t, xx + 8 + ((davon && i === 0) ? 12 : 0), ty);
+        });
+        xx += br[i];
+      });
+      if (!fuss){ ctx.fillStyle = DF.line; ctx.fillRect(x, yy + h - 1, w, 1); }
+    }
+    yy += h;
+  };
+  if (!b.zeilen.length && von === 0) zeile([b.leer || '–'].concat(new Array(b.kopf.length - 1).fill('')), pdfSchrift(400, 12.5), false, false, false);
+  for (let i = von; i < bis; i++){ const r = b.zeilen[i]; zeile(r.z, pdfSchrift(r.hl ? 700 : 400, 12.5), r.hl, r.davon, false); }
+  if (b.fuss && bis >= b.zeilen.length) zeile(b.fuss, pdfSchrift(700, 12.5), false, false, true);
+  return { h: yy - y + 4 };
+}
+
+/* Verteilt die Bausteine auf A4-Seiten. Tabellen dürfen umbrechen (der
+   Tabellenkopf wiederholt sich), alles andere wandert als Ganzes weiter. */
+function pdfSeitenPlanen(ctx, m){
+  const w = PDF_W - 2 * PDF_RAND, unten = PDF_H - 56;
+  const seiten = [];
+  m.seiten.forEach(s => {
+    let seite = { s: s, erste: true, ops: [] }; seiten.push(seite);
+    let y = 196;
+    const neu = () => { seite = { s: s, erste: false, ops: [] }; seiten.push(seite); y = 110; };
+    s.bloecke.forEach((b, bi) => {
+      if (b.t === 'tabelle'){
+        let von = 0;
+        const n = b.zeilen.length;
+        while (true){
+          let bis = von, h = 0;
+          // so viele Zeilen wie passen, mindestens drei – sonst neue Seite
+          for (bis = von; bis <= n; bis++){
+            h = pdfTabelle(ctx, b, 0, 0, w, false, von, bis).h;
+            if (y + h > unten) break;
+          }
+          bis = Math.min(bis - 1, n);
+          if (bis < n && bis - von < 3 && !(seite.ops.length === 0)){ neu(); continue; }
+          if (bis < von + 1 && n > 0){ bis = Math.min(von + 1, n); }
+          const v0 = von, b0 = bis, y0 = y;
+          seite.ops.push(ctx2 => pdfTabelle(ctx2, b, PDF_RAND, y0, w, true, v0, b0));
+          y += pdfTabelle(ctx, b, 0, 0, w, false, von, bis).h;
+          von = bis;
+          if (von >= n) break;
+          neu();
+        }
+        return;
+      }
+      /* Eine Überschrift zieht den nächsten Baustein mit: nie allein unten. */
+      let h = pdfBlock(ctx, b, 0, 0, w, false);
+      const folge = (b.t === 'h2' && s.bloecke[bi + 1]) ? Math.min(140, pdfBlock(ctx, s.bloecke[bi + 1], 0, 0, w, false)) : 0;
+      if (y + h + folge > unten && seite.ops.length) neu();
+      const y0 = y;
+      seite.ops.push(ctx2 => pdfBlock(ctx2, b, PDF_RAND, y0, w, true));
+      y += h;
+    });
+  });
+  return seiten;
+}
+
+async function pdfSeiteMalen(seite, nr, gesamt, bilder, stand){
+  const c = document.createElement('canvas');
+  c.width = Math.round(PDF_W * PDF_SKALA); c.height = Math.round(PDF_H * PDF_SKALA);
+  const ctx = c.getContext('2d');
+  ctx.scale(PDF_SKALA, PDF_SKALA);
+  ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, PDF_W, PDF_H);
+  ctx.textBaseline = 'alphabetic';
+  const x = PDF_RAND, w = PDF_W - 2 * PDF_RAND, y = 40, s = seite.s;
+  if (bilder.marke) ctx.drawImage(bilder.marke, x, y, 46, 46);
+  let wh = 20;
+  if (bilder.wort){ wh = 190 * bilder.wort.naturalHeight / bilder.wort.naturalWidth; ctx.drawImage(bilder.wort, x + 58, y + 4, 190, wh); }
+  ctx.font = pdfSchrift(400, 12); ctx.fillStyle = DF.mut;
+  ctx.fillText(s.bereich + ' · Druckansicht' + (seite.erste ? '' : ' · Fortsetzung'), x + 58, y + 4 + wh + 16);
+  if (s.vertraulich){
+    ctx.font = pdfSchrift(700, 10.5);
+    const t = s.vertraulich.toUpperCase(), tw = ctx.measureText(t).width + 22;
+    pdfRund(ctx, x + w - tw, y + 12, tw, 24, 12); ctx.lineWidth = 1.5; ctx.strokeStyle = DF.acc; ctx.stroke();
+    ctx.fillStyle = DF.acc; ctx.fillText(t, x + w - tw + 11, y + 28);
+  }
+  ctx.fillStyle = DF.acc; ctx.fillRect(x, y + 58, w, 3);
+  if (seite.erste){
+    ctx.font = pdfBlack(26); ctx.fillStyle = DF.txt; ctx.fillText(s.titel, x, y + 104);
+    ctx.font = pdfSchrift(400, 12); ctx.fillStyle = DF.mut; ctx.fillText(stand, x, y + 126);
+  }
+  seite.ops.forEach(op => op(ctx));
+  ctx.fillStyle = DF.line; ctx.fillRect(x, PDF_H - 44, w, 1);
+  ctx.font = pdfSchrift(400, 10.5); ctx.fillStyle = DF.mut;
+  ctx.fillText('KC Knüppeldick · aus der Vereins-App, Fassung ' + APP_VERSION, x, PDF_H - 28);
+  ctx.textAlign = 'center'; ctx.fillText('Stand ' + dat(D.heute), x + w / 2, PDF_H - 28);
+  ctx.textAlign = 'right'; ctx.fillText('Seite ' + nr + ' von ' + gesamt, x + w, PDF_H - 28); ctx.textAlign = 'left';
+  const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.9));
+  return { daten: new Uint8Array(await blob.arrayBuffer()), bw: c.width, bh: c.height };
+}
+
+/* Die kleinste brauchbare PDF-Datei: je Seite ein JPEG über die volle Seite. */
+function pdfBauen(bilder){
+  const teile = []; const offs = []; let laenge = 0;
+  const enc = new TextEncoder();
+  const schreib = d => { const b = typeof d === 'string' ? enc.encode(d) : d; teile.push(b); laenge += b.length; };
+  const obj = (n, kopf, strom) => {
+    offs[n] = laenge;
+    schreib(n + ' 0 obj\n' + kopf);
+    if (strom){ schreib('\nstream\n'); schreib(strom); schreib('\nendstream'); }
+    schreib('\nendobj\n');
+  };
+  schreib('%PDF-1.4\n'); schreib(new Uint8Array([37, 226, 227, 207, 211, 10]));
+  const n = bilder.length, kids = [];
+  for (let i = 0; i < n; i++) kids.push((3 + i * 3) + ' 0 R');
+  obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2, '<< /Type /Pages /Kids [' + kids.join(' ') + '] /Count ' + n + ' >>');
+  bilder.forEach((b, i) => {
+    const p = 3 + i * 3;
+    const inhalt = enc.encode('q 595.28 0 0 841.89 0 0 cm /I' + i + ' Do Q');
+    obj(p, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /I' + i + ' ' + (p + 2)
+      + ' 0 R >> >> /Contents ' + (p + 1) + ' 0 R >>');
+    obj(p + 1, '<< /Length ' + inhalt.length + ' >>', inhalt);
+    obj(p + 2, '<< /Type /XObject /Subtype /Image /Width ' + b.bw + ' /Height ' + b.bh
+      + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + b.daten.length + ' >>', b.daten);
+  });
+  const xref = laenge, anzahl = 3 + n * 3;
+  let x = 'xref\n0 ' + anzahl + '\n0000000000 65535 f \n';
+  for (let i = 1; i < anzahl; i++) x += String(offs[i]).padStart(10, '0') + ' 00000 n \n';
+  schreib(x + 'trailer\n<< /Size ' + anzahl + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF\n');
+  return new Blob(teile, { type: 'application/pdf' });
+}
+
+async function druckPdfErzeugen(m){
+  try { await Promise.all([document.fonts.load(pdfSchrift(400, 12)), document.fonts.load(pdfSchrift(700, 12)), document.fonts.load(pdfBlack(18))]); } catch (e) {}
+  const [marke, wort] = await Promise.all([pdfBild('../logo/standard-hell-marke.png'), pdfBild('../logo/wortmarke-hell.png')]);
+  const mess = document.createElement('canvas').getContext('2d');
+  const seiten = pdfSeitenPlanen(mess, m);
+  const stand = druckStand();
+  const bilder = [];
+  for (let i = 0; i < seiten.length; i++) bilder.push(await pdfSeiteMalen(seiten[i], i + 1, seiten.length, { marke: marke, wort: wort }, stand));
+  const name = m.name + '_KC_Knueppeldick_' + D.heute + '.pdf';
+  return new File([pdfBauen(bilder)], name, { type: 'application/pdf' });
+}
+
+let druckDatei = null;
+
+async function druckPdfTeilen(knopf){
+  if (!druckDatei) return;
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [druckDatei] })){
+      await navigator.share({ files: [druckDatei], title: druckDatei.name });
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;          // im Teilen-Menü abgebrochen
+  }
+  /* Kein Teilen-Menü (PC): herunterladen. */
+  const url = URL.createObjectURL(druckDatei);
+  const a = document.createElement('a');
+  a.href = url; a.download = druckDatei.name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 function druckOeffnen(was){
   /* Nur wer den Bereich sieht, bekommt das Blatt – die Daten dafür liegen
-     ohnehin nur in seinem Gerät. Die Prüfung hier fängt einen alten Knopf
-     nach einem Rechtewechsel ab. */
+     ohnehin nur in seinem Gerät. */
   if (was === 'kasse' && !darfKasseSehen()) return;
   if (was === 'amt' && !darfAmtSehen()) return;
+  const m = was === 'kasse' ? druckModellKasse() : druckModellAuswertung();
+  if (!m){ hinweisleiste('Noch keine Daten für die Druckansicht.'); return; }
   let e = $('druckEbene');
-  if (!e){
-    e = document.createElement('div');
-    e.id = 'druckEbene';
-    document.body.appendChild(e);
-  }
-  const inhalt = was === 'kasse' ? druckKasse() : druckAuswertung();
+  if (!e){ e = document.createElement('div'); e.id = 'druckEbene'; document.body.appendChild(e); }
+  /* Auf dem iPhone (App vom Home-Bildschirm) gibt es keinen Druckdialog –
+     dort nur „Als PDF teilen“; das Teilen-Menü hat „Drucken“ selbst. */
+  const druckGeht = window.navigator.standalone !== true;
   e.innerHTML = `<div class="druckLeiste">
       <button class="btn ghost small" id="druckZu">Schließen</button>
-      <button class="btn small" id="druckLos">Drucken / als PDF</button>
+      <span style="display:flex;gap:8px">
+        ${druckGeht ? '<button class="btn ghost small" id="druckLos">Drucken</button>' : ''}
+        <button class="btn small" id="druckPdf" disabled>PDF wird erstellt …</button>
+      </span>
     </div>
-    <div class="dblatt">${inhalt}</div>`;
+    <div class="dblatt">${druckHtml(m)}</div>`;
   e.classList.remove('hidden');
   document.documentElement.classList.add('druckOffen');
   e.scrollTop = 0;
+  /* Das PDF entsteht sofort beim Öffnen – beim Antippen muss es fertig sein,
+     sonst lässt das iPhone das Teilen-Menü nicht mehr zu. */
+  druckDatei = null;
+  const lauf = {};
+  druckOeffnen.lauf = lauf;
+  druckPdfErzeugen(m).then(f => {
+    if (druckOeffnen.lauf !== lauf) return;
+    druckDatei = f;
+    const k = $('druckPdf'); if (k){ k.disabled = false; k.textContent = 'Als PDF teilen'; }
+  }).catch(err => {
+    console.error(err);
+    const k = $('druckPdf'); if (k){ k.textContent = 'PDF ging nicht'; }
+  });
 }
 function druckSchliessen(){
   const e = $('druckEbene');
   if (e){ e.classList.add('hidden'); e.innerHTML = ''; }
+  druckDatei = null; druckOeffnen.lauf = null;
   document.documentElement.classList.remove('druckOffen');
 }
+
 
 const FREIGABEN = [
   { k: 'gv', titel: 'Kegelkönig freigeben',
