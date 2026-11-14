@@ -1643,7 +1643,9 @@ const API = 'https://script.google.com/macros/s/AKfycby359xVegJ5gEFeb282uN7pTCfL
    - Warnung „noch innerhalb des Kegeljahres“; ohne GV-Termin müssen beide
      Kegelväter bestätigen, der Bildschirm zeigt, wer schon bestätigt hat.
    - Historie: ein abgeschlossenes, aber noch nicht verkündetes Kegeljahr
-     trägt bei Schriftführer und Kegelvätern die Marke „vertraulich“.
+     trägt beim Schriftführer die Marke „vertraulich“.
+   - Der Abschluss zeigt keine Geldwerte mehr. Die Titel sieht nur der
+     Schriftführer; die Kegelväter bestätigen, ohne Werte zu sehen.
    Braucht Backend 1.64. */
 const APP_VERSION = '1.69';
 
@@ -12440,6 +12442,9 @@ function absTerminZeile(t){
 
 function zeichneAbschluss(){
   const a = ABS, z = a.zahlen;
+  /* 1.69: Was dieser Beteiligte sehen darf (Backend 1.64). Fehlt die Angabe
+     (älteres Backend), wie bisher alles. */
+  const sicht = a.sicht || { titel: true, kasse: true };
   $('abschlussKopf').textContent = 'Kegeljahr ' + a.saison;
 
   let h = `<p class="note" style="margin-top:14px">Vom ${dat(a.beginn)} bis zur Generalversammlung
@@ -12482,15 +12487,26 @@ function zeichneAbschluss(){
       <div class="row"><div><div class="n">Davon mit Werten</div>${
         z.leer.length ? `<div class="m frist">Ohne Werte geblieben: ${z.leer.map(dat).join(', ')}</div>` : ''}
         </div><div class="v">${z.mitWerten}</div></div>
+${sicht.kasse ? `
       <div class="row"><div class="n">Strafen der Saison</div><div class="v">${eur(z.strafen)}</div></div>
       <div class="row"><div class="n">Ausgaben</div><div class="v">${eur(z.ausgaben)}</div></div>
       <div class="row"><div class="n">Sonstige Einnahmen</div><div class="v">${eur(z.einnahmen)}</div></div>
       <div class="row"><div class="n">Spenden</div><div class="v">${eur(z.spenden)}</div></div>
-      <div class="row"><div class="n">Kassenstand</div><div class="v">${esc(preisText(z.kontostand) || '–')}</div></div>
-    </div>`;
+      <div class="row"><div class="n">Kassenstand</div><div class="v">${esc(preisText(z.kontostand) || '–')}</div></div>` : ''}
+    </div>${sicht.kasse ? '' : `<p class="note" style="margin-top:10px">Geldwerte zeigt der Abschluss
+      nicht – sie stehen im Kassenbericht des Kassenwarts.</p>`}`;
 
   /* 2 – Das kommt in die Historie */
-  h += `<h2 class="sec" style="margin-top:24px">Das kommt in die Historie</h2>
+  h += `<h2 class="sec" style="margin-top:24px">Das kommt in die Historie</h2>`;
+  /* 1.69: Titel und Auswertung sieht nur, wer die Auswertung des
+     Schriftführers sehen darf – die Kegelväter erst nach der GV. */
+  if (!sicht.titel){
+    const offenG = absAnzahlOffeneGleichstaende();
+    h += `<p class="note" style="margin-top:10px">${plural(a.titelAnzahl || 0, 'Titel', 'Titel')} und die
+      Auswertung des Jahres trägt der Schriftführer ein. Du siehst sie erst nach der Freigabe auf
+      der GV.${offenG ? ` <b style="color:var(--accent)">Noch ${plural(offenG,'Gleichstand','Gleichstände')}
+      offen – erst danach lässt sich bestätigen.</b>` : ''}</p>`;
+  } else h += `
     <p class="note" style="margin-top:10px">Antippen ändert eine Zeile. Nötig ist das nur bei
       einem Gleichstand – oder wenn etwas korrigiert werden muss.</p>
     <div class="list" style="margin-top:14px">${
@@ -12519,7 +12535,13 @@ function zeichneAbschluss(){
 
   /* 3 – Das wird übernommen */
   h += `<h2 class="sec mitchip" style="margin-top:24px"><span>Das wird übernommen</span>
-      <span class="chip">${eur(a.offenSumme)}</span></h2>`;
+      ${sicht.kasse ? `<span class="chip">${eur(a.offenSumme)}</span>` : ''}</h2>`;
+  if (!sicht.kasse){
+    h += `<p class="note" style="margin-top:14px">${a.offenKoepfe
+      ? plural(a.offenKoepfe, 'Kegelbruder nimmt', 'Kegelbrüder nehmen') + ' ihren Stand – Schulden oder Guthaben – mit ins neue Jahr. '
+        + 'Die Beträge stehen im Kassenbericht des Kassenwarts.'
+      : 'Es ist nichts mehr offen.'}</p>`;
+  }
   /* Nach Kegelbruder gebündelt. Einzeln wären es schnell sechzig Zeilen, durch
      die man sich bis zum Knopf scrollen müsste – und wissen will man hier, wer
      wie viel mitnimmt, nicht welcher Abend das im Einzelnen war. */
@@ -12530,7 +12552,7 @@ function zeichneAbschluss(){
     if (o.datum < m.aeltester) m.aeltester = o.datum;
   });
   const gebuendelt = Object.keys(jeMann).sort().map(k => jeMann[k]);
-  h += gebuendelt.length
+  if (sicht.kasse) h += gebuendelt.length
     ? `<div class="list" style="margin-top:14px">${gebuendelt.map(o => `<div class="row">
         <div><div class="n">${esc(o.name)}</div>
           <div class="m">${plural(o.anzahl,'Posten','Posten')} · ältester vom ${dat(o.aeltester)}</div></div>
@@ -12590,7 +12612,7 @@ function absAktionHtml(frage){
   }
   if (a.antrag && a.darfBestaetigen){
     const nochAndere = (a.fehlen || []).filter(n => n !== (D.ich && D.ich.name));
-    if (absOffeneGleichstaende().length){
+    if (absAnzahlOffeneGleichstaende()){
       return `<p class="note">${esc(a.antrag.wer)} hat den Abschluss am ${esc(a.antrag.zeit)}
         angemeldet. Bestätigen geht erst, wenn der Schriftführer alle Gleichstände entschieden hat.</p>
         <button class="btn ghost" id="absAbbrechen" style="margin-top:14px">Zurückziehen</button>`;
@@ -12629,6 +12651,15 @@ function absAktionHtml(frage){
 /* 1.69: Gleichstände, die noch niemand entschieden hat. */
 function absOffeneGleichstaende(){
   return ((ABS && ABS.titel) || []).filter(t => (t.gleich || []).length > 1 && !t.entscheid);
+}
+
+/* Anzahl – auch für die Kegelväter, die die Titel nicht sehen. */
+function absAnzahlOffeneGleichstaende(){
+  if (ABS && ABS.sicht && !ABS.sicht.titel){
+    return (ABS.antrag && typeof ABS.antrag.offeneGleichstaende === 'number')
+      ? ABS.antrag.offeneGleichstaende : (ABS.offeneGleichstaende || 0);
+  }
+  return absOffeneGleichstaende().length;
 }
 
 function absKegelvaterName(){
