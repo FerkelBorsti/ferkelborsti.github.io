@@ -1646,6 +1646,11 @@ const API = 'https://script.google.com/macros/s/AKfycby359xVegJ5gEFeb282uN7pTCfL
      trägt die Marke „vertraulich“; vor der GV sieht der Schriftführer nur
      Titel und Zahlen, der Kassenwart nur die Kasse.
    - Historie: neuer Block „Kasse“ je Jahr (Summen, keine Namen).
+   - Paket B: Auf der GV geben Schriftführer (Ergebnisse) und Kassenwart
+     (Kassenbericht) ihren Teil über eine Karte auf der Startseite frei; Push
+     an alle, Rücknahme nur am selben Tag. Danach zeigt die Startseite allen
+     die Titel und den Kassenbericht des abgeschlossenen Jahres. Die Schalter
+     „Kegelkönig“ und „Kassenbericht“ unter Verwaltung sind entfallen.
    - Der Abschluss zeigt keine Geldwerte mehr. Der Schriftführer sieht nur die
      Gleichstände, die er entscheiden muss; die Kegelväter bestätigen, ohne
      Werte zu sehen.
@@ -2116,6 +2121,7 @@ function schreibFehlerText(e, was){
    meldete "eingetragen". Seit Backend 1.29 fängt der Server das zusätzlich ab;
    hier steht die zweite Sicherung. */
 const API_EINMALIG = [
+  'gvFreigeben',
   'ausgabeAnlegen', 'umlageAnlegen', 'ausgabeAendern', 'umlageAendern',
   'ausgabeLoeschen', 'umlageLoeschen', 'terminAnlegen', 'terminAendern',
   'terminLoeschen', 'kategorieAnlegen', 'statutAnlegen', 'statutEntfernen',
@@ -2994,6 +3000,7 @@ function zeichneStart(){
     ${rmAntragKarte()}
 
     ${abschlussKarte()}
+    ${gvFreigabeKarte()}
 
     ${aendKarte()}
 
@@ -3021,8 +3028,29 @@ function zeichneStart(){
           <div class="list" style="margin-top:14px">${rueckblick(la)}</div>`;
   }
 
-  h += `<h2 class="sec" style="margin-top:24px">Kegelkönig ${esc(SAISON_LAEUFT)}</h2>
-        <div class="card vault ${D.gvFrei ? 'open' : ''}" style="margin-top:14px">${tresor()}</div>`;
+  /* 1.69 (Paket B): Nach der Freigabe auf der GV stehen hier die Titel des
+     abgeschlossenen Jahres – bis zum ersten Kegelabend des neuen. */
+  const gvE = D.gvErgebnis;
+  if (gvE && gvE.titel){
+    h += `<h2 class="sec" style="margin-top:24px">Kegeljahr ${esc(gvE.saison)}</h2>
+          <div class="card vault open" style="margin-top:14px">${gvTresor(gvE)}</div>`;
+  } else {
+    h += `<h2 class="sec" style="margin-top:24px">Kegelkönig ${esc(SAISON_LAEUFT)}</h2>
+          <div class="card vault ${D.gvFrei ? 'open' : ''}" style="margin-top:14px">${tresor()}</div>`;
+  }
+  if (gvE && gvE.kasse){
+    const k = gvE.kasse;
+    h += `<h2 class="sec" style="margin-top:24px">Kassenbericht ${esc(gvE.saison)}</h2>
+      <div class="list" style="margin-top:14px">
+        <div class="row"><div class="n">Kassenstand zum Jahresende</div><div class="v">${eur(k.kontostand)}</div></div>
+        <div class="row"><div class="n">Strafen der Saison</div><div class="v">${eur(k.strafen)}</div></div>
+        <div class="row"><div class="n">Ausgaben</div><div class="v">${eur(k.ausgaben)}</div></div>
+        <div class="row"><div class="n">Sonstige Einnahmen</div><div class="v">${eur(k.einnahmen)}</div></div>
+        <div class="row"><div class="n">Spenden</div><div class="v">${eur(k.spenden)}</div></div>
+        <div class="row"><div><div class="n">Ins neue Jahr übernommen</div><div class="m">Schulden minus Guthaben</div></div><div class="v">${eur(k.offen)}</div></div>
+      </div>
+      <p class="note" style="margin-top:10px">Nur Summen, keine Namen. Alles weitere steht in der Historie.</p>`;
+  }
 
   h += `<h2 class="sec" style="margin-top:24px">So zahlst du</h2>
     <p class="note">Überweise deine offenen Strafen an die Kegelkasse. Tippe ein Feld an,
@@ -3043,6 +3071,8 @@ function zeichneStart(){
   if (verstanden) verstanden.addEventListener('click', aendZurKenntnis);
   if ($('aendAlle')) $('aendAlle').addEventListener('click', zeigeHistorie);
   if ($('absKarteBtn')) $('absKarteBtn').addEventListener('click', abschlussOeffnen);
+  $('tab-start').querySelectorAll('button[data-gvteil]').forEach(b =>
+    b.addEventListener('click', () => gvKlick(b.dataset.gvteil, b.dataset.gvaktion)));
   $('tab-start').querySelectorAll('button[data-aend]').forEach(b =>
     b.addEventListener('click', () => aendAnsehen(b.dataset.aend)));
   if ($('startErfassen')) $('startErfassen').addEventListener('click',
@@ -11355,10 +11385,9 @@ function druckSchliessen(){
 
 
 const FREIGABEN = [
-  { k: 'gv', titel: 'Kegelkönig freigeben',
-    dsc: 'Zeigt Kegelkönig und Pumpenkönig allen Kegelbrüdern. Gedacht für die Generalversammlung.' },
-  { k: 'kasse', titel: 'Kassenbericht freigeben',
-    dsc: 'Zeigt allen Kegelbrüdern die Kassen-Übersicht. Summen, keine Namen. Gedacht für die Generalversammlung.' },
+  /* 1.69: "Kegelkönig freigeben" und "Kassenbericht freigeben" sind entfallen.
+     Auf der GV geben Schriftführer und Kassenwart ihren Teil über die Karte
+     auf der Startseite frei (Paket B). */
   { k: 'einsichtAmt', titel: 'Einsicht für den 2. Schriftführer',
     dsc: 'Dein Stellvertreter darf mitlesen: Auswertung und Abend-Rückblick, ohne Codeverwaltung. Ändern kann er nichts. Am besten vor einer Abwesenheit setzen.' },
   { k: 'einsichtKasse', titel: 'Einsicht für den 2. Kassenwart',
@@ -12412,6 +12441,72 @@ let absTitelIndex = -1;  // welche Titelzeile gerade in der Maske steht
 
 /* Die Karte auf der Startseite. Wer damit nichts zu tun hat, bekommt vom
    Backend null und sieht deshalb gar nichts. */
+/* ------------------------------------------- Freigabe auf der GV (1.69) */
+
+let gvFrage = '';        // welcher Teil gerade die Rückfrage zeigt
+let gvLaeuft = false;
+
+const GV_TEIL = {
+  titel: { name: 'Ergebnisse', knopf: 'Ergebnisse freigeben',
+           was: 'Titel, Könige und die Auswertung des Jahres – dazu der Orden des Anwesenheits-Loosers.' },
+  kasse: { name: 'Kassenbericht', knopf: 'Kassenbericht freigeben',
+           was: 'Die Kasse des Jahres in Summen, ohne Namen.' }
+};
+
+function gvFreigabeKarte(){
+  const g = D && D.gvFreigabe;
+  if (!g) return '';
+  const teile = g.teile.map(t => {
+    const T = GV_TEIL[t.teil];
+    if (t.frei){
+      return `<div class="txt"><b>${esc(T.name)}</b> freigegeben am ${esc(t.am)}.</div>${t.zuruecknehmen
+        ? `<div class="knoepfe"><button class="btn ghost small" data-gvteil="${t.teil}" data-gvaktion="zurueck">Zurücknehmen</button></div>` : ''}`;
+    }
+    if (gvFrage === t.teil){
+      return `<div class="txt"><b>${esc(T.name)} jetzt freigeben?</b> ${esc(T.was)} Alle Kegelbrüder
+        bekommen eine Nachricht. Zurücknehmen geht nur heute.</div>
+        <div class="knoepfe"><button class="btn small" data-gvteil="${t.teil}" data-gvaktion="ja">Ja, freigeben</button>
+        <button class="btn ghost small" data-gvteil="${t.teil}" data-gvaktion="nein">Doch nicht</button></div>`;
+    }
+    return `<div class="txt">${esc(T.was)}</div>
+      <div class="knoepfe"><button class="btn small" data-gvteil="${t.teil}" data-gvaktion="frage">${esc(T.knopf)}</button></div>`;
+  }).join('');
+  return `<div class="abschlusskarte">
+    <div class="kopf">Generalversammlung · Kegeljahr ${esc(g.saison)}</div>${teile}</div>`;
+}
+
+async function gvKlick(teil, aktion){
+  if (aktion === 'frage'){ gvFrage = teil; zeichneStart(); return; }
+  if (aktion === 'nein'){ gvFrage = ''; zeichneStart(); return; }
+  if (gvLaeuft) return;
+  gvLaeuft = true;
+  try {
+    const r = await api('gvFreigeben', { token: token, teil: teil, frei: aktion === 'ja' }, 1);
+    if (r.fehler) hinweisleiste(r.fehler, 'warn');
+    else {
+      eigeneSchreibung();
+      hinweisleiste(aktion === 'ja' ? 'Freigegeben – alle bekommen eine Nachricht.' : 'Zurückgenommen.');
+    }
+    gvFrage = '';
+    aktualisieren(true);
+  } catch (e) {
+    hinweisleiste('Hat nicht geklappt (' + fehlerGrund(e) + ').', 'warn');
+  }
+  gvLaeuft = false;
+}
+
+/* Der geöffnete Tresor mit den Titeln des abgeschlossenen Jahres. */
+function gvTresor(g){
+  const t = g.titel || [];
+  const koenig = t.filter(x => x.titel === 'Kegelkönig')[0];
+  const weitere = t.filter(x => x !== koenig).map(x => `<div class="sub" style="border-top:1px solid var(--line);padding-top:10px;width:100%">
+      ${esc(x.titel)}: <strong style="color:var(--text)">${esc(x.wer)}</strong>${x.wert ? ' · ' + esc(x.wert) : ''}</div>`).join('');
+  return `<div class="eyebrow">Verkündet auf der Generalversammlung</div>
+    <div class="big">${esc(koenig ? koenig.wer : '–')}</div>
+    <div class="sub">Kegelkönig${koenig && koenig.wert ? ' · ' + esc(koenig.wert) : ''}</div>
+    ${weitere}`;
+}
+
 function abschlussKarte(){
   const a = D && D.abschluss;
   if (!a) return '';
