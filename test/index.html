@@ -12667,6 +12667,9 @@ async function absStarten(){
     ABS.antrag = a.antrag;
     ABS.titel  = a.antrag && a.antrag.titel ? a.antrag.titel : ABS.titel;
     ABS.darfBestaetigen = false;
+    /* 1.69: Wer jetzt bestätigen muss – ohne GV-Termin beide Kegelväter. */
+    ABS.bestaetigt = [];
+    ABS.fehlen = (ABS.bestaetiger || []).slice();
     hinweisleiste(a.hinweis || 'Angemeldet.');
     zeichneAbschluss();
     aktualisieren();
@@ -12768,8 +12771,9 @@ function absBericht(a){
   }
   h += `<div class="card" style="margin-top:22px">
       <div class="eyebrow">Als Nächstes</div>
-      <p class="note" style="margin-top:10px">Die neu gewählten Warte eintragen. Die Reihenfolge
-        spielt keine Rolle – die App hat die alte Besetzung bereits festgehalten.</p>
+      <p class="note" style="margin-top:10px">Auf der GV: die Ergebnisse freigeben und danach die
+        neu gewählten Warte eintragen. Die Reihenfolge spielt keine Rolle – die App hat die alte
+        Besetzung bereits festgehalten.</p>
       <button class="btn ghost" id="absZuAemtern" style="margin-top:12px">Zu den Ämtern</button>
     </div>
     <button class="btn" id="absFertig" style="margin-top:14px">Fertig</button>`;
