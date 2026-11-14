@@ -3768,8 +3768,11 @@ function zeichneHistorie(){
   }
 
   const aend = histAendNachJahr();
-  const voll = liste.filter(j => j.hatDaten || (j.titel || []).length);
-  const leer = liste.filter(j => !(j.hatDaten || (j.titel || []).length));
+  /* 1.69: Ein Jahr mit Kassenwerten ist nicht "ohne Daten" – der Kassenwart
+     sieht ein vertrauliches Jahr vor der GV nur mit der Kasse. */
+  const hatEtwas = j => j.hatDaten || (j.titel || []).length || j.kasse;
+  const voll = liste.filter(j => hatEtwas(j));
+  const leer = liste.filter(j => !hatEtwas(j));
 
   let h = histEhrentafel(liste);
   h += `<h2 class="sec" style="margin-top:24px">Die Kegeljahre</h2>
