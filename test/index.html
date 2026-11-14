@@ -1643,9 +1643,12 @@ const API = 'https://script.google.com/macros/s/AKfycby359xVegJ5gEFeb282uN7pTCfL
    - Warnung „noch innerhalb des Kegeljahres“; ohne GV-Termin müssen beide
      Kegelväter bestätigen, der Bildschirm zeigt, wer schon bestätigt hat.
    - Historie: ein abgeschlossenes, aber noch nicht verkündetes Kegeljahr
-     trägt beim Schriftführer die Marke „vertraulich“.
-   - Der Abschluss zeigt keine Geldwerte mehr. Die Titel sieht nur der
-     Schriftführer; die Kegelväter bestätigen, ohne Werte zu sehen.
+     trägt die Marke „vertraulich“; vor der GV sieht der Schriftführer nur
+     Titel und Zahlen, der Kassenwart nur die Kasse.
+   - Historie: neuer Block „Kasse“ je Jahr (Summen, keine Namen).
+   - Der Abschluss zeigt keine Geldwerte mehr. Der Schriftführer sieht nur die
+     Gleichstände, die er entscheiden muss; die Kegelväter bestätigen, ohne
+     Werte zu sehen.
    Braucht Backend 1.64. */
 const APP_VERSION = '1.69';
 
@@ -3671,7 +3674,9 @@ function histJahr(j, aendZeilen){
         return `<div class="row"><div><div class="n">${esc(t.wer)}</div>
           <div class="m">${esc(t.titel)}</div></div>${histWertRechts(teile)}</div>`;
       }).join('')
-    : `<div class="kein">${esc(j.hinweis || 'Für dieses Kegeljahr ist nichts überliefert.')}</div>`;
+    : `<div class="kein">${esc(j.vertraulich && !titel.length
+        ? 'Vor der GV siehst du nur die Kasse dieses Jahres.'
+        : (j.hinweis || 'Für dieses Kegeljahr ist nichts überliefert.'))}</div>`;
 
   // Legende nur mit den Marken, die in diesem Jahr wirklich vorkommen
   const marken = [];
@@ -3692,6 +3697,18 @@ function histJahr(j, aendZeilen){
     + (j.hatDaten && kategorien
         ? histBlock('Das Jahr in Zahlen', '', `<div class="kacheln">${kategorien}</div>`,
                     j.fussnote ? esc(j.fussnote) : '')
+        : '')
+    /* 1.69: Kassenwerte des Jahres – nur Summen, keine Namen. Vor der GV
+       bekommt sie nur der Kassenwart (Backend 1.64). */
+    + (j.kasse
+        ? histBlock('Kasse', '', [
+            histZeile('Kassenstand zum Jahresende', '', eur(j.kasse.kontostand)),
+            histZeile('Strafen der Saison', '', eur(j.kasse.strafen)),
+            histZeile('Ausgaben', '', eur(j.kasse.ausgaben)),
+            histZeile('Sonstige Einnahmen', '', eur(j.kasse.einnahmen)),
+            histZeile('Spenden', '', eur(j.kasse.spenden)),
+            histZeile('Ins neue Jahr übernommen', 'Schulden minus Guthaben', eur(j.kasse.offen))
+          ].join(''), '')
         : '')
     + (aendZeilen && aendZeilen.length
         ? histBlock('Was sich geändert hat', `<span class="pill open">${aendZeilen.length}</span>`,
@@ -12507,8 +12524,9 @@ ${sicht.kasse ? `
       der GV.${offenG ? ` <b style="color:var(--accent)">Noch ${plural(offenG,'Gleichstand','Gleichstände')}
       offen – erst danach lässt sich bestätigen.</b>` : ''}</p>`;
   } else h += `
-    <p class="note" style="margin-top:10px">Antippen ändert eine Zeile. Nötig ist das nur bei
-      einem Gleichstand – oder wenn etwas korrigiert werden muss.</p>
+    <p class="note" style="margin-top:10px">Hier stehen nur die Gleichstände, die du entscheiden
+      musst – antippen und wählen. Alle anderen ${(a.titelAnzahl || 0) - (a.titel || []).length} Titel
+      kommen so in die Historie, wie die Auswertung sie gerechnet hat.</p>
     <div class="list" style="margin-top:14px">${
       (a.titel || []).map((t, i) => {
         const gl = (t.gleich || []).length > 1;
@@ -12521,7 +12539,7 @@ ${sicht.kasse ? `
             ? `<div class="m">${esc(t.bemerkung)}</div>` : ''}</div>
         <div class="v absv ${/\d/.test(t.wert) ? '' : 'blass'}">${esc(t.wert)}</div></button>`;
       }).join('')
-      || `<div class="row"><div class="n">Keine Titel</div></div>`}
+      || `<div class="row"><div class="n">Keine Gleichstände – es ist nichts zu entscheiden.</div></div>`}
     </div>`;
 
   h += `<div class="list" style="margin-top:14px">
