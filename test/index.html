@@ -1635,7 +1635,17 @@ const API = 'https://script.google.com/macros/s/AKfycby359xVegJ5gEFeb282uN7pTCfL
    - Freigaben darf jetzt auch der Vertreter des Amtes setzen – außer denen,
      die ihm selbst etwas freischalten.
    Braucht Backend 1.62. */
-const APP_VERSION = '1.68';  // 1.68b intern: PDF selbst gebaut (13.11.2026)
+/* 1.69 (14.11.2026): Paket A – Abschluss vor der GV.
+   - Goldene Karte, sobald alle Termine des Kegeljahres vorbei sind.
+   - Gleichstände sind deutlich markiert und müssen entschieden werden:
+     einer oder gemeinsam. Vorher lässt sich der Abschluss nicht anmelden.
+   - Anwesenheit Platz 1–3 nach §39 erscheint unter den Titeln.
+   - Warnung „noch innerhalb des Kegeljahres“; ohne GV-Termin müssen beide
+     Kegelväter bestätigen, der Bildschirm zeigt, wer schon bestätigt hat.
+   - Historie: ein abgeschlossenes, aber noch nicht verkündetes Kegeljahr
+     trägt bei Schriftführer und Kegelvätern die Marke „vertraulich“.
+   Braucht Backend 1.64. */
+const APP_VERSION = '1.69';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -3645,7 +3655,8 @@ function histJahr(j, aendZeilen){
   const titel = j.titel || [];
   const zeit  = [j.beginn, j.ende].filter(nichtLeer).join(' – ');
 
-  const pille = j.aktuell ? '<span class="pill open">läuft</span>'
+  const pille = j.vertraulich ? '<span class="pill open">vertraulich bis zur GV</span>'
+    : j.aktuell ? '<span class="pill open">läuft</span>'
     : j.hatDaten ? `<span class="pill paid">${esc(j.geplant ? j.termine + ' von ' + j.geplant
         : (j.termine ? j.termine + ' Termine' : 'erfasst'))}</span>`
     : titel.length ? '<span class="pill grau">nur überliefert</span>'
@@ -12388,10 +12399,11 @@ function abschlussKarte(){
     ? (a.darfBestaetigen
         ? esc(a.wer) + ' will das Kegeljahr ' + esc(a.saison) + ' abschließen und wartet auf dich.'
         : 'Der Abschluss von ' + esc(a.saison) + ' wartet auf die Bestätigung des Kegelvaters.')
-    : 'Das Kegeljahr ' + esc(a.saison) + ' ist zu Ende. Der Abschluss schreibt es in die Historie, '
-      + 'übernimmt die offenen Forderungen und stellt die App auf die neue Saison.';
+    : 'Alle Termine des Kegeljahres ' + esc(a.saison) + ' sind vorbei. Der Abschluss schreibt es in die Historie, '
+      + 'übernimmt die offenen Beträge und stellt die App auf die neue Saison. Bis zur Freigabe auf der GV '
+      + 'erfährt niemand etwas.';
   return `<div class="abschlusskarte">
-    <div class="kopf">${wartet ? 'Ein Abschluss wartet' : 'Das Kegeljahr ist zu Ende'}</div>
+    <div class="kopf">${wartet ? 'Ein Abschluss wartet' : 'Das Kegeljahr kann abgeschlossen werden'}</div>
     <div class="txt">${txt}</div>
     <div class="knoepfe">
       <button class="btn ghost small" id="absKarteBtn">${
@@ -12431,8 +12443,37 @@ function zeichneAbschluss(){
   $('abschlussKopf').textContent = 'Kegeljahr ' + a.saison;
 
   let h = `<p class="note" style="margin-top:14px">Vom ${dat(a.beginn)} bis zur Generalversammlung
-    am ${dat(a.ende)}. Alles auf diesem Bildschirm ist bereits gerechnet – es ist nichts
-    einzutragen.</p>`;
+    am ${dat(a.ende)}. Alles auf diesem Bildschirm ist bereits gerechnet – einzutragen sind nur
+    die Entscheidungen bei Gleichstand.</p>`;
+
+  /* 1.69: Warnung, solange die GV noch nicht war; ohne GV-Termin deutlicher. */
+  if (a.innerhalb || (a.gv && !a.gv.eingetragen)){
+    const gvFehlt = a.gv && !a.gv.eingetragen;
+    h += `<div class="card" style="margin-top:16px;border-color:var(--warn)">
+      <div class="eyebrow" style="color:var(--warn)">${gvFehlt ? 'Keine GV eingetragen' : 'Noch innerhalb des Kegeljahres'}</div>
+      <p class="note" style="margin-top:10px">${a.innerhalb
+        ? `Das Kegeljahr ${esc(a.saison)} läuft noch bis zur Generalversammlung am ${dat(a.ende)}.
+           Alle Termine sind vorbei – der Abschluss darf jetzt laufen. Bis zur Freigabe auf der GV
+           sieht kein Kegelbruder die Ergebnisse.`
+        : `Die Generalversammlung am ${dat(a.ende)} ist vorbei.`}</p>${gvFehlt
+        ? `<p class="note" style="margin-top:8px"><b>Für den ${dat(a.ende)} steht keine
+           Generalversammlung im Kalender.</b> Deshalb müssen beide Kegelväter bestätigen${
+           (a.bestaetiger || []).length ? ' (' + a.bestaetiger.map(esc).join(' und ') + ')' : ''}.
+           Trägst du die GV vorher unter Verein · Termine ein, reicht der 1. Kegelvater.</p>` : ''}
+    </div>`;
+  }
+
+  /* 1.69: Offene Gleichstände ganz oben – ohne Entscheidung geht nichts. */
+  const offenGleich = absOffeneGleichstaende();
+  if (offenGleich.length){
+    h += `<div class="card" style="margin-top:16px;border-color:var(--accent)">
+      <div class="eyebrow" style="color:var(--accent)">Gleichstand – bitte entscheiden</div>
+      <p class="note" style="margin-top:10px">${offenGleich.map(t => `<b>${esc(t.titel)}</b>: ${
+        esc(t.gleich.join(', '))}`).join('<br>')}</p>
+      <p class="note" style="margin-top:8px">Die Zeile antippen und wählen: einer bekommt den Titel
+        oder alle gemeinsam. Wer bei „einer“ nicht gewählt wird, geht leer aus – niemand rückt auf.</p>
+    </div>`;
+  }
 
   /* 1 – Der Stand */
   h += `<h2 class="sec" style="margin-top:24px">Der Stand</h2>
@@ -12450,13 +12491,20 @@ function zeichneAbschluss(){
 
   /* 2 – Das kommt in die Historie */
   h += `<h2 class="sec" style="margin-top:24px">Das kommt in die Historie</h2>
-    <p class="note" style="margin-top:10px">Antippen ändert eine Zeile – nur nötig, wenn auf der
-      Versammlung etwas anderes verkündet wurde.</p>
+    <p class="note" style="margin-top:10px">Antippen ändert eine Zeile. Nötig ist das nur bei
+      einem Gleichstand – oder wenn etwas korrigiert werden muss.</p>
     <div class="list" style="margin-top:14px">${
-      (a.titel || []).map((t, i) => `<button class="row absrow" data-titel="${i}">
+      (a.titel || []).map((t, i) => {
+        const gl = (t.gleich || []).length > 1;
+        const wer = gl && !t.entscheid
+          ? `<span style="color:var(--accent);font-weight:700">Gleichstand: ${esc(t.gleich.join(', '))} – entscheiden</span>`
+          : esc(t.wer || 'niemand') + (gl ? ` <span class="pill grau">${t.entscheid === 'gemeinsam' ? 'gemeinsam' : 'entschieden'}</span>` : '');
+        return `<button class="row absrow" data-titel="${i}">
         <div><div class="n">${esc(t.titel)}</div>
-          <div class="m">${esc(t.wer || 'niemand')}</div></div>
-        <div class="v absv ${/\d/.test(t.wert) ? '' : 'blass'}">${esc(t.wert)}</div></button>`).join('')
+          <div class="m">${wer}</div>${t.bemerkung && /^§39|Kegelkönig: nur/.test(t.bemerkung)
+            ? `<div class="m">${esc(t.bemerkung)}</div>` : ''}</div>
+        <div class="v absv ${/\d/.test(t.wert) ? '' : 'blass'}">${esc(t.wert)}</div></button>`;
+      }).join('')
       || `<div class="row"><div class="n">Keine Titel</div></div>`}
     </div>`;
 
@@ -12511,8 +12559,10 @@ function zeichneAbschluss(){
       <li>Ausgaben und sonstige Einnahmen</li>
       <li>Der Terminkalender – die neuen Kegelabende kommen an ihre Stelle</li>
       <li>Die Strafenlisten der einzelnen Abende</li>
-      <li>Die Freigaben: Kegelkönig und Kassenbericht sind für die neue Saison wieder zu</li>
     </ul>
+    <p class="note" style="margin-top:12px"><b>Vertraulich bis zur GV:</b> Die Kegelbrüder bekommen
+      keine Nachricht, und das Kegeljahr erscheint in ihrer Historie erst, wenn es auf der GV
+      freigegeben wird. Die Freigaben bleiben bis zum ersten Kegelabend der neuen Saison stehen.</p>
     <p class="note" style="margin-top:12px"><b>Nicht angefasst:</b> Kassenstand, Statuten, Ämter,
       Mitglieder, alle Zugangscodes und angemeldeten Geräte. Von allem, was geleert wird, liegt
       vorher eine Archivkopie in Drive.</p>`;
@@ -12530,15 +12580,25 @@ function zeichneAbschluss(){
    deshalb steht er in einer eigenen Funktion und wird für sich neu gezeichnet. */
 function absAktionHtml(frage){
   const a = ABS;
+  const bisher = (a.bestaetigt || []).length
+    ? ` Bestätigt hat schon: ${a.bestaetigt.map(esc).join(', ')}.` : '';
   if (a.antrag && !a.darfBestaetigen){
     return `<p class="note">Wartet auf die Bestätigung von
-      ${esc(absKegelvaterName() || 'dem 1. Kegelvater')}. Angemeldet von ${esc(a.antrag.wer)}
-      am ${esc(a.antrag.zeit)}.</p>
+      ${esc((a.fehlen || []).join(' und ') || absKegelvaterName() || 'dem 1. Kegelvater')}. Angemeldet von ${esc(a.antrag.wer)}
+      am ${esc(a.antrag.zeit)}.${bisher}</p>
       <button class="btn ghost" id="absAbbrechen" style="margin-top:14px">Abschluss zurückziehen</button>`;
   }
   if (a.antrag && a.darfBestaetigen){
+    const nochAndere = (a.fehlen || []).filter(n => n !== (D.ich && D.ich.name));
+    if (absOffeneGleichstaende().length){
+      return `<p class="note">${esc(a.antrag.wer)} hat den Abschluss am ${esc(a.antrag.zeit)}
+        angemeldet. Bestätigen geht erst, wenn der Schriftführer alle Gleichstände entschieden hat.</p>
+        <button class="btn ghost" id="absAbbrechen" style="margin-top:14px">Zurückziehen</button>`;
+    }
     return `<p class="note">${esc(a.antrag.wer)} hat den Abschluss am ${esc(a.antrag.zeit)}
-      angemeldet. Mit deiner Bestätigung läuft er durch – das dauert etwa eine Minute.</p>
+      angemeldet.${bisher} ${nochAndere.length > 0
+        ? 'Nach deiner Bestätigung fehlt noch ' + nochAndere.map(esc).join(' und ') + '.'
+        : 'Mit deiner Bestätigung läuft er durch – das dauert etwa eine Minute.'}</p>
       <button class="btn" id="absBestaetigen" style="margin-top:14px">Abschluss bestätigen</button>
       <button class="btn ghost" id="absAbbrechen" style="margin-top:10px">Zurückziehen</button>`;
   }
@@ -12551,13 +12611,24 @@ function absAktionHtml(frage){
         <p class="note" style="margin-top:10px">Die Saison ${esc(a.saison)} wird in die Historie
           geschrieben und danach geleert. Vorher legt die App von allem eine Archivkopie an.
           Stimmt beim Nachrechnen etwas nicht, bricht sie ab und lässt alles, wie es ist.</p>
-        <p class="note" style="margin-top:8px">Danach bekommt ${esc(absKegelvaterName() || 'der 1. Kegelvater')}
-          eine Nachricht und muss bestätigen. Erst dann passiert wirklich etwas.</p>
+        <p class="note" style="margin-top:8px">Danach ${(a.bestaetiger || []).length > 1
+          ? 'bekommen ' + a.bestaetiger.map(esc).join(' und ') + ' eine Nachricht und müssen beide bestätigen'
+          : 'bekommt ' + esc((a.bestaetiger || [])[0] || absKegelvaterName() || 'der 1. Kegelvater')
+            + ' eine Nachricht und muss bestätigen'}. Erst dann passiert wirklich etwas.</p>
       </div>
       <button class="btn" id="absJa" style="margin-top:14px">Ja, abschließen</button>
       <button class="btn ghost" id="absNein" style="margin-top:10px">Doch nicht</button>`;
   }
+  if (absOffeneGleichstaende().length){
+    return `<p class="note" style="color:var(--accent);font-weight:600">Erst alle Gleichstände
+      entscheiden – dann lässt sich der Abschluss anmelden.</p>`;
+  }
   return `<button class="btn" id="absStart">Kegeljahr abschließen</button>`;
+}
+
+/* 1.69: Gleichstände, die noch niemand entschieden hat. */
+function absOffeneGleichstaende(){
+  return ((ABS && ABS.titel) || []).filter(t => (t.gleich || []).length > 1 && !t.entscheid);
 }
 
 function absKegelvaterName(){
@@ -12621,6 +12692,20 @@ async function absBestaetigen(){
       absLaeuft = false;
       return;
     }
+    /* 1.69: Ohne GV-Termin bestätigen beide Kegelväter. Nach der ersten
+       Bestätigung kommt "wartet" zurück – dann ist noch nichts passiert. */
+    if (a.wartet){
+      eigeneSchreibung();
+      ABS.antrag = a.antrag || ABS.antrag;
+      ABS.bestaetigt = (a.antrag && a.antrag.bestaetigt) || ABS.bestaetigt;
+      ABS.darfBestaetigen = false;
+      ABS.fehlen = a.fehlen || [];
+      hinweisleiste(a.hinweis || 'Bestätigt.');
+      absLaeuft = false;
+      zeichneAbschluss();
+      aktualisieren();
+      return;
+    }
     /* Ohne diese Zeile konnte eine noch laufende Datenabfrage mit ihrem alten
        Stand antworten und die abgeschlossene Saison wieder als laufend
        zeichnen – ausgerechnet beim folgenreichsten Vorgang der App. */
@@ -12666,7 +12751,7 @@ function absBericht(a){
   let h = `<div class="card" style="border-color:var(--ok)">
       <div class="eyebrow" style="color:var(--ok)">Abgeschlossen</div>
       <p class="note" style="margin-top:10px">Das Kegeljahr ${esc(a.saison)} steht jetzt in der
-        Historie.${koenig && koenig.wer ? ' Kegelkönig: ' + esc(koenig.wer) + '.' : ''}${
+        Historie – vertraulich, bis es auf der GV freigegeben wird.${koenig && koenig.wer ? ' Kegelkönig: ' + esc(koenig.wer) + '.' : ''}${
         pumpe && pumpe.wer ? ' Pumpenkönig: ' + esc(pumpe.wer) + '.' : ''}</p>
     </div>
     <ul class="absschritte" style="margin-top:16px">${
@@ -12707,6 +12792,23 @@ function absTitelOeffnen(i){
   if (!t) return;
   absTitelIndex = i;
   $('absFormTitel').textContent = t.titel;
+  /* 1.69: Gleichstand – hier wird nur entschieden, sonst nichts. */
+  if ((t.gleich || []).length > 1){
+    const wahl = t.entscheid === 'gemeinsam' ? '__gemeinsam' : (t.entscheid === 'einer' ? t.wer : '');
+    $('absFormBody').innerHTML = `
+      <p class="note" style="margin-top:14px">Gleichstand bei <b>${esc(t.wert)}</b>:
+        ${esc(t.gleich.join(', '))}. Ein Titel hat genau einen Träger – oder er wird gemeinsam vergeben.
+        Wer bei „einer“ nicht gewählt wird, geht leer aus.</p>
+      <div class="list" style="margin-top:16px">${t.gleich.map(n => `<label class="row">
+          <div class="n">Nur ${esc(n)}</div>
+          <input type="radio" name="absGleich" value="${esc(n)}"${wahl === n ? ' checked' : ''}></label>`).join('')}
+        <label class="row"><div class="n">Gemeinsam: ${esc(t.gleich.join(' & '))}</div>
+          <input type="radio" name="absGleich" value="__gemeinsam"${wahl === '__gemeinsam' ? ' checked' : ''}></label>
+      </div>
+      ${t.bemerkung ? `<p class="note" style="margin-top:14px">${esc(t.bemerkung)}</p>` : ''}`;
+    ebene('absForm', true);
+    return;
+  }
   $('absFormBody').innerHTML = `
     <p class="note" style="margin-top:14px">Der Vorschlag ist nachgerechnet. Trag hier ein, was
       auf der Generalversammlung wirklich verkündet wurde – sonst einfach schließen.</p>
@@ -12734,15 +12836,31 @@ function absTitelOeffnen(i){
 async function absTitelSpeichern(){
   const t = (ABS.titel || [])[absTitelIndex];
   if (!t){ ebene('absForm', false); return; }
+  let anders = false;
+  if ((t.gleich || []).length > 1){
+    const r = document.querySelector('input[name="absGleich"]:checked');
+    if (!r){ hinweisleiste('Bitte einen Namen oder „gemeinsam“ wählen.', 'warn'); return; }
+    const neu = r.value === '__gemeinsam'
+      ? { entscheid: 'gemeinsam', wer: t.gleich.join(' & ') }
+      : { entscheid: 'einer', wer: r.value };
+    anders = neu.entscheid !== t.entscheid || neu.wer !== t.wer;
+    t.entscheid = neu.entscheid; t.wer = neu.wer;
+    if (anders) ABS.geaendert = true;
+    return absTitelNachSpeichern(anders);
+  }
   const wer  = $('absWer').value.trim();
   const wert = $('absWert').value.trim();
   const bem  = $('absBemerkung').value.trim();
-  const anders = wer !== t.wer || wert !== t.wert || bem !== (t.bemerkung || '');
+  anders = wer !== t.wer || wert !== t.wert || bem !== (t.bemerkung || '');
   if (anders){
     t.wer = wer; t.wert = wert; t.bemerkung = bem;
     t.quelle = 'überliefert + nachgerechnet';
     ABS.geaendert = true;
   }
+  return absTitelNachSpeichern(anders);
+}
+
+async function absTitelNachSpeichern(anders){
   ebene('absForm', false);
 
   // Läuft der Antrag schon, wandert die Änderung sofort zum Backend – sonst
@@ -12751,7 +12869,8 @@ async function absTitelSpeichern(){
     try {
       const a = await api('abschlussTitel', { token: token, titel: ABS.titel }, 2);
       if (a.fehler) hinweisleiste(a.fehler, 'warn');
-      else if (a.antrag){ ABS.antrag = a.antrag; ABS.titel = a.antrag.titel; }
+      else if (a.antrag){ ABS.antrag = a.antrag; ABS.titel = a.antrag.titel;
+        ABS.bestaetigt = a.antrag.bestaetigt || []; }
     } catch (e) { hinweisleiste('Nicht gespeichert (' + fehlerGrund(e) + ').', 'warn'); }
   }
   zeichneAbschluss();
