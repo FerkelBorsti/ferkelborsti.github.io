@@ -12445,6 +12445,14 @@ let absTitelIndex = -1;  // welche Titelzeile gerade in der Maske steht
 
 let gvFrage = '';        // welcher Teil gerade die Rückfrage zeigt
 let gvLaeuft = false;
+let gvWarte = '';        // welcher Teil gerade beim Backend ist
+
+/* "2027-05-05 19:12" → "05.05.2027, 19:12 Uhr" */
+function gvAm(am){
+  const m = String(am || '').match(/^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}:\d{2}))?/);
+  if (!m) return String(am || '');
+  return m[3] + '.' + m[2] + '.' + m[1] + (m[4] ? ', ' + m[4] + ' Uhr' : '');
+}
 
 const GV_TEIL = {
   titel: { name: 'Ergebnisse', knopf: 'Ergebnisse freigeben',
@@ -12459,14 +12467,19 @@ function gvFreigabeKarte(){
   const teile = g.teile.map(t => {
     const T = GV_TEIL[t.teil];
     if (t.frei){
-      return `<div class="txt"><b>${esc(T.name)}</b> freigegeben am ${esc(t.am)}.</div>${t.zuruecknehmen
-        ? `<div class="knoepfe"><button class="btn ghost small" data-gvteil="${t.teil}" data-gvaktion="zurueck">Zurücknehmen</button></div>` : ''}`;
+      const knopfZ = gvWarte === t.teil
+        ? `<button class="btn ghost small" disabled>Wird zurückgenommen …</button>`
+        : `<button class="btn ghost small" data-gvteil="${t.teil}" data-gvaktion="zurueck">Zurücknehmen</button>`;
+      return `<div class="txt"><b>${esc(T.name)}</b> freigegeben am ${esc(gvAm(t.am))}${t.von ? ' von ' + esc(t.von) : ''}.</div>${t.zuruecknehmen
+        ? `<div class="knoepfe">${knopfZ}</div>` : ''}`;
     }
     if (gvFrage === t.teil){
       return `<div class="txt"><b>${esc(T.name)} jetzt freigeben?</b> ${esc(T.was)} Alle Kegelbrüder
         bekommen eine Nachricht. Zurücknehmen geht nur heute.</div>
-        <div class="knoepfe"><button class="btn small" data-gvteil="${t.teil}" data-gvaktion="ja">Ja, freigeben</button>
-        <button class="btn ghost small" data-gvteil="${t.teil}" data-gvaktion="nein">Doch nicht</button></div>`;
+        <div class="knoepfe">${gvWarte === t.teil
+          ? `<button class="btn small" disabled>Wird freigegeben …</button>`
+          : `<button class="btn small" data-gvteil="${t.teil}" data-gvaktion="ja">Ja, freigeben</button>
+        <button class="btn ghost small" data-gvteil="${t.teil}" data-gvaktion="nein">Doch nicht</button>`}</div>`;
     }
     return `<div class="txt">${esc(T.was)}</div>
       <div class="knoepfe"><button class="btn small" data-gvteil="${t.teil}" data-gvaktion="frage">${esc(T.knopf)}</button></div>`;
@@ -12480,6 +12493,8 @@ async function gvKlick(teil, aktion){
   if (aktion === 'nein'){ gvFrage = ''; zeichneStart(); return; }
   if (gvLaeuft) return;
   gvLaeuft = true;
+  gvWarte = teil;          // Knopf zeigt "Wird freigegeben …" – das dauert einige Sekunden
+  zeichneStart();
   try {
     const r = await api('gvFreigeben', { token: token, teil: teil, frei: aktion === 'ja' }, 1);
     if (r.fehler) hinweisleiste(r.fehler, 'warn');
@@ -12493,6 +12508,8 @@ async function gvKlick(teil, aktion){
     hinweisleiste('Hat nicht geklappt (' + fehlerGrund(e) + ').', 'warn');
   }
   gvLaeuft = false;
+  gvWarte = '';
+  zeichneStart();
 }
 
 /* Der geöffnete Tresor mit den Titeln des abgeschlossenen Jahres. */
