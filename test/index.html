@@ -1683,7 +1683,7 @@ const API = 'https://script.google.com/macros/s/AKfycby359xVegJ5gEFeb282uN7pTCfL
    Kassenwart den Kassenbericht, die Kassenprüfer ihre Fassung und tragen dort
    den Prüfvermerk für dieses Jahr ein. Grundlage ist der Stand, den der
    Abschluss festhält (Backend 1.65, „jahrDruck“). */
-const APP_VERSION = '1.72.1';
+const APP_VERSION = '1.73';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -3050,6 +3050,7 @@ function zeichneStart(){
   /* Die Terminkarte steht seit 1.47 in terminKarte(). Sie bleibt an ihrem
      Platz – unter dem offenen Betrag und unter den Abwesenheitspunkten
      (ausdrueckliche Entscheidung Johannes vom 11.09.2026). */
+  h += jubKarteStart();   // 1.73 (Paket E): Countdown zum runden Jubiläum
   if (t) h += terminKarte(t);
 
   if (la){
@@ -3842,7 +3843,9 @@ function zeichneHistorie(){
   const voll = liste.filter(j => hatEtwas(j));
   const leer = liste.filter(j => !hatEtwas(j));
 
-  let h = histEhrentafel(liste);
+  /* 1.73 (Paket E): oben der Block zum Jubiläum. */
+  let h = jubHistorieBlock() + histEhrentafel(liste);
+  jubLaden();
   h += `<h2 class="sec" style="margin-top:24px">Die Kegeljahre</h2>
         <div style="margin-top:14px">`;
   h += voll.map(j => {
@@ -11782,6 +11785,325 @@ function jbTabelle(b){
     : `<div class="row"><div class="n" style="font-weight:400;color:var(--muted)">${esc(b.leer || '–')}</div></div>`;
   return `<div class="list" style="margin-top:12px">${zeilen}${b.fuss ? zeile(b.fuss, { fuss: true }) : ''}</div>`;
 }
+
+/* ---------- Paket E (15.11.2026): 10 Jahre KC Knüppeldick
+   Gegründet am 27.07.2018. Vier Teile, freigegeben von Johannes am 15.11.2026:
+   1. Ewige Tabellen – aus allen abgeschlossenen, verkündeten Kegeljahren.
+   2. Chronik – Zeitstrahl je Kegeljahr; der Schriftführer ergänzt Einträge.
+   3. Festschrift – alles zusammen als PDF.
+   4. Karte auf der Startseite: 100 Tage vor einem runden Jubiläum
+      (5, 10, 15 … Jahre) ein Countdown, am Tag selbst der Glückwunsch; die
+      Push-Nachricht schickt das Backend (Wächter, ab 10 Uhr).
+   Titel kommen aus der Historie (historieDaten), die Zahlen je Kegelbruder
+   aus dem Backend (Aktion „jubilaeum“). Jahre ohne Daten zählen nicht mit –
+   sie kommen dazu, sobald die Altdaten nachgetragen sind. */
+const JUB_GRUENDUNG = '2018-07-27';
+let jubDaten = null, jubLaedt = false, jubSicht = 'ewig', jubFormOffen = false, jubOffen = false;
+
+function jubTage(von, bis){
+  const a = new Date(von + 'T12:00:00'), b = new Date(bis + 'T12:00:00');
+  return Math.round((b - a) / 86400000);
+}
+/** Das nächste runde Jubiläum ab heute (Tag selbst eingeschlossen). */
+function jubNaechstes(heute){
+  const j0 = Number(JUB_GRUENDUNG.slice(0, 4)), md = JUB_GRUENDUNG.slice(4);
+  let jahr = Number(heute.slice(0, 4));
+  if (heute.slice(4) > md) jahr++;
+  while ((jahr - j0) % 5) jahr++;
+  return { jahre: jahr - j0, datum: jahr + md };
+}
+
+/* 4. Karte auf der Startseite: 100 Tage vorher der Countdown, am Tag der
+   Glückwunsch, danach noch eine Woche lang. */
+function jubKarteStart(){
+  const heute = (D && D.heute) || '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(heute)) return '';
+  const n = jubNaechstes(heute);
+  const tage = jubTage(heute, n.datum);
+  if (tage <= 100) return jubKarteHtml(n.jahre, tage, n.datum, tage === 0 ? 0 : -1);
+  const lj = n.jahre - 5, ld = (Number(n.datum.slice(0, 4)) - 5) + JUB_GRUENDUNG.slice(4);
+  const seit = jubTage(ld, heute);
+  if (lj > 0 && seit >= 1 && seit <= 7) return jubKarteHtml(lj, 0, ld, seit);
+  return '';
+}
+function jubKarteHtml(jahre, tage, datum, seit){
+  const zeile = seit >= 0
+    ? (seit === 0 ? 'Heute vor ' + jahre + ' Jahren wurde der KC Knüppeldick gegründet. Glückwunsch, Kegelbrüder!'
+                  : 'Am ' + dat(datum) + ' ist der KC Knüppeldick ' + jahre + ' Jahre alt geworden.')
+    : 'Am ' + dat(datum) + ' wird der KC Knüppeldick ' + jahre + ' Jahre alt.';
+  const gross = seit >= 0 ? jahre + ' Jahre' : (tage === 1 ? 'Noch 1 Tag' : 'Noch ' + tage + ' Tage');
+  return `<div class="card" style="margin-top:14px;border-left:3px solid var(--accent)">
+      <div class="eyebrow">${seit >= 0 ? 'Jubiläum' : jahre + ' Jahre KC Knüppeldick'}</div>
+      <div class="kassenstand" style="font-size:22px">${esc(gross)}</div>
+      <p class="note" style="margin-top:6px">${esc(zeile)}</p>
+      <button class="btn ghost" id="jubZurHistorie" style="width:100%;margin-top:10px">Ewige Tabellen und Chronik</button>
+    </div>`;
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#jubZurHistorie')) return;
+  const v = document.querySelector('#tabs button[data-tab="verein"]'); if (v) v.click();
+  const h = document.querySelector('#vereinSeg button[data-mode="historie"]'); if (h) h.click();
+});
+
+/* Laden */
+async function jubLaden(neu){
+  if ((jubDaten && !neu) || jubLaedt) return;
+  jubLaedt = true;
+  try {
+    const r = await api('jubilaeum', { token: token }, API_VERSUCHE);
+    if (r && !r.fehler) jubDaten = r;
+  } catch (e) { console.error(e); }
+  jubLaedt = false;
+  const box = $('jubInhalt');
+  if (box) box.innerHTML = jubInhalt();
+}
+
+/* Titel je Jahr aus der Historie – ein gemeinsam vergebener Titel zählt für jeden. */
+function jubTitel(){
+  const out = [];
+  (historieDaten || []).forEach(j => {
+    if (j.vertraulich || j.aktuell) return;
+    (j.titel || []).forEach(t => String(t.wer || '').split('&').map(x => x.trim()).filter(String)
+      .forEach(n => out.push({ s: j.s, titel: String(t.titel || '').trim(), wert: String(t.wert || ''), n: n })));
+  });
+  return out;
+}
+
+/* 1. Ewige Tabellen – als Druckmodell-Bausteine, damit App und Festschrift
+   dasselbe zeigen (in der App über jbBlock). */
+function jubEwigBloecke(){
+  const d = jubDaten || { jahre: [] };
+  const T = jubTitel();
+  const b = [];
+  const zaehle = titel => {
+    const je = {};
+    T.filter(t => t.titel === titel).forEach(t => { (je[t.n] = je[t.n] || []).push(t.s); });
+    return Object.keys(je).map(n => ({ n: n, s: je[n] })).sort((x, y) => y.s.length - x.s.length || x.n.localeCompare(y.n, 'de'));
+  };
+  b.push({ t:'h2', text:'Königstafel', klein:'Wer wie oft König war – über alle Kegeljahre' });
+  ['Kegelkönig', 'Pumpenkönig', '9er König'].forEach(k => {
+    const l = zaehle(k);
+    b.push({ t:'tabelle', kopf:[k, 'Jahre', 'Titel'], ab:1, leer:'Noch nicht vergeben.',
+      zeilen: l.map((x, i) => dZ([x.n, x.s.join(', '), x.s.length + '×'], { hl: i === 0 })) });
+  });
+
+  /* Kränze: Würfe aus den Ereignissen; wo ein Jahr nur die Auszeichnung kennt
+     (2019/20), zählt die Auszeichnung. */
+  const kranz = {};
+  d.jahre.forEach(j => j.zeilen.forEach(z => { if (z.kranz > 0) (kranz[z.n] = kranz[z.n] || {})[j.s] = z.kranz; }));
+  T.filter(t => t.titel === 'Auszeichnung' && /^kranz/i.test(t.wert)).forEach(t => {
+    const m = t.wert.match(/(\d+)\s*×/);
+    if (!(kranz[t.n] && kranz[t.n][t.s])) (kranz[t.n] = kranz[t.n] || {})[t.s] = m ? Number(m[1]) : 1;
+  });
+  const kr = Object.keys(kranz).map(n => ({ n: n, a: Object.values(kranz[n]).reduce((s, v) => s + v, 0),
+    s: Object.keys(kranz[n]).sort() })).sort((x, y) => y.a - x.a || x.n.localeCompare(y.n, 'de'));
+  b.push({ t:'h2', text:'Kränze', klein:'§16 – acht fallen, der König bleibt' });
+  b.push({ t:'tabelle', kopf:['Kegelbruder', 'Jahre', 'Kränze'], ab:1, leer:'Noch kein Kranz.',
+    zeilen: kr.map(x => dZ([x.n, x.s.join(', '), x.a + '×'])) });
+
+  /* Je Kegelbruder über alle Jahre */
+  const p = {};
+  d.jahre.forEach(j => j.zeilen.forEach(z => {
+    const q = p[z.n] || (p[z.n] = { n: z.n, pumpen: 0, alle9: 0, anwesend: 0, termine: 0, jahre: 0, best: null });
+    q.pumpen += z.pumpen || 0; q.alle9 += z.alle9 || 0; q.anwesend += z.anwesend || 0;
+    q.termine += j.termine || 0; q.jahre += 1;
+    if (j.abende && z.schnitt > 0 && (!q.best || z.schnitt > q.best.v)) q.best = { v: z.schnitt, s: j.s };
+  }));
+  const P = Object.values(p);
+  const z1 = v => (Number(v) || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const best = [];
+  d.jahre.forEach(j => { if (j.abende) j.zeilen.forEach(z => { if (z.schnitt > 0) best.push({ n: z.n, s: j.s, v: z.schnitt }); }); });
+  best.sort((x, y) => y.v - x.v);
+  b.push({ t:'h2', text:'Ewige Bestenliste', klein:'5 in die Vollen – die besten Jahresschnitte' });
+  b.push({ t:'tabelle', kopf:['Platz', 'Kegelbruder', 'Kegeljahr', 'Ø Holz'], ab:2, leer:'Keine Daten.',
+    zeilen: best.slice(0, 10).map((x, i) => dZ([String(i + 1), x.n, x.s, z1(x.v)], { hl: i === 0 })) });
+
+  const liste = (titel, klein, key, kopf, fmt) => {
+    const l = P.filter(x => x[key] > 0).sort((x, y) => y[key] - x[key]);
+    b.push({ t:'h2', text: titel, klein: klein });
+    b.push({ t:'tabelle', kopf:['Platz', 'Kegelbruder', kopf], ab:2, leer:'Keine Daten.',
+      zeilen: l.slice(0, 10).map((x, i) => dZ([String(i + 1), x.n, fmt(x)], { hl: i === 0 })) });
+  };
+  liste('alle 9 – ewig', 'alle Kegeljahre zusammen', 'alle9', 'alle 9', x => x.alle9 + '×');
+  liste('Pumpen – ewig', 'der ewige Pumpenkönig steht oben', 'pumpen', 'Pumpen', x => z1(x.pumpen).replace(/,00$/, ''));
+  liste('Die Treuesten', 'Anwesenheit über alle Kegeljahre', 'anwesend', 'anwesend', x => x.anwesend + ' von ' + x.termine);
+
+  /* Rekorde eines einzelnen Jahres */
+  const rek = [];
+  const top = (key, fmt, label) => {
+    let m = null;
+    d.jahre.forEach(j => j.zeilen.forEach(z => { const v = key(z, j); if (v > 0 && (!m || v > m.v)) m = { v: v, n: z.n, s: j.s }; }));
+    if (m) rek.push(dZ([label, m.n + ' · ' + m.s, fmt(m.v)]));
+  };
+  top((z, j) => j.abende ? z.schnitt : 0, v => z1(v) + ' Holz', 'Bester Jahresschnitt');
+  top(z => z.alle9, v => v + '×', 'Meiste alle 9 in einem Jahr');
+  top(z => z.kranz, v => v + '×', 'Meiste Kränze in einem Jahr');
+  top(z => z.pumpen, v => z1(v).replace(/,00$/, '') + ' Pumpen', 'Meiste Pumpen in einem Jahr');
+  top((z, j) => j.termine ? Math.round(z.anwesend / j.termine * 100) : 0, v => v + ' %', 'Beste Anwesenheit in einem Jahr');
+  b.push({ t:'h2', text:'Rekorde' });
+  b.push({ t:'tabelle', kopf:['Rekord', 'Wer · wann', 'Wert'], ab:2, leer:'Keine Daten.', zeilen: rek });
+
+  const ohne = (historieDaten || []).filter(j => !j.hatDaten && !j.vertraulich && !j.aktuell).map(j => j.s);
+  b.push({ t:'hinweis', text: 'Gezählt werden die abgeschlossenen Kegeljahre mit Daten ('
+    + d.jahre.map(j => j.s).join(', ') + ').'
+    + (ohne.length ? ' Ohne Zahlen: ' + ohne.join(', ') + ' – die Titel dieser Jahre zählen trotzdem mit.' : '') });
+  return b;
+}
+
+/* 2. Chronik – je Kegeljahr die Könige, dazu die Einträge des Schriftführers. */
+function jubSaisonVon(datum){
+  const y = Number(datum.slice(0, 4)), md = datum.slice(5);
+  /* Ein Kegeljahr beginnt nach der GV (Tag vor Christi Himmelfahrt, Mai/Juni).
+     Für die Zuordnung reicht das: Einträge ab Juni gehören ins neue Jahr. */
+  const s = md >= '06-01' ? y : y - 1;
+  return s + '/' + String(s + 1).slice(2);
+}
+function jubChronik(){
+  const d = jubDaten || {};
+  const eintraege = (d.chronik || []).map(c => Object.assign({ s: jubSaisonVon(c.datum) }, c));
+  const jahre = {};
+  (historieDaten || []).forEach(j => { if (!j.aktuell) jahre[j.s] = j; });
+  eintraege.forEach(c => { if (!jahre[c.s]) jahre[c.s] = { s: c.s, titel: [] }; });
+  const s0 = jubSaisonVon(JUB_GRUENDUNG);
+  if (!jahre[s0]) jahre[s0] = { s: s0, titel: [] };
+  return Object.keys(jahre).sort().map(s => {
+    const j = jahre[s];
+    const koenige = j.vertraulich ? [] : (j.titel || []).filter(t => /könig/i.test(String(t.titel || '')) && String(t.wer || '').trim())
+      .map(t => t.titel + ': ' + t.wer);
+    const auto = [];
+    if (s === s0) auto.push({ datum: JUB_GRUENDUNG, titel: 'Gründung des KC Knüppeldick', text: '', auto: true });
+    return { s: s, koenige: koenige, eintraege: auto.concat(eintraege.filter(c => c.s === s)) };
+  });
+}
+function jubChronikHtml(){
+  const d = jubDaten || {};
+  let h = '';
+  if (d.darfChronik){
+    h += jubFormOffen ? `<div class="card" style="margin-top:12px">
+        <div class="eyebrow">Neuer Eintrag in der Chronik</div>
+        <div class="kassefeld"><div class="eyebrow">Datum</div><input class="search" type="date" id="jubDatum" aria-label="Datum"></div>
+        <div class="kassefeld"><div class="eyebrow">Titel</div><input class="search" id="jubTitel" maxlength="80" placeholder="z. B. Kegelfahrt nach Hamburg" aria-label="Titel"></div>
+        <div class="kassefeld"><div class="eyebrow">Text</div><input class="search" id="jubText" maxlength="400" placeholder="freiwillig" aria-label="Text"></div>
+        <p class="note hidden" id="jubFehler" style="margin-top:8px"></p>
+        <button class="btn" id="jubSpeichern" style="width:100%;margin-top:10px">Eintrag speichern</button>
+        <button class="btn ghost" id="jubAbbrechen" style="width:100%;margin-top:8px">Abbrechen</button></div>`
+      : `<button class="btn ghost" id="jubNeu" style="width:100%;margin-top:12px">+ Eintrag für die Chronik</button>`;
+  }
+  h += jubChronik().map(j => `<h2 class="sec" style="margin-top:20px">Kegeljahr ${esc(j.s)}</h2>
+    <div class="list" style="margin-top:10px">${
+      j.eintraege.map(c => `<div class="row"><div><div class="n">${esc(c.titel)}</div><div class="m">${esc(dat(c.datum))}${
+        c.text ? ' · ' + esc(c.text) : ''}</div></div>${d.darfChronik && !c.auto
+          ? `<button class="btn ghost small" data-jubweg="${esc(c.id)}">Löschen</button>` : ''}</div>`).join('')
+      + (j.koenige.length ? `<div class="row"><div><div class="n">Könige</div><div class="m">${esc(j.koenige.join(' · '))}</div></div></div>` : '')
+      || '<div class="row"><div class="n" style="font-weight:400;color:var(--muted)">Noch nichts eingetragen.</div></div>'}</div>`).join('');
+  return h;
+}
+document.addEventListener('click', async e => {
+  if (e.target.closest('#jubNeu')){ jubFormOffen = true; jubNeuZeichnen(); return; }
+  if (e.target.closest('#jubAbbrechen')){ jubFormOffen = false; jubNeuZeichnen(); return; }
+  const weg = e.target.closest('button[data-jubweg]');
+  const speichern = e.target.closest('#jubSpeichern');
+  if (!weg && !speichern) return;
+  const knopf = weg || speichern;
+  if (knopf.disabled) return;
+  let eintrag;
+  if (weg) eintrag = { loeschen: weg.dataset.jubweg };
+  else {
+    eintrag = { datum: ($('jubDatum') || {}).value || '', titel: (($('jubTitel') || {}).value || '').trim(),
+                text: (($('jubText') || {}).value || '').trim() };
+    const f = $('jubFehler');
+    if (!eintrag.datum || !eintrag.titel){ if (f){ f.textContent = 'Bitte Datum und Titel angeben.'; f.classList.remove('hidden'); } return; }
+  }
+  knopf.disabled = true;
+  try {
+    const r = await api('chronikSpeichern', { token: token, eintrag: eintrag }, 1);
+    if (!r || r.fehler) throw new Error((r && r.fehler) || 'Keine Antwort.');
+    jubDaten.chronik = r.chronik || [];
+    jubFormOffen = false;
+    hinweisleiste(weg ? 'Eintrag gelöscht.' : 'Eintrag gespeichert.');
+  } catch (err) {
+    hinweisleiste('Chronik: ' + (err && err.message ? err.message : fehlerGrund(err)), 'warn');
+  }
+  knopf.disabled = false;
+  jubNeuZeichnen();
+});
+function jubNeuZeichnen(){ const box = $('jubInhalt'); if (box) box.innerHTML = jubInhalt(); }
+
+/* 3. Festschrift */
+function druckModellFestschrift(){
+  const d = jubDaten || { jahre: [] };
+  /* Welches Jubiläum? Das kommende – außer das letzte ist keine 180 Tage her. */
+  const heute = (D && D.heute) || JUB_GRUENDUNG;
+  const n = jubNaechstes(heute);
+  const ld = (Number(n.datum.slice(0, 4)) - 5) + JUB_GRUENDUNG.slice(4);
+  const alter = (n.jahre > 5 && jubTage(ld, heute) <= 180) ? n.jahre - 5 : n.jahre;
+  const hist = (historieDaten || []).filter(j => !j.aktuell && !j.vertraulich).slice().sort((a, b) => a.s < b.s ? -1 : 1);
+  const namen = {};
+  d.jahre.forEach(j => j.zeilen.forEach(z => { namen[z.n] = 1; }));
+  const kasse = hist.filter(j => j.kasse);
+  const strafen = kasse.reduce((s, j) => s + (Number(j.kasse.strafen) || 0), 0);
+  const termine = d.jahre.reduce((s, j) => s + (j.termine || 0), 0);
+  const v = alter + ' Jahre KC Knüppeldick';
+  const seite = (titel, bloecke) => ({ bereich:'Festschrift', titel: titel, vertraulich:'', bloecke: bloecke });
+  const ehren = hist.map(j => {
+    const w = k => (j.titel || []).filter(t => t.titel === k && String(t.wer || '').trim()).map(t => t.wer)[0] || '–';
+    return dZ([j.s, w('Kegelkönig'), w('Pumpenkönig'), w('9er König')]);
+  });
+  const chronik = [];
+  jubChronik().forEach(j => j.eintraege.forEach(c => chronik.push(dZ([dat(c.datum), c.titel, c.text || '']))));
+  return { name: 'Festschrift_' + alter + '_Jahre_KC_Knueppeldick',
+    standText: 'Festschrift · ' + v + ' · gegründet am ' + dat(JUB_GRUENDUNG) + ' · erstellt von ' + ((D.ich && D.ich.name) || '–'),
+    seiten: [
+      seite(v, [
+        { t:'kasten', titel:'Gegründet', wert: dat(JUB_GRUENDUNG) },
+        { t:'kacheln', items: [
+          { titel:'Kegeljahre', wert: String(hist.length), unter: 'seit ' + jubSaisonVon(JUB_GRUENDUNG) },
+          { titel:'Termine mit Zahlen', wert: String(termine), unter: d.jahre.length + ' Jahre erfasst' },
+          { titel:'Kegelbrüder', wert: String(Object.keys(namen).length), unter: 'in den erfassten Jahren' },
+          { titel:'Strafen gesamt', wert: eur(strafen), unter: kasse.length + ' Jahre mit Kasse' }] },
+        { t:'h2', text:'Die Ehrentafel' },
+        { t:'tabelle', kopf:['Kegeljahr', 'Kegelkönig', 'Pumpenkönig', '9er König'], ab:9, zeilen: ehren }]),
+      seite('Ewige Tabellen', jubEwigBloecke()),
+      seite('Chronik', [{ t:'tabelle', kopf:['Datum', 'Ereignis', ''], ab:9, leer:'Noch keine Einträge.', zeilen: chronik }]),
+      seite('Die Kasse in Summen', [
+        { t:'tabelle', kopf:['Kegeljahr', 'Strafen', 'Ausgaben', 'Kassenstand'], ab:1, leer:'Keine Kassenwerte überliefert.',
+          zeilen: kasse.map(j => dZ([j.s, eur(j.kasse.strafen), eur(j.kasse.ausgaben), eur(j.kasse.kontostand)])),
+          fuss: kasse.length ? ['Gesamt', eur(strafen), eur(kasse.reduce((s, j) => s + (Number(j.kasse.ausgaben) || 0), 0)), ''] : null },
+        { t:'hinweis', text:'Nur Summen, keine Namen – wie in der Historie.' }])
+    ] };
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#jubFestschrift')) return;
+  if (!jubDaten){ hinweisleiste('Die Zahlen werden noch geladen. Bitte gleich noch einmal.'); return; }
+  druckZeigen(druckModellFestschrift());
+});
+
+/* Der Block oben in der Historie */
+function jubInhalt(){
+  if (!jubDaten) return '<p class="note" style="margin:10px 14px 14px">Die ewigen Tabellen werden geladen …</p>';
+  const chips = `<div class="chips" style="margin:12px 14px 0">
+      <button data-jubsicht="ewig" aria-pressed="${jubSicht === 'ewig'}">Ewige Tabellen</button>
+      <button data-jubsicht="chronik" aria-pressed="${jubSicht === 'chronik'}">Chronik</button></div>`;
+  const inhalt = jubSicht === 'chronik' ? jubChronikHtml() : jubEwigBloecke().map(jbBlock).join('');
+  return chips + `<div style="padding:0 14px 14px">${inhalt}
+    <button class="btn ghost" id="jubFestschrift" style="width:100%;margin-top:16px">Festschrift drucken / als PDF</button></div>`;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('button[data-jubsicht]'); if (!b) return;
+  jubSicht = b.dataset.jubsicht; jubNeuZeichnen();
+});
+function jubHistorieBlock(){
+  const n = jubNaechstes((D && D.heute) || JUB_GRUENDUNG);
+  return `<details class="jahrkarte" id="jubKarte"${jubOffen ? ' open' : ''}><summary>
+      <div class="group-head"><span>Seit ${esc(dat(JUB_GRUENDUNG))}</span><span class="pill open">${n.jahre} Jahre am ${esc(dat(n.datum))}</span></div>
+      <div class="teaser"><div class="kein">Ewige Tabellen, Chronik und Festschrift – über alle Kegeljahre.</div></div>
+    </summary><div id="jubInhalt">${jubInhalt()}</div></details>`;
+}
+
+document.addEventListener('toggle', e => {
+  if (e.target && e.target.id === 'jubKarte') jubOffen = e.target.open;
+}, true);
 
 /* ---------- Bildschirm: Modell → HTML */
 function dHtmlBlock(b){
