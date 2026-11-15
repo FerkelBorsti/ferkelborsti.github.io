@@ -1666,7 +1666,7 @@ const API = 'https://script.google.com/macros/s/AKfycby359xVegJ5gEFeb282uN7pTCfL
    Kassenwart den Kassenbericht, die Kassenprüfer ihre Fassung und tragen dort
    den Prüfvermerk für dieses Jahr ein. Grundlage ist der Stand, den der
    Abschluss festhält (Backend 1.65, „jahrDruck“). */
-const APP_VERSION = '1.71';
+const APP_VERSION = '1.71.1';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -11202,9 +11202,6 @@ const URK_ARTEN = {
   acht:   { tag:'8 ums Vordereck', label:'8 ums Vordereck',
             text:'für acht gefallene Kegel rund um das Vordereck, das als einziges stehen bleibt.',
             gross:'8 von 9', klein:'Nur das Vordereck hat sich gewehrt.' },
-  alle9:  { tag:'Alle 9', label:'Alle 9',
-            text:'für alle neune auf einen Wurf – nichts bleibt stehen.',
-            gross:'9 von 9', klein:'Bahn frei.' },
   kegelkoenig:  { titel:'Kegelkönig', label:'Kegelkönig',
             text:'für den besten Schnitt in „5 in die Vollen“ im ganzen Kegeljahr.', klein:'Die Krone des Jahres.' },
   pumpenkoenig: { titel:'Pumpenkönig', label:'Pumpenkönig',
@@ -11214,10 +11211,11 @@ const URK_ARTEN = {
 };
 
 /* Die Liste der Urkunden eines Kegeljahres: zuerst die Sonderwürfe (je Art und
-   Kegelbruder eine), dann die Könige (je Träger eine). */
+   Kegelbruder eine), dann die Könige (je Träger eine). „Alle 9“ bekommt KEINE
+   eigene Urkunde je Werfer – nur der 9er König (Johannes, 15.11.2026). */
 function urkundenListe(saison, titel, wuerfe){
   const out = [];
-  ['kranz', 'koenig', 'acht', 'alle9'].forEach(art => {
+  ['kranz', 'koenig', 'acht'].forEach(art => {
     const A = URK_ARTEN[art], je = {};
     (wuerfe || []).filter(w => w.art === art).forEach(w => {
       const k = je[w.n] || (je[w.n] = { anzahl: 0, daten: [] });
