@@ -12495,21 +12495,29 @@ async function gvKlick(teil, aktion){
   gvLaeuft = true;
   gvWarte = teil;          // Knopf zeigt "Wird freigegeben …" – das dauert einige Sekunden
   zeichneStart();
+  let geklappt = false;
   try {
     const r = await api('gvFreigeben', { token: token, teil: teil, frei: aktion === 'ja' }, 1);
     if (r.fehler) hinweisleiste(r.fehler, 'warn');
     else {
+      geklappt = true;
       eigeneSchreibung();
+      /* 1.69.7: Die Antwort trägt den neuen Stand der Karte. Er wird sofort
+         übernommen – sonst zeichnet die App mit dem alten Datenstand neu und
+         zeigt wieder "freigeben", bis der nächste Abruf da ist
+         (beobachtet von Johannes am 15.11.2026). */
+      if (r.karte) D.gvFreigabe = r.karte;
       hinweisleiste(aktion === 'ja' ? 'Freigegeben – alle bekommen eine Nachricht.' : 'Zurückgenommen.');
     }
-    gvFrage = '';
-    aktualisieren(true);
   } catch (e) {
     hinweisleiste('Hat nicht geklappt (' + fehlerGrund(e) + ').', 'warn');
   }
-  gvLaeuft = false;
+  gvFrage = '';
   gvWarte = '';
+  gvLaeuft = false;
   zeichneStart();
+  // Titel und Kassenbericht auf der Startseite kommen mit dem nächsten Abruf.
+  if (geklappt) { try { await aktualisieren(true); } catch (e) {} zeichneStart(); }
 }
 
 /* Der geöffnete Tresor mit den Titeln des abgeschlossenen Jahres. */
