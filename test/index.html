@@ -350,6 +350,9 @@ h2.sec{font-family:'Archivo Black',system-ui,sans-serif;font-size:15px;margin:4p
 .vs-l{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
 .vs-w{font-family:'Archivo Black',system-ui,sans-serif;font-size:15px;color:var(--text);font-variant-numeric:tabular-nums}
 .vs-s{font-size:12px;color:var(--muted);line-height:1.45}
+/* Jahresbericht (1.72) */
+.row.jbhl{background:var(--accent-tint)}
+.row.jbfuss .n,.row.jbfuss .v{font-weight:800}
 .iban{font-family:'Archivo Black',monospace;font-size:14px;letter-spacing:.05em;word-spacing:.15em;margin-top:6px}
 .kassenstand{font-family:'Archivo Black',system-ui,sans-serif;font-size:26px;line-height:1.1;margin-top:6px;font-variant-numeric:tabular-nums}
 .zahl{display:flex;align-items:center;gap:12px;background:var(--surface);border-bottom:1px solid var(--line);padding:12px 15px;width:100%;border:none;border-bottom:1px solid var(--line);text-align:left;font-family:inherit;color:inherit;cursor:pointer}
@@ -928,6 +931,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
       </section>
 
       <section id="tab-kasse" class="hidden">
+        <div class="jbUm"></div>
         <h2 class="sec">Kasse</h2>
         <p class="note" id="kasseKopf">Zahlungen, Kontostand, Ausgaben und sonstige Einnahmen. Alles, was du hier einträgst, gilt sofort.</p>
         <div class="chips" id="kasseChips">
@@ -956,6 +960,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
       </section>
 
       <section id="tab-amt" class="hidden">
+        <div class="jbUm"></div>
         <h2 class="sec" id="amtSaison">Auswertung</h2>
         <p class="note" id="amtHinweis">Nur für dich sichtbar, solange du die Ergebnisse nicht freigegeben hast.</p>
         <div class="chips" id="amtChips">
@@ -977,6 +982,13 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
           <button data-view="notizen" aria-pressed="false">Notizen</button>
         </div>
         <div id="amtBody"></div>
+      </section>
+
+      <section id="tab-jahr" class="hidden">
+        <div class="jbUm"></div>
+        <h2 class="sec" id="jbTitel">Jahresbericht</h2>
+        <p class="note" id="jbHinweis"></p>
+        <div id="jbBody"></div>
       </section>
     </main>
 
@@ -1006,6 +1018,11 @@ nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2p
            ein Amt ist. Umbenannt am 07.09.2026 auf Wunsch von Johannes. -->
       <button data-tab="amt" id="tabAmt" class="hidden">
         <svg viewBox="0 0 24 24"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"/></svg>Auswertung
+      </button>
+      <!-- Paket D (1.72): Auswertung und Kasse in einem Reiter, wenn jemand
+           beide sieht – und für alle nach der Freigabe auf der GV. -->
+      <button data-tab="jahr" id="tabJahr" class="hidden">
+        <svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 12h7M9 16h7"/></svg>Jahresbericht
       </button>
     </nav>
   </div>
@@ -1666,7 +1683,7 @@ const API = 'https://script.google.com/macros/s/AKfycby359xVegJ5gEFeb282uN7pTCfL
    Kassenwart den Kassenbericht, die Kassenprüfer ihre Fassung und tragen dort
    den Prüfvermerk für dieses Jahr ein. Grundlage ist der Stand, den der
    Abschluss festhält (Backend 1.65, „jahrDruck“). */
-const APP_VERSION = '1.71.1';
+const APP_VERSION = '1.72';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -2698,15 +2715,24 @@ function zeigeApp(){
     ? D.ich.rollen
     : (D.ich.schriftfuehrer ? ['Schriftführer'] : []);
   $('whoami').textContent = D.ich.name + (rollen.length ? ' · ' + rollen.join(' · ') : '');
-  $('tabAmt').classList.toggle('hidden', !darfAmtSehen());
-  $('tabKasse').classList.toggle('hidden', !darfKasseSehen());
+  /* 1.72 (Paket D): Sieht jemand Auswertung UND Kasse – oder gibt es einen
+     auf der GV freigegebenen Jahresbericht –, stehen beide in EINEM Reiter. */
+  const jbAn = jbAktiv();
+  $('tabJahr').classList.toggle('hidden', !jbAn);
+  $('tabAmt').classList.toggle('hidden', jbAn || !darfAmtSehen());
+  $('tabKasse').classList.toggle('hidden', jbAn || !darfKasseSehen());
+  if (!jbAn) document.querySelectorAll('.jbUm').forEach(el => { el.innerHTML = ''; });
   /* Wird jemandem die Einsicht zur Laufzeit entzogen, während er den Reiter
      offen hat, verschwindet sonst nur der Knopf: Der alte Inhalt bliebe
      stehen und in der Leiste wäre nichts mehr markiert. Also zurück auf
      "Start". */
   {
     const offen = aktuellerReiter();
-    if ((offen === 'kasse' && !darfKasseSehen()) || (offen === 'amt' && !darfAmtSehen())){
+    if (jbAn && (offen === 'kasse' || offen === 'amt')){
+      const j = document.querySelector('#tabs button[data-tab="jahr"]');
+      if (j) j.click();
+    } else if ((offen === 'kasse' && !darfKasseSehen()) || (offen === 'amt' && !darfAmtSehen())
+               || (offen === 'jahr' && !jbAn)){
       const start = document.querySelector('#tabs button[data-tab="start"]');
       if (start) start.click();
     }
@@ -5298,7 +5324,8 @@ const REITER = {
   statuten: () => { zeichneStatuten(D.statuten); zeichneRechner(rechnerZeilen()); },
   verein:   () => { zeichneWarte(); zeichneMitglieder(); zeichneTermine(); zeichneRunden(); },
   kasse:    () => { if (darfKasseSehen()) kasseFelderSichern(() => zeichneKasse()); },
-  amt:      () => { if (darfAmtSehen()) zeichneAmt(aktuelleAmtSicht); }
+  amt:      () => { if (darfAmtSehen()) zeichneAmt(aktuelleAmtSicht); },
+  jahr:     () => { if (jbAktiv()) jbZeichnen(); }
 };
 let reiterSchmutzig = {};
 
@@ -5352,9 +5379,11 @@ function alleReiterNeu(){
 $('tabs').addEventListener('click', e => {
   const b = e.target.closest('button[data-tab]'); if (!b) return;
   document.querySelectorAll('#tabs button').forEach(x => x.setAttribute('aria-current', x === b));
-  ['start','strafen','statuten','verein','kasse','amt'].forEach(t =>
+  ['start','strafen','statuten','verein','kasse','amt','jahr'].forEach(t =>
     $('tab-'+t).classList.toggle('hidden', t !== b.dataset.tab));
-  reiterZeichnen(b.dataset.tab);
+  /* 1.72: Der Jahresbericht zeichnet sich immer – er entscheidet selbst, ob
+     er die lebende Kasse/Auswertung oder den Stand vom Abschluss zeigt. */
+  reiterZeichnen(b.dataset.tab, b.dataset.tab === 'jahr');
   const rechnerOffen = b.dataset.tab === 'statuten' && !$('modeRechnen').classList.contains('hidden');
   $('calcBar').classList.toggle('hidden', !rechnerOffen);
   if (rechnerOffen) rechnerLeiste();
@@ -11062,7 +11091,7 @@ function jahrStandText(r){
 
 /* Die Gravurliste: je König und Träger eine Zeile – bei einem gemeinsam
    vergebenen Titel steht jeder Name für sich, jeder bekommt seine Gravur. */
-function druckModellGravur(saison, titel){
+function druckModellGravur(saison, titel, offenGelegt){
   const KOENIGE = ['Kegelkönig', 'Pumpenkönig', '9er König'];
   const zeilen = [];
   KOENIGE.forEach(k => {
@@ -11075,18 +11104,28 @@ function druckModellGravur(saison, titel){
   return { name: 'Gravurliste_' + saison.replace('/', '-'),
     standText: 'Kegeljahr ' + saison + ' · erstellt von ' + ((D.ich && D.ich.name) || '–') + amt,
     seiten: [{ bereich:'Schriftführer', titel:'Gravurliste der Könige · Kegeljahr ' + saison,
-      vertraulich: 'vertraulich bis zur GV', bloecke: [
-        { t:'hinweis', text:'Für die Bestellung der Pokale und Gravuren vor der Generalversammlung.' },
+      vertraulich: offenGelegt ? '' : 'vertraulich bis zur GV', bloecke: [
+        { t:'hinweis', text: offenGelegt ? 'Die Könige des Kegeljahres, je Träger eine Zeile.'
+                                         : 'Für die Bestellung der Pokale und Gravuren vor der Generalversammlung.' },
         { t:'tabelle', kopf:['Titel', 'Kegelbruder', 'Leistung', 'Gravur'], ab:9, zeilen: zeilen },
         { t:'hinweis', text:'Ist ein Titel gemeinsam vergeben, steht jeder Träger in einer eigenen Zeile.' }] }] };
 }
 
 function histDruckBlock(j){
   const d = j.druck;
-  if (!d) return '';
   const knopf = (was, text) => `<button class="btn ghost" data-jahrdruck="${was}" data-saison="${esc(j.s)}"
       style="margin-top:10px;width:100%">${text}</button>`;
-  let h = '';
+  /* 1.72 (Paket C, Rest): Jedes Jahr, das man hier sieht, lässt sich drucken –
+     auch die Jahre vor der App. Der Schriftführer bekommt für die Jahre ohne
+     Stand vom Abschluss Gravurliste und Urkunden aus der Historie. */
+  const sichtbar = !j.vertraulich && !j.aktuell && (j.hatDaten || (j.titel || []).length);
+  let h = sichtbar ? knopf('jahr', 'Jahresblatt drucken / als PDF') : '';
+  if (!d){
+    if (sichtbar && D.ich && D.ich.schriftfuehrer)
+      h += knopf('gravur', 'Gravurliste der Könige') + knopf('urkunden-alt', 'Urkunden drucken / als PDF');
+    return h ? histBlock('Drucken', '', `<div style="padding:4px 14px 14px">${h}</div>`,
+      'Aus der Historie – jedes Kegeljahr lässt sich jederzeit drucken.') : '';
+  }
   if (d.auswertung) h += knopf('auswertung', 'Auswertung drucken / als PDF') + knopf('gravur', 'Gravurliste der Könige')
     + knopf('urkunden', 'Urkunden drucken / als PDF');
   if (d.kasse) h += knopf('kasse', d.kasse === 'pruefer' ? 'Kassenbericht drucken (Fassung Kassenprüfer)' : 'Kassenbericht drucken / als PDF');
@@ -11123,15 +11162,20 @@ document.addEventListener('click', async e => {
     if (was === 'pruefen'){ histPruefSaison = saison; histPruefErg = 'ok'; zeichneHistorie(); return; }
     if (was === 'gravur'){
       const j = (historieDaten || []).filter(x => x.s === saison)[0];
-      druckZeigen(druckModellGravur(saison, j ? j.titel : []));
+      druckZeigen(druckModellGravur(saison, j ? j.titel : [], !!(j && !j.vertraulich)));
+      return;
+    }
+    if (was === 'jahr'){
+      const j = (historieDaten || []).filter(x => x.s === saison)[0];
+      if (j) druckZeigen(druckModellJahr(j));
       return;
     }
     if (k.dataset.laeuft) return;
     const alt = k.textContent;
     k.dataset.laeuft = '1'; k.disabled = true; k.textContent = 'Wird geladen …';
     try {
-      const r = await jahrDruckHolen(saison);
-      if (was === 'urkunden'){
+      const r = was === 'urkunden-alt' ? await jahrWuerfeHolen(saison) : await jahrDruckHolen(saison);
+      if (was === 'urkunden' || was === 'urkunden-alt'){
         if (!r.wuerfe) throw new Error('Das Backend kennt die Urkunden noch nicht (ab Fassung 1.66).');
         const j = (historieDaten || []).filter(x => x.s === saison)[0];
         await urkundenZeigen(urkundenListe(saison, j ? j.titel : [], r.wuerfe), saison, r.gv);
@@ -11523,6 +11567,201 @@ async function urkundenZeigen(liste, saison, gv){
     console.error(err);
     const k = $('druckPdf'); if (k) k.textContent = 'Urkunden gingen nicht';
   }
+}
+
+/* ---------- Paket C, Rest (15.11.2026): ältere Kegeljahre drucken
+   Jedes Kegeljahr, das man in der Historie sieht, lässt sich als Jahresblatt
+   drucken – auch die Jahre vor der App (2018/19 bis 2025/26). Der
+   Schriftführer bekommt dazu Gravurliste und Urkunden; die Würfe holt das
+   Backend ab 1.67 aus der Historie (jahrWuerfe). */
+function druckModellJahr(j){
+  const titel = j.titel || [];
+  const b = [];
+  const eck = [];
+  const zeit = [j.beginn, j.ende].filter(nichtLeer).join(' – ');
+  if (zeit) eck.push(dZ(['Zeitraum', zeit]));
+  if (j.termine) eck.push(dZ(['Termine gekegelt', j.geplant ? j.termine + ' von ' + j.geplant : String(j.termine)]));
+  if (eck.length){
+    b.push({ t:'h2', text:'Eckdaten' });
+    b.push({ t:'tabelle', kopf:['Angabe', 'Wert'], ab:1, zeilen: eck });
+  }
+  if (j.hinweis) b.push({ t:'hinweis', text: j.hinweis });
+  b.push({ t:'h2', text:'Titel und Auszeichnungen' });
+  b.push({ t:'tabelle', kopf:['Titel', 'Kegelbruder', 'Wert', 'Quelle'], ab:2, leer:'Nichts überliefert.',
+    zeilen: titel.map(t => dZ([String(t.titel || ''), String(t.wer || '–'), String(t.wert || ''),
+      histQuelle(t.quelle) || ''], { hl: /könig/i.test(String(t.titel || '')) && !!String(t.wer || '').trim() })) });
+  const kat = j.kategorien || [];
+  if (j.hatDaten && kat.length){
+    b.push({ t:'h2', text:'Das Jahr in Zahlen' });
+    b.push({ t:'tabelle', kopf:['Kategorie', 'Bester', 'Schlechtester'], ab:9,
+      zeilen: kat.map(k => k.bester
+        ? dZ([k.label, k.bester.n + ' · ' + histWert(k, k.bester), k.schlechtester.n + ' · ' + histWert(k, k.schlechtester)])
+        : dZ([k.label, k.hinweis || 'Keine Daten', ''])) });
+    if (j.fussnote) b.push({ t:'hinweis', text: j.fussnote });
+  }
+  if (j.kasse){
+    b.push({ t:'h2', text:'Kasse', klein:'nur Summen, keine Namen' });
+    b.push({ t:'tabelle', kopf:['Posten', 'Betrag'], ab:1, zeilen: [
+      dZ(['Kassenstand zum Jahresende', eur(j.kasse.kontostand)]),
+      dZ(['Strafen der Saison', eur(j.kasse.strafen)]),
+      dZ(['Ausgaben', eur(j.kasse.ausgaben)]),
+      dZ(['Sonstige Einnahmen', eur(j.kasse.einnahmen)]),
+      dZ(['Spenden', eur(j.kasse.spenden)]),
+      dZ(['Ins neue Jahr übernommen', eur(j.kasse.offen)])] });
+  }
+  return { name: 'Kegeljahr_' + j.s.replace('/', '-'),
+    standText: 'Kegeljahr ' + j.s + ' · aus der Historie · erstellt von ' + ((D.ich && D.ich.name) || '–'),
+    seiten: [{ bereich:'Historie', titel:'Kegeljahr ' + j.s, vertraulich:'', bloecke: b }] };
+}
+
+const jahrWuerfeSpeicher = {};
+async function jahrWuerfeHolen(saison){
+  if (jahrWuerfeSpeicher[saison]) return jahrWuerfeSpeicher[saison];
+  const r = await api('jahrWuerfe', { token: token, saison: saison }, API_VERSUCHE);
+  if (!r || r.fehler) throw new Error((r && r.fehler) || 'Keine Antwort.');
+  jahrWuerfeSpeicher[saison] = r;
+  return r;
+}
+
+/* ---------- Paket D (15.11.2026): Reiter „Jahresbericht“
+   Auswertung und Kasse in EINEM Reiter mit zwei Chips – keine sechste Kachel.
+   Jeder Teil kommt entweder LIVE (das Amt arbeitet darin, wie bisher) oder aus
+   dem Stand beim Abschluss (SNAP, nur zum Ansehen):
+   - Nach der Freigabe auf der GV bis zum ersten Kegelabend des neuen Jahres
+     sieht JEDER den freigegebenen Teil – genau so, wie ihn Schriftführer und
+     Kassenwart gesehen haben. Die Auswertung kommt dann für alle aus dem Stand
+     (die neue Saison hat noch keinen Kegelabend), die Kasse bleibt beim
+     Kassenwart live, weil er auf der GV kassiert.
+   - Wer beide Ämter hat, sieht auch in der Saison „Jahresbericht“ statt
+     „Kasse“ und „Auswertung“. */
+let jbWahl = 'auswertung', jbDaten = null, jbLaedt = false;
+
+function jbKasseLive(){ return darfKasseSehen(); }
+function jbTeile(){
+  const g = D && D.gvErgebnis;
+  const snapA = !!(g && g.saison && Object.prototype.hasOwnProperty.call(g, 'titel'));
+  const snapK = !!(g && g.saison && Object.prototype.hasOwnProperty.call(g, 'kasse'));
+  const t = {};
+  if (snapA) t.auswertung = 'snap'; else if (darfAmtSehen()) t.auswertung = 'live';
+  if (jbKasseLive()) t.kasse = 'live'; else if (snapK) t.kasse = 'snap';
+  return t;
+}
+function jbAktiv(){
+  const t = jbTeile(), k = Object.keys(t);
+  return k.length === 2 || k.some(x => t[x] === 'snap');
+}
+function jbSektion(){
+  const t = jbTeile();
+  if (!t[jbWahl]) jbWahl = Object.keys(t)[0] || 'auswertung';
+  const w = t[jbWahl];
+  return w === 'live' ? (jbWahl === 'kasse' ? 'kasse' : 'amt') : 'jahr';
+}
+function jbUmschalter(t){
+  const k = ['auswertung', 'kasse'].filter(x => t[x]);
+  if (k.length < 2) return '';
+  const saison = D.gvErgebnis && D.gvErgebnis.saison;
+  return `<div class="chips" style="margin:0 0 14px">${k.map(w => `<button data-jb="${w}" aria-pressed="${w === jbWahl}">${
+    w === 'auswertung' ? 'Auswertung' : 'Kasse'}${t[w] === 'snap' && saison ? ' ' + esc(saison) : ''}</button>`).join('')}</div>`;
+}
+function jbZeichnen(){
+  const t = jbTeile();
+  const sek = jbSektion();
+  ['amt', 'kasse', 'jahr'].forEach(s => $('tab-' + s).classList.toggle('hidden', s !== sek));
+  const um = jbUmschalter(t);
+  document.querySelectorAll('.jbUm').forEach(el => { el.innerHTML = um; });
+  if (sek === 'amt'){ if (darfAmtSehen()) zeichneAmt(aktuelleAmtSicht); }
+  else if (sek === 'kasse'){ if (darfKasseSehen()) kasseFelderSichern(() => zeichneKasse()); }
+  else jbSnapZeichnen();
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('button[data-jb]'); if (!b) return;
+  jbWahl = b.dataset.jb;
+  jbZeichnen();
+  window.scrollTo({ top: 0 });
+});
+
+function jbModell(w){
+  const r = jbDaten;
+  if (!r) return null;
+  const st = 'Kegeljahr ' + r.saison + ' · freigegeben auf der Generalversammlung · Stand beim Abschluss';
+  let m = null;
+  if (w === 'auswertung' && r.titelFrei)
+    m = druckModellAuswertung({ auswertung: r.auswertung, zaehlung: r.zaehlung, saison: r.saison, standText: st });
+  if (w === 'kasse' && r.kasseFrei)
+    m = druckModellKasse({ kassenbericht: r.kassenbericht, ausgaben: r.ausgaben, umlage: r.umlage,
+      offene: null, pruefer: false, saison: r.saison, standText: st });
+  if (m) m.seiten.forEach(s => { s.vertraulich = 'freigegeben auf der GV'; });
+  return m;
+}
+
+async function jbSnapZeichnen(){
+  const g = D.gvErgebnis || {};
+  const t = jbTeile();
+  $('jbTitel').textContent = 'Jahresbericht ' + (g.saison || '');
+  $('jbHinweis').textContent = 'Freigegeben auf der Generalversammlung. Der Stand beim Abschluss – zum Ansehen und Drucken, ändern lässt sich hier nichts.';
+  const passt = jbDaten && jbDaten.saison === g.saison
+    && !!jbDaten.titelFrei === Object.prototype.hasOwnProperty.call(g, 'titel')
+    && !!jbDaten.kasseFrei === Object.prototype.hasOwnProperty.call(g, 'kasse');
+  if (!passt){
+    if (jbLaedt) return;
+    jbLaedt = true;
+    $('jbBody').innerHTML = '<p class="note" style="margin-top:12px">Der Jahresbericht wird geladen …</p>';
+    try {
+      const r = await api('jahresbericht', { token: token }, API_VERSUCHE);
+      if (!r || r.fehler) throw new Error((r && r.fehler) || 'Keine Antwort.');
+      jbDaten = r;
+    } catch (err) {
+      jbLaedt = false;
+      $('jbBody').innerHTML = `<p class="note" style="margin-top:12px">Der Jahresbericht lässt sich gerade nicht laden: ${
+        esc(err && err.message ? err.message : fehlerGrund(err))}</p>`;
+      return;
+    }
+    jbLaedt = false;
+    if (!jbDaten.saison){ $('jbBody').innerHTML = '<p class="note" style="margin-top:12px">Zurzeit ist kein Jahresbericht freigegeben.</p>'; return; }
+  }
+  const m = jbModell(jbWahl);
+  $('jbBody').innerHTML = m
+    ? `<button class="btn ghost" id="jbDruck" style="width:100%;margin:2px 0 4px">Drucken / als PDF</button>`
+      + m.seiten.map(s => s.bloecke.map(jbBlock).join('')).join('')
+    : '<p class="note" style="margin-top:12px">Dieser Teil ist noch nicht freigegeben.</p>';
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#jbDruck')) return;
+  const m = jbModell(jbWahl);
+  if (m) druckZeigen(m);
+});
+
+/* Die Bausteine der Druckansicht in der Optik der App – dieselben Inhalte,
+   damit Bildschirm, Druck und das, was das Amt gesehen hat, übereinstimmen. */
+function jbBlock(b){
+  switch (b.t){
+    case 'h2': return `<h2 class="sec" style="margin-top:22px">${esc(b.text)}</h2>${b.klein ? `<p class="note">${esc(b.klein)}</p>` : ''}`;
+    case 'kasten': return `<div class="vs"><div class="vs-l">${esc(b.titel)}</div><div class="vs-w">${esc(b.wert)}</div></div>`;
+    case 'hinweis': return `<p class="note" style="margin-top:8px">${esc(b.text)}</p>`;
+    case 'vermerk': return `<div class="vs"${b.art === 'ok' ? '' : ' style="border-left-color:var(--warn)"'}><div class="vs-l">${esc(b.titel)}</div><div class="vs-s">${esc(b.text)}</div></div>`;
+    case 'kacheln': return `<div class="list" style="margin-top:14px">${b.items.map(k => `<div class="row"><div><div class="n">${esc(k.titel)}</div>${
+      k.unter ? `<div class="m">${esc(k.unter)}</div>` : ''}</div><div class="v">${esc(k.wert)}</div></div>`).join('')}</div>`;
+    case 'zwei': return b.a.map(jbBlock).join('') + b.b.map(jbBlock).join('');
+    case 'tabelle': return jbTabelle(b);
+  }
+  return '';
+}
+function jbTabelle(b){
+  const ab = b.ab || 1;
+  const zeile = (z, o) => {
+    o = o || {};
+    let n;
+    if (ab >= 2 && /^\d+$/.test(String(z[0]))) n = z[0] + '. ' + z.slice(1, ab).filter(nichtLeer).join(' · ');
+    else n = z.slice(0, Math.min(ab, z.length)).filter(nichtLeer).join(' · ');
+    const rechts = z.slice(ab).map((v, i) => ({ k: b.kopf[ab + i] || '', v: v })).filter(x => nichtLeer(x.v));
+    const v = rechts.length ? rechts[rechts.length - 1].v : '';
+    const m = rechts.slice(0, -1).map(x => (x.k ? x.k + ' ' : '') + x.v).join(' · ');
+    return `<div class="row${o.hl ? ' jbhl' : ''}${o.fuss ? ' jbfuss' : ''}"><div${o.davon ? ' style="padding-left:12px"' : ''}><div class="n">${esc(n)}</div>${
+      m ? `<div class="m">${esc(m)}</div>` : ''}</div><div class="v">${esc(v)}</div></div>`;
+  };
+  const zeilen = b.zeilen.length ? b.zeilen.map(r => zeile(r.z, r)).join('')
+    : `<div class="row"><div class="n" style="font-weight:400;color:var(--muted)">${esc(b.leer || '–')}</div></div>`;
+  return `<div class="list" style="margin-top:12px">${zeilen}${b.fuss ? zeile(b.fuss, { fuss: true }) : ''}</div>`;
 }
 
 /* ---------- Bildschirm: Modell → HTML */
