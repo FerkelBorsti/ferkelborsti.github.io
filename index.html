@@ -1654,7 +1654,13 @@ const API = 'https://script.google.com/macros/s/AKfycbzNVsv3ApcgdWK3zo0uxdR4hrnl
      Gleichstände, die er entscheiden muss; die Kegelväter bestätigen, ohne
      Werte zu sehen.
    Braucht Backend 1.64. */
-const APP_VERSION = '1.69';
+/* 1.70 (15.11.2026): Paket C, Teil 1 – Druck des abgeschlossenen Kegeljahres.
+   In der Historie steht beim abgeschlossenen Jahr ein Block „Drucken“: der
+   Schriftführer druckt die Auswertung und die Gravurliste der Könige, der
+   Kassenwart den Kassenbericht, die Kassenprüfer ihre Fassung und tragen dort
+   den Prüfvermerk für dieses Jahr ein. Grundlage ist der Stand, den der
+   Abschluss festhält (Backend 1.65, „jahrDruck“). */
+const APP_VERSION = '1.70';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -2135,7 +2141,7 @@ const API_EINMALIG = [
    siehe unten. */
 const API_LESEN = ['daten', 'anmelden', 'historie', 'stammdaten', 'erfassungLesen',
                    'syncStand', 'abschlussVorschau', 'freiStrafeDaten', 'rmVorschlaege',
-                   'zaehlung'];
+                   'zaehlung', 'jahrDruck'];
 
 /* ---- Sendekennung (1.38) --------------------------------------------------
    Gemeldet am 07.09.2026: "Zahlung buchen" musste mehrfach getippt werden, und
@@ -3737,6 +3743,7 @@ function histJahr(j, aendZeilen){
             histZeile('Ins neue Jahr übernommen', 'Schulden minus Guthaben', eur(j.kasse.offen))
           ].join(''), '')
         : '')
+    + histDruckBlock(j)
     + (aendZeilen && aendZeilen.length
         ? histBlock('Was sich geändert hat', `<span class="pill open">${aendZeilen.length}</span>`,
                     histAendZeilen(aendZeilen), '')
@@ -9658,8 +9665,9 @@ function swBlock(o){
    in beiden Faellen raus – dieselbe Trennung wie in zeichneStrafen und in
    kasseStrafenSicht. Der Abwesenheits-Ausgleich und die Korrekturen bekommen
    einen eigenen Block, damit sie die Rangliste nicht anfuehren. */
-function swAusZaehlung(){
-  const z = (zaehlungDaten && zaehlungDaten.zeilen) || [];
+function swAusZaehlung(quelle){
+  const zq = quelle || zaehlungDaten;
+  const z = (zq && zq.zeilen) || [];
   return z.map(x => ({ d: x.d, q: x.q, t: x.t, n: x.n, v: x.v, e: !!x.e, g: !!x.g }));
 }
 function swAusBuchungen(){
@@ -10845,10 +10853,14 @@ function druckStand(){
 }
 
 /* ---------- Modell: Kasse */
-function druckModellKasse(){
-  const b = D.kassenbericht;
+function druckModellKasse(q){
+  /* Paket C: Quelle wählbar – ohne Angabe die laufende Saison, sonst der beim
+     Abschluss festgehaltene Stand (jahrDruck). */
+  q = q || { kassenbericht: D.kassenbericht, ausgaben: kasseD().ausgaben, umlage: kasseD().umlage,
+             offene: (D.kasseDaten && D.kasseDaten.offene) || null, pruefer: !!(D.ich && D.ich.nurPruefKasse) };
+  const b = q.kassenbericht;
   if (!b) return null;
-  const pruefer = !!(D.ich && D.ich.nurPruefKasse);
+  const pruefer = !!q.pruefer;
   const p = b.pruefung;
   const eingegangen = Math.round(((b.bewegung || 0) + (b.ausgaben || 0)) * 100) / 100;
 
@@ -10858,7 +10870,9 @@ function druckModellKasse(){
         text: 'Eingetragen von ' + (p.von || '–')
           + ((p.pruefer && p.pruefer.length) ? ' · Kassenprüfer: ' + p.pruefer.join(', ') : '')
           + (p.text ? ' · Anmerkung: „' + p.text + '“' : '') }
-    : { t:'vermerk', art:'offen', titel:'Noch nicht geprüft', text:'In dieser Saison ist noch kein Prüfvermerk eingetragen.' };
+    : { t:'vermerk', art:'offen', titel:'Noch nicht geprüft', text: q.saison
+        ? 'Für das Kegeljahr ' + q.saison + ' ist noch kein Prüfvermerk eingetragen.'
+        : 'In dieser Saison ist noch kein Prüfvermerk eingetragen.' };
 
   const kacheln = { t:'kacheln', items: [
     { titel:'Kontostand', wert: eur(b.kontostandBerechnet || 0), unter: b.auszugAm ? 'Auszug vom ' + b.auszugAm : 'gerechnet' },
@@ -10901,13 +10915,14 @@ function druckModellKasse(){
   offenZ.push(dZ(['Verspätungszuschläge der Saison', eur(b.zuschlaege || 0)]));
   const tOffen = { t:'tabelle', kopf:['Noch offen', 'Betrag'], zeilen: offenZ, fuss:['Offen gesamt', eur(b.offen || 0)], ab:1 };
 
-  const seite1 = { bereich:'Kasse', titel:'Kassenbericht', vertraulich: pruefer ? 'Fassung Kassenprüfer' : '',
+  const zuJahr = q.saison ? ' · Kegeljahr ' + q.saison : '';
+  const seite1 = { bereich:'Kasse', titel:'Kassenbericht' + zuJahr, vertraulich: pruefer ? 'Fassung Kassenprüfer' : '',
     bloecke: [vermerk, kacheln,
       { t:'zwei', a:[{ t:'h2', text:'Einnahmen' }, tEin], b:[{ t:'h2', text:'Ausgaben' }, tAus] },
       { t:'zwei', a:[{ t:'h2', text:'Konto' }, tKonto], b:[{ t:'h2', text:'Noch offen' }, tOffen] }] };
 
-  const ausg = (kasseD().ausgaben || []).slice().sort((x, y) => x.datum < y.datum ? -1 : 1);
-  const sonst = (kasseD().umlage || []).slice().sort((x, y) => x.datum < y.datum ? -1 : 1);
+  const ausg = (q.ausgaben || []).slice().sort((x, y) => x.datum < y.datum ? -1 : 1);
+  const sonst = (q.umlage || []).slice().sort((x, y) => x.datum < y.datum ? -1 : 1);
   const bl2 = [{ t:'h2', text:'Ausgaben im Einzelnen' },
     { t:'tabelle', kopf:['Datum', 'Zweck', 'Kategorie', 'Betrag'], ab:3, leer:'Noch keine Ausgaben erfasst.',
       zeilen: ausg.map(a => dZ([dat(a.datum), a.notiz || '–', a.kategorie || '', eur(a.betrag)])) }];
@@ -10918,7 +10933,7 @@ function druckModellKasse(){
   }
   /* Offene Strafen je Kegelbruder – NUR wer die Einzelposten ohnehin hat. Die
      Kassenprüfer haben sie nicht im Gerät, der Abschnitt fehlt dann von selbst. */
-  const offene = (D.kasseDaten && D.kasseDaten.offene) || null;
+  const offene = q.offene || null;
   let mitNamen = false;
   if (offene && !pruefer){
     const je = {};
@@ -10935,14 +10950,17 @@ function druckModellKasse(){
     bl2.push({ t:'hinweis', text:'Dieser Abschnitt steht nur im Ausdruck von Kassenwart und Vertretung. In der Fassung für die Kassenprüfer fehlt er – wer wie viel gezahlt hat, bleibt bis zur Generalversammlung vertraulich.' });
     mitNamen = true;
   }
-  const seite2 = { bereich:'Kasse', titel:'Kassenbericht – Einzelheiten',
+  const seite2 = { bereich:'Kasse', titel:'Kassenbericht – Einzelheiten' + zuJahr,
     vertraulich: mitNamen ? 'nur Kassenwart' : (pruefer ? 'Fassung Kassenprüfer' : ''), bloecke: bl2 };
-  return { name:'Kassenbericht', seiten:[seite1, seite2] };
+  return { name:'Kassenbericht' + (q.saison ? '_' + q.saison.replace('/', '-') : ''),
+           standText: q.standText || '', seiten:[seite1, seite2] };
 }
 
 /* ---------- Modell: Auswertung */
-function druckModellAuswertung(){
-  const A = (D.auswertung || []).slice();
+function druckModellAuswertung(q){
+  q = q || { auswertung: D.auswertung, zaehlung: zaehlungDaten };
+  const A = (q.auswertung || []).slice();
+  const zd = q.zaehlung;
   if (!A.length) return null;
   const holz = r => vollenSchnitt(r).toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const vollen = A.slice().sort((a, b) => vollenSchnitt(b) - vollenSchnitt(a));
@@ -10984,8 +11002,8 @@ function druckModellAuswertung(){
   /* Strafen je Kegelbruder: die ANZAHL, wie in Auswertung › Strafen – ohne
      Beträge, die gehören zum Kassenwart (07.09.2026). */
   s2.push({ t:'h2', text:'Strafen je Kegelbruder' });
-  if (zaehlungDaten && !zaehlungDaten.fehler){
-    const t = swTrennen(swAusZaehlung().filter(z => !z.g));
+  if (zd && !zd.fehler){
+    const t = swTrennen(swAusZaehlung(zd).filter(z => !z.g));
     const o = { id: 'amt', zeilen: t.echt, geld: false };
     const je = {};
     A.forEach(r => je[r.n] = 0);
@@ -10996,15 +11014,160 @@ function druckModellAuswertung(){
     s2.push({ t:'tabelle', kopf:['Platz', 'Kegelbruder', 'Anzahl'], ab:2,
       zeilen: l.map((x, i) => dZ([String(i + 1), x.n, x.a.toLocaleString('de-DE')])) });
     s2.push({ t:'hinweis', text:'Gezählt wird, wie oft eine Strafe erfasst ist – ohne Beträge, ohne Gäste.' });
+  } else if (q.saison){
+    s2.push({ t:'hinweis', text:'Die Zählung der Strafen ist für dieses Kegeljahr nicht festgehalten.' });
   } else {
     zaehlungHolen();
     s2.push({ t:'hinweis', text:'Die Zählung der Strafen wird gerade geholt. Bitte die Druckansicht gleich noch einmal öffnen.' });
   }
   const v = 'vertraulich bis zur GV';
-  return { name:'Auswertung', seiten:[
-    { bereich:'Schriftführer', titel:'Auswertung des Schriftführers', vertraulich: v, bloecke: s1 },
-    { bereich:'Schriftführer', titel:'Auswertung des Schriftführers', vertraulich: v, bloecke: s2 }] };
+  const tt = 'Auswertung des Schriftführers' + (q.saison ? ' · Kegeljahr ' + q.saison : '');
+  return { name:'Auswertung' + (q.saison ? '_' + q.saison.replace('/', '-') : ''), standText: q.standText || '', seiten:[
+    { bereich:'Schriftführer', titel: tt, vertraulich: v, bloecke: s1 },
+    { bereich:'Schriftführer', titel: tt, vertraulich: v, bloecke: s2 }] };
 }
+
+/* ---------- Paket C (15.11.2026): Druck des abgeschlossenen Kegeljahres
+   Nach dem Abschluss sind die Blätter der alten Saison leer. Was vor der GV
+   noch zu drucken ist, kommt aus dem Stand, den der Abschluss festgehalten hat
+   (Backend „jahrDruck“). Jedes Amt druckt seinen Teil: der Schriftführer die
+   Auswertung und die Gravurliste der Könige, der Kassenwart den Kassenbericht,
+   die Kassenprüfer ihre Fassung – und sie tragen dort den Prüfvermerk ein. */
+const jahrDruckSpeicher = {};
+let histPruefSaison = '';
+let histPruefErg = 'ok';
+
+async function jahrDruckHolen(saison){
+  if (jahrDruckSpeicher[saison]) return jahrDruckSpeicher[saison];
+  const r = await api('jahrDruck', { token: token, saison: saison }, API_VERSUCHE);
+  if (!r || r.fehler) throw new Error((r && r.fehler) || 'Keine Antwort.');
+  jahrDruckSpeicher[saison] = r;
+  return r;
+}
+
+function jahrStandText(r){
+  const am = r.stand ? dat(String(r.stand).slice(0, 10)) : '';
+  const amt = (D.ich && D.ich.rollen && D.ich.rollen.length) ? ' (' + D.ich.rollen.join(', ') + ')' : '';
+  return 'Kegeljahr ' + r.saison + (am ? ' · Stand beim Abschluss am ' + am : '')
+    + ' · erstellt von ' + ((D.ich && D.ich.name) || '–') + amt;
+}
+
+/* Die Gravurliste: je König und Träger eine Zeile – bei einem gemeinsam
+   vergebenen Titel steht jeder Name für sich, jeder bekommt seine Gravur. */
+function druckModellGravur(saison, titel){
+  const KOENIGE = ['Kegelkönig', 'Pumpenkönig', '9er König'];
+  const zeilen = [];
+  KOENIGE.forEach(k => {
+    const t = (titel || []).filter(x => String(x.titel || '').trim() === k)[0];
+    const namen = t && String(t.wer || '').trim() ? String(t.wer).split('&').map(x => x.trim()).filter(String) : [];
+    if (!namen.length) zeilen.push(dZ([k, '–', '', '']));
+    namen.forEach(n => zeilen.push(dZ([k, n, String((t && t.wert) || ''), k + ' ' + saison])));
+  });
+  const amt = (D.ich && D.ich.rollen && D.ich.rollen.length) ? ' (' + D.ich.rollen.join(', ') + ')' : '';
+  return { name: 'Gravurliste_' + saison.replace('/', '-'),
+    standText: 'Kegeljahr ' + saison + ' · erstellt von ' + ((D.ich && D.ich.name) || '–') + amt,
+    seiten: [{ bereich:'Schriftführer', titel:'Gravurliste der Könige · Kegeljahr ' + saison,
+      vertraulich: 'vertraulich bis zur GV', bloecke: [
+        { t:'hinweis', text:'Für die Bestellung der Pokale und Gravuren vor der Generalversammlung.' },
+        { t:'tabelle', kopf:['Titel', 'Kegelbruder', 'Leistung', 'Gravur'], ab:9, zeilen: zeilen },
+        { t:'hinweis', text:'Ist ein Titel gemeinsam vergeben, steht jeder Träger in einer eigenen Zeile.' }] }] };
+}
+
+function histDruckBlock(j){
+  const d = j.druck;
+  if (!d) return '';
+  const knopf = (was, text) => `<button class="btn ghost" data-jahrdruck="${was}" data-saison="${esc(j.s)}"
+      style="margin-top:10px;width:100%">${text}</button>`;
+  let h = '';
+  if (d.auswertung) h += knopf('auswertung', 'Auswertung drucken / als PDF') + knopf('gravur', 'Gravurliste der Könige');
+  if (d.kasse) h += knopf('kasse', d.kasse === 'pruefer' ? 'Kassenbericht drucken (Fassung Kassenprüfer)' : 'Kassenbericht drucken / als PDF');
+  if (d.pruefen){
+    h += histPruefSaison === j.s ? histPruefFormular(j.s)
+      : knopf('pruefen', 'Prüfvermerk für ' + esc(j.s) + ' eintragen');
+  }
+  return histBlock('Drucken', '', `<div style="padding:4px 14px 14px">${h}</div>`,
+    'Aus dem Stand beim Abschluss. Jeder druckt den Teil seines Amtes.');
+}
+
+function histPruefFormular(saison){
+  const heute = D.heute;
+  return `<div class="eyebrow" style="margin:16px 0 10px">Prüfvermerk für das Kegeljahr ${esc(saison)}</div>
+    <div class="kassefeld"><div class="eyebrow">Geprüft am</div>
+      <input class="search" type="date" id="hPruefAm" value="${esc(heute)}" max="${esc(heute)}" aria-label="Geprüft am"></div>
+    <div class="kassefeld"><div class="eyebrow">Ergebnis</div>
+      <div class="chips" id="hPruefErg" style="margin:0;padding:2px 0">
+        <button data-hpruef-erg="ok" aria-pressed="${histPruefErg === 'ok'}">Ohne Beanstandung</button>
+        <button data-hpruef-erg="anmerkung" aria-pressed="${histPruefErg === 'anmerkung'}">Mit Anmerkung</button>
+      </div></div>
+    <div class="kassefeld"><div class="eyebrow">Anmerkung</div>
+      <input enterkeyhint="done" class="search" id="hPruefText" maxlength="300" placeholder="freiwillig" aria-label="Anmerkung"></div>
+    <p class="note hidden" id="hPruefFehler" style="margin-top:8px"></p>
+    <button class="btn" id="hPruefSenden" data-saison="${esc(saison)}" style="margin-top:12px;width:100%">Prüfvermerk speichern</button>
+    <button class="btn ghost" id="hPruefZu" style="margin-top:8px;width:100%">Abbrechen</button>
+    <p class="note" style="margin-top:8px">Kassenwart und Schriftführer bekommen eine Nachricht. Der Vermerk steht danach im Kassenbericht dieses Jahres.</p>`;
+}
+
+document.addEventListener('click', async e => {
+  const k = e.target.closest('button[data-jahrdruck]');
+  if (k){
+    const was = k.dataset.jahrdruck, saison = k.dataset.saison;
+    if (was === 'pruefen'){ histPruefSaison = saison; histPruefErg = 'ok'; zeichneHistorie(); return; }
+    if (was === 'gravur'){
+      const j = (historieDaten || []).filter(x => x.s === saison)[0];
+      druckZeigen(druckModellGravur(saison, j ? j.titel : []));
+      return;
+    }
+    if (k.dataset.laeuft) return;
+    const alt = k.textContent;
+    k.dataset.laeuft = '1'; k.disabled = true; k.textContent = 'Wird geladen …';
+    try {
+      const r = await jahrDruckHolen(saison);
+      const st = jahrStandText(r);
+      druckZeigen(was === 'kasse'
+        ? druckModellKasse({ kassenbericht: r.kassenbericht, ausgaben: r.ausgaben, umlage: r.umlage,
+            offene: r.offene || null, pruefer: !(r.rechte && r.rechte.kasse === 'voll'), saison: saison, standText: st })
+        : druckModellAuswertung({ auswertung: r.auswertung, zaehlung: r.zaehlung, saison: saison, standText: st }));
+    } catch (err) {
+      hinweisleiste('Druck geht gerade nicht: ' + (err && err.message ? err.message : fehlerGrund(err)), 'warn');
+    }
+    k.dataset.laeuft = ''; k.disabled = false; k.textContent = alt;
+    return;
+  }
+  const erg = e.target.closest('button[data-hpruef-erg]');
+  if (erg){
+    histPruefErg = erg.dataset.hpruefErg;
+    document.querySelectorAll('#hPruefErg button').forEach(x => x.setAttribute('aria-pressed', x === erg));
+    return;
+  }
+  if (e.target.closest('#hPruefZu')){ histPruefSaison = ''; zeichneHistorie(); return; }
+  const senden = e.target.closest('#hPruefSenden');
+  if (senden){
+    const fehler = t => { const f = $('hPruefFehler'); if (f){ f.textContent = t; f.classList.remove('hidden'); } };
+    const am = ($('hPruefAm') || {}).value || '';
+    const text = (($('hPruefText') || {}).value || '').trim();
+    if (!am){ fehler('Bitte das Datum der Prüfung angeben.'); return; }
+    if (histPruefErg === 'anmerkung' && !text && senden.dataset.sicher !== '1'){
+      senden.dataset.sicher = '1';
+      fehler('„Mit Anmerkung“, aber ohne Text? Zum Speichern noch einmal tippen.');
+      return;
+    }
+    if (senden.disabled) return;
+    senden.disabled = true; senden.textContent = 'Wird gespeichert …';
+    try {
+      const r = await api('kassePruefen', { token: token,
+        pruefung: { am: am, ergebnis: histPruefErg, text: text, saison: senden.dataset.saison } }, 1);
+      if (r.fehler){ fehler(r.fehler); senden.disabled = false; senden.textContent = 'Prüfvermerk speichern'; return; }
+      eigeneSchreibung();
+      delete jahrDruckSpeicher[senden.dataset.saison];
+      histPruefSaison = ''; histPruefErg = 'ok';
+      hinweisleiste('Prüfvermerk gespeichert.');
+      zeichneHistorie();
+    } catch (err) {
+      fehler('Hat nicht geklappt (' + fehlerGrund(err) + ').');
+      senden.disabled = false; senden.textContent = 'Prüfvermerk speichern';
+    }
+  }
+});
 
 /* ---------- Bildschirm: Modell → HTML */
 function dHtmlBlock(b){
@@ -11031,7 +11194,7 @@ function dHtmlBlock(b){
   return '';
 }
 function druckHtml(m){
-  const stand = druckStand();
+  const stand = m.standText || druckStand();
   return m.seiten.map(s => `<section class="dseite">
     <div class="dkopf">
       <div class="dmarke"><img src="./logo/standard-hell-marke.png" alt="">
@@ -11308,7 +11471,7 @@ async function druckPdfErzeugen(m){
   const [marke, wort] = await Promise.all([pdfBild('./logo/standard-hell-marke.png'), pdfBild('./logo/wortmarke-hell.png')]);
   const mess = document.createElement('canvas').getContext('2d');
   const seiten = pdfSeitenPlanen(mess, m);
-  const stand = druckStand();
+  const stand = m.standText || druckStand();
   const bilder = [];
   for (let i = 0; i < seiten.length; i++) bilder.push(await pdfSeiteMalen(seiten[i], i + 1, seiten.length, { marke: marke, wort: wort }, stand));
   const name = m.name + '_KC_Knueppeldick_' + D.heute + '.pdf';
@@ -11342,6 +11505,11 @@ function druckOeffnen(was){
   if (was === 'kasse' && !darfKasseSehen()) return;
   if (was === 'amt' && !darfAmtSehen()) return;
   const m = was === 'kasse' ? druckModellKasse() : druckModellAuswertung();
+  druckZeigen(m);
+}
+
+/* Paket C: Zeigt ein fertiges Modell als Blatt und baut das PDF dazu. */
+function druckZeigen(m){
   if (!m){ hinweisleiste('Noch keine Daten für die Druckansicht.'); return; }
   let e = $('druckEbene');
   if (!e){ e = document.createElement('div'); e.id = 'druckEbene'; document.body.appendChild(e); }
