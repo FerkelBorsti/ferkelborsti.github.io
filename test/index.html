@@ -1683,7 +1683,7 @@ const API = 'https://script.google.com/macros/s/AKfycby359xVegJ5gEFeb282uN7pTCfL
    Kassenwart den Kassenbericht, die Kassenprüfer ihre Fassung und tragen dort
    den Prüfvermerk für dieses Jahr ein. Grundlage ist der Stand, den der
    Abschluss festhält (Backend 1.65, „jahrDruck“). */
-const APP_VERSION = '1.73';
+const APP_VERSION = '1.73.1';
 
 /* Das laufende Kegeljahr – ab 1.29 die EINZIGE Stelle, an der es steht.
    Die Überschrift im Reiter "Amt" und der Text auf der Abschluss-Karte werden
@@ -11880,11 +11880,12 @@ function jubEwigBloecke(){
     T.filter(t => t.titel === titel).forEach(t => { (je[t.n] = je[t.n] || []).push(t.s); });
     return Object.keys(je).map(n => ({ n: n, s: je[n] })).sort((x, y) => y.s.length - x.s.length || x.n.localeCompare(y.n, 'de'));
   };
-  b.push({ t:'h2', text:'Königstafel', klein:'Wer wie oft König war – über alle Kegeljahre' });
-  ['Kegelkönig', 'Pumpenkönig', '9er König'].forEach(k => {
+  /* Königstafel: je Titel eine eigene Überschrift, rechts die Anzahl. */
+  ['Kegelkönig', 'Pumpenkönig', '9er König'].forEach((k, ki) => {
     const l = zaehle(k);
-    b.push({ t:'tabelle', kopf:[k, 'Jahre', 'Titel'], ab:1, leer:'Noch nicht vergeben.',
-      zeilen: l.map((x, i) => dZ([x.n, x.s.join(', '), x.s.length + '×'], { hl: i === 0 })) });
+    b.push({ t:'h2', text: k, klein: ki === 0 ? 'Königstafel – wer wie oft König war, über alle Kegeljahre' : '' });
+    b.push({ t:'tabelle', kopf:['Kegelbruder', 'Titel', 'Kegeljahre'], ab:1, leer:'Noch nicht vergeben.',
+      zeilen: l.map((x, i) => dZ([x.n, x.s.length + '×', x.s.join(', ')], { hl: i === 0 })) });
   });
 
   /* Kränze: Würfe aus den Ereignissen; wo ein Jahr nur die Auszeichnung kennt
@@ -11898,8 +11899,8 @@ function jubEwigBloecke(){
   const kr = Object.keys(kranz).map(n => ({ n: n, a: Object.values(kranz[n]).reduce((s, v) => s + v, 0),
     s: Object.keys(kranz[n]).sort() })).sort((x, y) => y.a - x.a || x.n.localeCompare(y.n, 'de'));
   b.push({ t:'h2', text:'Kränze', klein:'§16 – acht fallen, der König bleibt' });
-  b.push({ t:'tabelle', kopf:['Kegelbruder', 'Jahre', 'Kränze'], ab:1, leer:'Noch kein Kranz.',
-    zeilen: kr.map(x => dZ([x.n, x.s.join(', '), x.a + '×'])) });
+  b.push({ t:'tabelle', kopf:['Kegelbruder', 'Kränze', 'Kegeljahre'], ab:1, leer:'Noch kein Kranz.',
+    zeilen: kr.map(x => dZ([x.n, x.a + '×', x.s.join(', ')])) });
 
   /* Je Kegelbruder über alle Jahre */
   const p = {};
@@ -11916,8 +11917,8 @@ function jubEwigBloecke(){
   d.jahre.forEach(j => { if (j.abende) j.zeilen.forEach(z => { if (z.schnitt > 0) best.push({ n: z.n, s: j.s, v: z.schnitt }); }); });
   best.sort((x, y) => y.v - x.v);
   b.push({ t:'h2', text:'Ewige Bestenliste', klein:'5 in die Vollen – die besten Jahresschnitte' });
-  b.push({ t:'tabelle', kopf:['Platz', 'Kegelbruder', 'Kegeljahr', 'Ø Holz'], ab:2, leer:'Keine Daten.',
-    zeilen: best.slice(0, 10).map((x, i) => dZ([String(i + 1), x.n, x.s, z1(x.v)], { hl: i === 0 })) });
+  b.push({ t:'tabelle', kopf:['Platz', 'Kegelbruder', 'Ø Holz', 'Kegeljahr'], ab:2, leer:'Keine Daten.',
+    zeilen: best.slice(0, 10).map((x, i) => dZ([String(i + 1), x.n, z1(x.v), x.s], { hl: i === 0 })) });
 
   const liste = (titel, klein, key, kopf, fmt) => {
     const l = P.filter(x => x[key] > 0).sort((x, y) => y[key] - x[key]);
@@ -11926,7 +11927,7 @@ function jubEwigBloecke(){
       zeilen: l.slice(0, 10).map((x, i) => dZ([String(i + 1), x.n, fmt(x)], { hl: i === 0 })) });
   };
   liste('alle 9 – ewig', 'alle Kegeljahre zusammen', 'alle9', 'alle 9', x => x.alle9 + '×');
-  liste('Pumpen – ewig', 'der ewige Pumpenkönig steht oben', 'pumpen', 'Pumpen', x => z1(x.pumpen).replace(/,00$/, ''));
+  liste('Pumpen – ewig', 'der ewige Pumpenkönig steht oben', 'pumpen', 'Pumpen', x => Math.round(x.pumpen).toLocaleString('de-DE'));
   liste('Die Treuesten', 'Anwesenheit über alle Kegeljahre', 'anwesend', 'anwesend', x => x.anwesend + ' von ' + x.termine);
 
   /* Rekorde eines einzelnen Jahres */
@@ -11939,7 +11940,7 @@ function jubEwigBloecke(){
   top((z, j) => j.abende ? z.schnitt : 0, v => z1(v) + ' Holz', 'Bester Jahresschnitt');
   top(z => z.alle9, v => v + '×', 'Meiste alle 9 in einem Jahr');
   top(z => z.kranz, v => v + '×', 'Meiste Kränze in einem Jahr');
-  top(z => z.pumpen, v => z1(v).replace(/,00$/, '') + ' Pumpen', 'Meiste Pumpen in einem Jahr');
+  top(z => z.pumpen, v => Math.round(v).toLocaleString('de-DE') + ' Pumpen', 'Meiste Pumpen in einem Jahr');
   top((z, j) => j.termine ? Math.round(z.anwesend / j.termine * 100) : 0, v => v + ' %', 'Beste Anwesenheit in einem Jahr');
   b.push({ t:'h2', text:'Rekorde' });
   b.push({ t:'tabelle', kopf:['Rekord', 'Wer · wann', 'Wert'], ab:2, leer:'Keine Daten.', zeilen: rek });
